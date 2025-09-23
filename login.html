@@ -1,7 +1,6 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Login | Helpdesk</title>
@@ -27,7 +26,7 @@
       <p>Enter your credentials to access the Helpdesk Dashboard.</p>
 
       <label>Username</label>
-      <input id="u" type="text" autocomplete="username" autofocus value="admin">
+      <input id="u" type="text" autocomplete="username" autofocus>
 
       <label>Password</label>
       <input id="p" type="password" autocomplete="current-password">
@@ -40,27 +39,42 @@
   </div>
 
   <script>
-    // If already logged in, skip login page
-    try{ if (localStorage.getItem('session')) location.href = '/'; }catch(e){}
+    const showErr = (msg) => { const el = document.getElementById('err'); el.textContent = msg; el.style.display = 'block'; };
+    const saveSession = (token, user) => {
+      try {
+        localStorage.setItem('token', token);
+        localStorage.setItem('role', user?.role || 'user');
+      } catch (e) {}
+    };
+    // If already logged in, go to dashboard
+    try { if (localStorage.getItem('token')) location.replace('/'); } catch(e){}
 
-    function showErr(msg){ const el = document.getElementById('err'); el.textContent = msg; el.style.display = 'block'; }
-
-    document.getElementById('btn').addEventListener('click', ()=>{
+    async function doLogin() {
       const u = document.getElementById('u').value.trim();
       const p = document.getElementById('p').value;
-      if(!u || !p){ showErr('Missing username or password.'); return; }
+      if (!u || !p) { showErr('Missing username or password.'); return; }
 
-      // Demo-only local session + role
+      const btn = document.getElementById('btn');
+      btn.disabled = true; btn.textContent = 'Signing in...';
       try {
-        localStorage.setItem('session', 'token-' + Math.random().toString(36).slice(2));
-        localStorage.setItem('role', u.toLowerCase()==='admin' ? 'admin' : 'user');
-      } catch(e) {}
+        const res = await fetch('/api?action=login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'accept': 'application/json' },
+          body: JSON.stringify({ username: u, password: p })
+        });
+        const json = await res.json();
+        if (!json.ok) { showErr(json.error || 'Invalid credentials'); return; }
+        saveSession(json.data.token, json.data.user);
+        location.replace('/');
+      } catch (e) {
+        showErr('Network error. Please try again.');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Sign in';
+      }
+    }
 
-      location.href = '/';
-    });
-
-    document.addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btn').click(); });
+    document.getElementById('btn').addEventListener('click', doLogin);
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Enter') doLogin(); });
   </script>
 </body>
 </html>
-
