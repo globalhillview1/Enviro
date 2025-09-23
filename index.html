@@ -134,25 +134,25 @@
   <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" src="" alt="preview" /></div>
 
   <script>
-    const API = "/api"; // Pages Functions base
-function toast(msg, kind="info"){
-  const b = document.getElementById("infoMsg");
-  b.className = "banner " + (kind==="error" ? "error" : "info");
-  b.textContent = msg;
-  b.style.display = "block";
-  setTimeout(()=> b.style.display="none", 2200);
-}
+    const API = "/api"; // proxied by _worker.js
 
-    /* ===== Auth helpers ===== */
-    const getTok = () => { try { return localStorage.getItem('session'); } catch(e){ return null; } };
+    /* ===== Auth helpers (token-based) ===== */
+    const getTok = () => { try { return localStorage.getItem('token') || ''; } catch(e){ return ''; } };
     const getRole = () => { try { return localStorage.getItem('role') || 'user'; } catch(e){ return 'user'; } };
-    const setTok  = (t) => { try { t ? localStorage.setItem('session', t) : localStorage.removeItem('session'); } catch(e){} };
-    const logoutNow = () => { setTok(null); localStorage.removeItem('role'); location.href='/login'; };
+    const clearSession = () => { try { localStorage.removeItem('token'); localStorage.removeItem('role'); } catch(e){} };
+    const logoutNow = () => { clearSession(); location.href='/login'; };
 
     /* ===== State ===== */
     const state = { all:[], filtered:[], sort:{key:"Date and Time Raised",dir:"desc"}, page:1, pageSize:10, tz:"local", timer:null, lastFetchOk:true, isAdmin:false };
 
     /* ===== Utils ===== */
+    function toast(msg, kind="info"){
+      const b = document.getElementById("infoMsg");
+      b.className = "banner " + (kind==="error" ? "error" : "info");
+      b.textContent = msg;
+      b.style.display = "block";
+      setTimeout(()=> b.style.display="none", 2200);
+    }
     function parseDateSafe(s){ if(!s) return null; if(s instanceof Date) return s; if(typeof s==="number") return new Date(s); const d=new Date(String(s).includes("T")?s:String(s).replace(" ","T")); return isNaN(d)?null:d; }
     function fmtDate(d,tzMode){ if(!d) return ""; const o={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:tzMode==="utc"?"UTC":undefined}; const s=new Intl.DateTimeFormat(undefined,o).format(d); return tzMode==="utc"?s+" UTC":s; }
     function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
@@ -165,13 +165,15 @@ function toast(msg, kind="info"){
     /* ===== Data ===== */
     async function fetchData(){
       try{
-        const r = await fetch("/api?mode=data", { cache:"no-store" });
+        const qs = new URLSearchParams({ token: getTok(), mode:'data' }).toString();
+        const r = await fetch(`/api?${qs}`, { cache:"no-store" });
         if(!r.ok) throw new Error(r.statusText);
-        const data = await r.json();
+        const data = await r.json(); // { ok:true, data:[...] }
+        const rows = data.ok ? data.data : data; // compat
         state.lastFetchOk = true;
         document.getElementById("netError").style.display = "none";
         document.getElementById("infoMsg").style.display = "none";
-        state.all = normalizeRows(data);
+        state.all = normalizeRows(rows);
         populateTowerFilter(state.all);
         applyFilters();
         setStickyHeights();
@@ -267,12 +269,12 @@ function toast(msg, kind="info"){
       if(!stEl || !rmEl) return;
       const status = stEl.value;
       const remark = rmEl.value;
-
       const btn = stEl.nextElementSibling?.querySelector?.('button') || null;
       if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
 
       try{
-        const res = await fetch('/api?mode=api&op=update', {
+        const qs = new URLSearchParams({ mode:'api', op:'update', token:getTok() }).toString();
+        const res = await fetch(`/api?${qs}`, {
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ id, status, remark })
@@ -296,7 +298,7 @@ function toast(msg, kind="info"){
         if(btn){ btn.disabled=false; btn.textContent='Save'; }
       }
     }
-    window.saveRow = saveRow; // expose for onclick
+    window.saveRow = saveRow;
 
     function render(){
       const {key, dir} = state.sort;
@@ -381,8 +383,8 @@ function toast(msg, kind="info"){
 
     /* ===== Init ===== */
     async function init(){
-      // Require session
-      if (!getTok()) { location.href = "/login"; return; }
+      // Require token
+      if (!getTok()) { location.replace('/login'); return; }
       state.isAdmin = (getRole()==='admin');
 
       document.getElementById("toggleDark").addEventListener("click", ()=>document.body.classList.toggle("dark"));
@@ -390,7 +392,7 @@ function toast(msg, kind="info"){
       document.getElementById("applyBtn").addEventListener("click", applyFilters);
       document.getElementById("resetBtn").addEventListener("click", resetFilters);
       document.getElementById("prevPage").addEventListener("click", ()=>{ if(state.page>1){ state.page--; render(); }});
-      document.getElementById("nextPage").addEventListener("click", ()=>{ const max=Math.max(1, Math.ceil(state.filtered.length/state.pageSize)); if(state.page<max){ state.page++; render(); }});
+      document.getElementById("nextPage").addEventListener("click", ()=>{ const m=Math.max(1, Math.ceil(state.filtered.length/state.pageSize)); if(state.page<m){ state.page++; render(); }});
       document.getElementById("pageSize").addEventListener("change", e=>{ state.pageSize=Math.max(5, Math.min(100, parseInt(e.target.value)||10)); state.page=1; render(); });
       document.getElementById("tzSelect").addEventListener("change", e=>{ state.tz=e.target.value; render(); });
       document.getElementById("search").addEventListener("input", debounce(applyFilters, 250));
@@ -402,7 +404,6 @@ function toast(msg, kind="info"){
     }
     window.onload = init;
 
-    // Sorting handlers
     document.addEventListener('DOMContentLoaded', ()=>{
       document.querySelectorAll("th.sortable").forEach(th=>{
         th.addEventListener("click", ()=>{
@@ -416,5 +417,3 @@ function toast(msg, kind="info"){
   </script>
 </body>
 </html>
-
-
