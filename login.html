@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Sign in - Enviro Helpdesk</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+        crossorigin="anonymous">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-light d-flex align-items-center" style="min-height:100vh">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-5">
+        <div class="card shadow-sm">
+          <div class="card-body p-4">
+            <h4 class="mb-3">Sign in</h4>
+            <form id="form">
+              <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input id="username" class="form-control" autocomplete="username" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input id="password" type="password" class="form-control" autocomplete="current-password" required />
+              </div>
+              <button class="btn btn-primary w-100">Sign in</button>
+              <div id="msg" class="text-danger small mt-2"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    document.getElementById('form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const res = await fetch('/api/login', {
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body: JSON.stringify({ username, password })
+      }).then(r=>r.json()).catch(()=>null);
+
+      if (!res || !res.ok) {
+        document.getElementById('msg').textContent = (res && res.error) || 'Sign in failed';
+        return;
+      }
+      localStorage.setItem('enviro_token', res.data.token);
+      localStorage.setItem('enviro_user', JSON.stringify(res.data.user));
+      location.href = '/';
+    });
+  </script>
+</body>
+</html>
