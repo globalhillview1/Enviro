@@ -1,13 +1,13 @@
-// Cloudflare Pages Worker (drop at repo root as _worker.js)
-// - Reverse proxy to your GAS web app
-// - Keep URL on your domain
-// - Hide the Apps Script banner safely via CSS
-// - Rewrite only links/forms pointing to the exact /exec URL
+// Cloudflare Pages Worker (root: _worker.js)
+// - Reverse proxy to your existing Google Apps Script web app
+// - Keeps users on your domain (no script.google.com in the address bar)
+// - Hides the blue Apps Script banner with CSS (only for HTML)
+// - IMPORTANT: leaves content-encoding intact for non-HTML so assets load
 
 const TARGET = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
 const TARGET_ORIGIN = new URL(TARGET).origin;
-const EXEC_RE = /https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec/gi;
 
+// --- helpers ---
 function cloneHeaders(src) {
   const h = new Headers();
   for (const [k, v] of src.entries()) {
@@ -17,22 +17,7 @@ function cloneHeaders(src) {
   return h;
 }
 
-function rewriteSetCookie(headers) {
-  const out = new Headers(headers);
-  const list = headers.getAll
-    ? headers.getAll('set-cookie')
-    : (headers.get('set-cookie') ? [headers.get('set-cookie')] : []);
-  if (list.length) {
-    out.delete('set-cookie');
-    for (let c of list) {
-      c = c.replace(/;\s*Domain=[^;]+/i, '');
-      if (!/;\s*Path=/i.test(c)) c += '; Path=/';
-      out.append('set-cookie', c);
-    }
-  }
-  return out;
-}
-
+// Rewrite Location headers that point back to script.google.com → our origin
 function rewriteLocation(headers, reqUrl) {
   const out = new Headers(headers);
   const loc = headers.get('location');
@@ -40,10 +25,9 @@ function rewriteLocation(headers, reqUrl) {
     try {
       const u = new URL(loc, TARGET);
       if (u.origin === TARGET_ORIGIN) {
-        // keep query string, stay on our origin
         const here = new URL(reqUrl);
-        here.pathname = '/';
-        here.search = u.search;
+        here.pathname = '/';         // we serve at root
+        here.search = u.search;      // preserve query
         out.set('location', here.toString());
       }
     } catch (_) {}
@@ -51,45 +35,39 @@ function rewriteLocation(headers, reqUrl) {
   return out;
 }
 
-// Inject CSS to hide the Apps Script banner without touching app markup
-function injectCssToHideBanner(html) {
+// Add tiny CSS to hide the Apps Script banner; no JS, avoids CSP issues
+function injectHideBannerCSS(html) {
   const css = `
     <style>
-      /* Common GAS banner containers */
       #apps-script-notice, #docs-creator-notice, .apps-script-notice { display:none !important; }
-      /* Fallback: hide any fixed top info strip */
       body > div[style*="position: fixed"][style*="top: 0"] { display:none !important; }
-      /* Avoid layout shift after removal */
       html, body { margin-top: 0 !important; }
     </style>`;
-  if (html.includes('</head>')) {
-    return html.replace('</head>', css + '</head>');
-  }
-  // Fallback: prepend if <head> missing (rare)
-  return css + html;
+  return html.includes('</head>') ? html.replace('</head>', css + '</head>') : css + html;
 }
 
-// Rewrite only href/action attributes that explicitly point to the /exec URL
+// Keep users on our domain by rewriting only explicit /exec href/action targets
 function rewriteExecLinks(html) {
-  // href="https://script.google.com/.../exec?foo=bar" -> href="/?foo=bar"
-  html = html.replace(
+  return html.replace(
     /(href|action)=("|\')https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?[^"\']*)?("|\')/gi,
     (_m, attr, q1, qs = '', q2) => `${attr}=${q1}/${qs || ''}${q2}`
   );
-  return html;
 }
 
 export default {
   async fetch(request) {
     const reqUrl = new URL(request.url);
 
-    // Build upstream URL; we always hit the fixed /exec and forward query string.
+    // Upstream URL = fixed /exec + pass-through query
     const upstreamUrl = new URL(TARGET);
     upstreamUrl.search = reqUrl.search;
 
+    // Build upstream request
     const headers = cloneHeaders(request.headers);
     headers.set('origin', TARGET_ORIGIN);
     headers.set('referer', TARGET_ORIGIN + '/');
+    // Let upstream decide encodings; we’ll only decode when we transform HTML
+    // headers.delete('accept-encoding'); // optional
 
     const init = {
       method: request.method,
@@ -102,37 +80,40 @@ export default {
 
     const res = await fetch(upstreamUrl.toString(), init);
 
+    // Copy headers for editing
     let outHeaders = new Headers(res.headers);
-    outHeaders.delete('content-encoding');
 
-    outHeaders = rewriteSetCookie(outHeaders);
+    // Keep cookies as-is (your app likely manages session via client script/localStorage)
+    // If you later need cookie domain rewriting, we can add a robust parser.
+
+    // Rewrite redirects to stay on our origin
     outHeaders = rewriteLocation(outHeaders, reqUrl.toString());
 
+    // Same-origin via proxy
     outHeaders.set('access-control-allow-origin', reqUrl.origin);
     outHeaders.set('access-control-allow-credentials', 'true');
 
     const ctype = (outHeaders.get('content-type') || '').toLowerCase();
 
     if (ctype.includes('text/html')) {
+      // We are going to modify HTML → drop content-encoding to avoid mismatch
+      outHeaders.delete('content-encoding');
+
       let html = await res.text();
-
-      // Hide banner via CSS injection (safe under CSP)
-      html = injectCssToHideBanner(html);
-
-      // Keep user on our domain by rewriting only explicit /exec links/forms
+      html = injectHideBannerCSS(html);
       html = rewriteExecLinks(html);
 
-      const enc = new TextEncoder();
-      const bytes = enc.encode(html);
-      outHeaders.set('content-length', String(bytes.length));
+      // Do NOT set content-length; let CF handle it (safer with compression)
+      outHeaders.delete('content-length');
 
-      return new Response(bytes, {
+      return new Response(html, {
         status: res.status,
         statusText: res.statusText,
         headers: outHeaders
       });
     }
 
+    // For JS/CSS/images/etc: do NOT touch content-encoding or length.
     return new Response(res.body, {
       status: res.status,
       statusText: res.statusText,
