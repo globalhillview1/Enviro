@@ -1,10 +1,13 @@
-// Cloudflare Pages Worker: reverse-proxy your Google Apps Script web app,
-// hide the Apps Script banner, and keep the browser URL on your domain.
+// Cloudflare Pages Worker (drop at repo root as _worker.js)
+// - Reverse proxy to your GAS web app
+// - Keep URL on your domain
+// - Hide the Apps Script banner safely via CSS
+// - Rewrite only links/forms pointing to the exact /exec URL
 
 const TARGET = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
 const TARGET_ORIGIN = new URL(TARGET).origin;
+const EXEC_RE = /https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec/gi;
 
-// ---- helpers ----
 function cloneHeaders(src) {
   const h = new Headers();
   for (const [k, v] of src.entries()) {
@@ -14,7 +17,6 @@ function cloneHeaders(src) {
   return h;
 }
 
-// Rewrite Set-Cookie so session/auth cookies bind to our domain
 function rewriteSetCookie(headers) {
   const out = new Headers(headers);
   const list = headers.getAll
@@ -23,9 +25,7 @@ function rewriteSetCookie(headers) {
   if (list.length) {
     out.delete('set-cookie');
     for (let c of list) {
-      // drop Domain to default to current host
       c = c.replace(/;\s*Domain=[^;]+/i, '');
-      // ensure Path
       if (!/;\s*Path=/i.test(c)) c += '; Path=/';
       out.append('set-cookie', c);
     }
@@ -33,7 +33,6 @@ function rewriteSetCookie(headers) {
   return out;
 }
 
-// Rewrite "Location" headers from script.google.com to our own URL space
 function rewriteLocation(headers, reqUrl) {
   const out = new Headers(headers);
   const loc = headers.get('location');
@@ -41,10 +40,10 @@ function rewriteLocation(headers, reqUrl) {
     try {
       const u = new URL(loc, TARGET);
       if (u.origin === TARGET_ORIGIN) {
-        // Keep path/query, but point to our origin
+        // keep query string, stay on our origin
         const here = new URL(reqUrl);
-        here.pathname = '/'; // our worker is mounted at root
-        here.search = u.search; // keep any ?params
+        here.pathname = '/';
+        here.search = u.search;
         out.set('location', here.toString());
       }
     } catch (_) {}
@@ -52,40 +51,42 @@ function rewriteLocation(headers, reqUrl) {
   return out;
 }
 
-// In HTML, 1) remove the Apps Script banner, 2) rewrite hard-coded links/forms
-function transformHtml(html) {
-  // 1) Remove the top notice/banner (contains this exact phrase)
+// Inject CSS to hide the Apps Script banner without touching app markup
+function injectCssToHideBanner(html) {
+  const css = `
+    <style>
+      /* Common GAS banner containers */
+      #apps-script-notice, #docs-creator-notice, .apps-script-notice { display:none !important; }
+      /* Fallback: hide any fixed top info strip */
+      body > div[style*="position: fixed"][style*="top: 0"] { display:none !important; }
+      /* Avoid layout shift after removal */
+      html, body { margin-top: 0 !important; }
+    </style>`;
+  if (html.includes('</head>')) {
+    return html.replace('</head>', css + '</head>');
+  }
+  // Fallback: prepend if <head> missing (rare)
+  return css + html;
+}
+
+// Rewrite only href/action attributes that explicitly point to the /exec URL
+function rewriteExecLinks(html) {
+  // href="https://script.google.com/.../exec?foo=bar" -> href="/?foo=bar"
   html = html.replace(
-    /<div[^>]*>\s*This application was created by a Google Apps Script user[\s\S]*?<\/div>/i,
-    ''
+    /(href|action)=("|\')https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?[^"\']*)?("|\')/gi,
+    (_m, attr, q1, qs = '', q2) => `${attr}=${q1}/${qs || ''}${q2}`
   );
-
-  // 2) Rewrite absolute references to script.google.com so users never leave our domain
-  //    - <a href="https://script.google.com/.../exec?...">  -> "/?..."
-  //    - <form action="https://script.google.com/.../exec"> -> "/"
-  // If your app adds extra path after /exec, it will still route via this Worker.
-  const execPathRegex = /https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec/gi;
-  html = html.replace(execPathRegex, '/');
-
-  // Some responses may contain the origin only; normalize those too.
-  html = html.replace(/https:\/\/script\.google\.com/gi, '');
-
   return html;
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request) {
     const reqUrl = new URL(request.url);
 
-    // Build upstream URL preserving query and appending any extra path
-    const targetUrl = new URL(TARGET);
-    const base = new URL(TARGET);
-    targetUrl.search = reqUrl.search;
+    // Build upstream URL; we always hit the fixed /exec and forward query string.
+    const upstreamUrl = new URL(TARGET);
+    upstreamUrl.search = reqUrl.search;
 
-    // If you want to mount at a subpath, handle it here. We serve at root, so:
-    // keep targetUrl.pathname equal to GAS /exec (Apps Script ignores extra path).
-
-    // Forward request
     const headers = cloneHeaders(request.headers);
     headers.set('origin', TARGET_ORIGIN);
     headers.set('referer', TARGET_ORIGIN + '/');
@@ -99,39 +100,42 @@ export default {
       init.body = request.body;
     }
 
-    const upstreamRes = await fetch(targetUrl.toString(), init);
+    const res = await fetch(upstreamUrl.toString(), init);
 
-    // Copy headers so we can edit
-    let outHeaders = new Headers(upstreamRes.headers);
-
-    // Always remove content-encoding (let Cloudflare handle)
+    let outHeaders = new Headers(res.headers);
     outHeaders.delete('content-encoding');
 
-    // Fix cookies + redirects for our domain
     outHeaders = rewriteSetCookie(outHeaders);
     outHeaders = rewriteLocation(outHeaders, reqUrl.toString());
 
-    // Keep CORS same-origin via proxy
     outHeaders.set('access-control-allow-origin', reqUrl.origin);
     outHeaders.set('access-control-allow-credentials', 'true');
 
-    // If it's HTML, transform it (remove banner + rewrite hard-coded links/actions)
-    const ctype = outHeaders.get('content-type') || '';
-    if (ctype.toLowerCase().includes('text/html')) {
-      const text = await upstreamRes.text();
-      const transformed = transformHtml(text);
-      outHeaders.set('content-length', String(new TextEncoder().encode(transformed).length));
-      return new Response(transformed, {
-        status: upstreamRes.status,
-        statusText: upstreamRes.statusText,
+    const ctype = (outHeaders.get('content-type') || '').toLowerCase();
+
+    if (ctype.includes('text/html')) {
+      let html = await res.text();
+
+      // Hide banner via CSS injection (safe under CSP)
+      html = injectCssToHideBanner(html);
+
+      // Keep user on our domain by rewriting only explicit /exec links/forms
+      html = rewriteExecLinks(html);
+
+      const enc = new TextEncoder();
+      const bytes = enc.encode(html);
+      outHeaders.set('content-length', String(bytes.length));
+
+      return new Response(bytes, {
+        status: res.status,
+        statusText: res.statusText,
         headers: outHeaders
       });
     }
 
-    // Otherwise stream as-is
-    return new Response(upstreamRes.body, {
-      status: upstreamRes.status,
-      statusText: upstreamRes.statusText,
+    return new Response(res.body, {
+      status: res.status,
+      statusText: res.statusText,
       headers: outHeaders
     });
   }
