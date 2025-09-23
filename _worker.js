@@ -1,8 +1,8 @@
-// Cloudflare Pages Worker (root file: _worker.js)
-// Path-aware proxy for Google Apps Script web app.
-// - "/" -> your GAS /exec
-// - everything else (e.g. /static/...) -> same path on script.google.com
-// - HTML only: inject CSS to hide GAS banner + rewrite /exec links to "/"
+// Cloudflare Pages Worker (root: _worker.js)
+// - "/" -> proxy to your GAS /exec (and remove the banner from HTML)
+// - Other paths (assets) -> same path on script.google.com
+// - In HTML: rewrite /exec links to "/", and force iframes with src="/..."
+//   to load from https://script.google.com (so Apps Script origin checks pass)
 
 const EXEC = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
 const ORIGIN = new URL(EXEC).origin;
@@ -17,42 +17,15 @@ function cloneHeaders(src) {
   return h;
 }
 
-function injectHideBannerCSS(html) {
-  const css = `
-    <style>
-      #apps-script-notice, #docs-creator-notice, .apps-script-notice { display:none !important; }
-      body > div[style*="position: fixed"][style*="top: 0"] { display:none !important; }
-      html, body { margin-top: 0 !important; }
-    </style>`;
-  return html.includes('</head>') ? html.replace('</head>', css + '</head>') : css + html;
-}
-
-// Rewrite only href/action that point to /macros/s/<id>/exec (absolute OR relative)
-function rewriteExecLinks(html) {
-  return html
-    // absolute https://script.google.com/macros/s/.../exec
-    .replace(
-      /(href|action)=("|\')https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?[^"\']*)?("|\')/gi,
-      (_m, attr, q1, qs = '', q2) => `${attr}=${q1}/${qs || ''}${q2}`
-    )
-    // relative /macros/s/.../exec
-    .replace(
-      /(href|action)=("|\')\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?[^"\']*)?("|\')/gi,
-      (_m, attr, q1, qs = '', q2) => `${attr}=${q1}/${qs || ''}${q2}`
-    );
-}
-
+// Keep redirects on our origin (map exec path to "/")
 function rewriteLocation(headers, reqUrl) {
   const out = new Headers(headers);
   const loc = headers.get('location');
   if (!loc) return out;
-
   try {
-    // Resolve relative URLs against GAS origin
     const u = new URL(loc, ORIGIN);
     if (u.origin === ORIGIN) {
       const here = new URL(reqUrl);
-      // Keep same path unless it's the exec path -> map to "/"
       here.pathname = (u.pathname === EXEC_PATH) ? '/' : u.pathname;
       here.search = u.search;
       here.hash = u.hash;
@@ -62,25 +35,56 @@ function rewriteLocation(headers, reqUrl) {
   return out;
 }
 
+// 1) Remove the Apps Script banner div
+// 2) Rewrite absolute/relative links/forms to /exec => "/"
+// 3) Ensure iframes that point to internal paths (src="/...") load from script.google.com
+function transformHtml(html) {
+  // Remove the GAS banner node (contains the exact phrase).
+  // This targets the single top notice container.
+  html = html.replace(
+    /<div[^>]*>\s*This application was created by a Google Apps Script user[\s\S]*?<\/div>/i,
+    ''
+  );
+
+  // Rewrite links/forms that target the exec URL to "/"
+  html = html
+    // absolute exec
+    .replace(
+      /(href|action)=("|\')https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?[^"\']*)?("|\')/gi,
+      (_m, attr, q1, qs = '', q2) => `${attr}=${q1}/${qs || ''}${q2}`
+    )
+    // relative exec
+    .replace(
+      /(href|action)=("|\')\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?[^"\']*)?("|\')/gi,
+      (_m, attr, q1, qs = '', q2) => `${attr}=${q1}/${qs || ''}${q2}`
+    );
+
+  // Make iframes with src="/..." load from script.google.com (keeps GAS origin)
+  html = html.replace(
+    /(<iframe[^>]*\ssrc=["'])(\/[^"']*)(["'][^>]*>)/gi,
+    (_m, p1, path, p3) => `${p1}${ORIGIN}${path}${p3}`
+  );
+
+  return html;
+}
+
 export default {
   async fetch(request) {
     const reqUrl = new URL(request.url);
 
-    // Build upstream URL based on path:
-    // "/" -> /exec ; otherwise -> same path on script.google.com
+    // Path-aware upstream:
+    // - "/" maps to EXEC
+    // - everything else maps to same path on script.google.com
     let upstreamUrl;
     if (reqUrl.pathname === '/' || reqUrl.pathname === '') {
       upstreamUrl = new URL(EXEC);
+      upstreamUrl.search = reqUrl.search; // pass query
     } else {
       upstreamUrl = new URL(reqUrl.pathname + reqUrl.search, ORIGIN);
     }
-    // Preserve query for "/" case as well
-    if (reqUrl.pathname === '/' && reqUrl.search) upstreamUrl.search = reqUrl.search;
 
-    // Prepare upstream request
     const headers = cloneHeaders(request.headers);
     headers.set('origin', ORIGIN);
-    // A sane referer for static assets is the exec page
     headers.set('referer', EXEC);
 
     const init = {
@@ -93,29 +97,25 @@ export default {
     }
 
     const res = await fetch(upstreamUrl.toString(), init);
-
-    // Copy headers for modifications
     let outHeaders = new Headers(res.headers);
 
-    // Keep assets intact: only touch HTML
+    // Keep assets intact; only touch HTML
     const ctype = (outHeaders.get('content-type') || '').toLowerCase();
 
-    // Keep users on our domain when upstream redirects to script.google.com
+    // Keep redirects on our origin
     outHeaders = rewriteLocation(outHeaders, reqUrl.toString());
 
-    // Same-origin via proxy (usually not necessary, harmless here)
+    // Same-origin via proxy
     outHeaders.set('access-control-allow-origin', reqUrl.origin);
     outHeaders.set('access-control-allow-credentials', 'true');
 
     if (ctype.includes('text/html')) {
-      // We will edit HTML -> remove encoding to avoid mismatch
+      // We will modify HTML -> remove encoding/length to avoid mismatch
       outHeaders.delete('content-encoding');
-      // Let CF set proper length after transformation
       outHeaders.delete('content-length');
 
       let html = await res.text();
-      html = injectHideBannerCSS(html);
-      html = rewriteExecLinks(html);
+      html = transformHtml(html);
 
       return new Response(html, {
         status: res.status,
@@ -124,7 +124,7 @@ export default {
       });
     }
 
-    // Non-HTML: stream through unmodified (content-encoding/content-type preserved)
+    // Non-HTML: stream through as-is (preserve encoding and content-type)
     return new Response(res.body, {
       status: res.status,
       statusText: res.statusText,
