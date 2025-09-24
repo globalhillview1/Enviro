@@ -4,6 +4,22 @@
   <meta charset="UTF-8" />
   <title>Global Hillview, Enviro Helpdesk Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>
+  (function () {
+    try {
+      const t = localStorage.getItem('token');
+      if (!t) {
+        // Prevent any paint, then hard-redirect (no back-button ping-pong)
+        document.documentElement.style.display = 'none';
+        location.replace('/login');
+      }
+    } catch (e) {
+      document.documentElement.style.display = 'none';
+      location.replace('/login');
+    }
+  })();
+</script>
+  
   <link rel="icon" href="https://drive.google.com/uc?export=view&id=1opE1H0_mWwguRjSaDlGPPVV3wN8Pn2jM" />
   <style>
     :root{
@@ -98,6 +114,7 @@
       <button id="toggleDark" class="btn">Dark mode</button>
       <button class="btn" id="exportCsv">Export CSV</button>
       <button class="btn" id="adminBtn" style="display:none">Admin</button>
+      <span id="userBadge" class="userpill" style="display:none"></span>
       <button class="btn danger" id="logoutBtn">Logout</button>
     </div>
   </header>
@@ -185,6 +202,8 @@
       }catch(_){}
       state.isAdmin = (j.data.user.role === 'admin');
       document.getElementById('adminBtn').style.display = state.isAdmin ? 'inline-block' : 'none';
+       const ub = document.getElementById('userBadge');
+  if (ub) { ub.textContent = j.data.user.username; ub.style.display = 'inline-flex'; }
     }
 
     async function heartbeatOnce(){ try{ await verifySession(); }catch(_){ /* verifySession redirects on failure */ } }
