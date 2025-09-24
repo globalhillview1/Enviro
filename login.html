@@ -36,24 +36,26 @@
       object-fit:cover;
     }
 
-    /* inline spinner for the button */
-    @keyframes btnspin { to { transform: translateY(-50%) rotate(360deg); } }
-    .btn.loading{
-      position:relative;
-      pointer-events:none;
-      padding-left:34px;
-    }
-    .btn.loading::before{
-      content:"";
-      position:absolute;
-      left:12px; top:50%;
-      width:16px; height:16px;
-      border-radius:50%;
-      border:2px solid rgba(255,255,255,.9);
-      border-right-color:transparent;
-      transform:translateY(-50%);
-      animation:btnspin .7s linear infinite;
-    }
+  /* inline button spinner */
+@keyframes btnspin { to { transform: translateY(-50%) rotate(360deg); } }
+.btn.loading{
+  position:relative;
+  pointer-events:none;
+  padding-left:34px;          /* space for spinner */
+  opacity:.95;
+}
+.btn.loading::before{
+  content:"";
+  position:absolute;
+  left:12px; top:50%;
+  width:16px; height:16px;
+  border-radius:50%;
+  border:2px solid currentColor;
+  border-right-color:transparent;
+  transform:translateY(-50%);
+  animation:btnspin .7s linear infinite;
+}
+
   </style>
 </head>
 <body>
