@@ -36,27 +36,15 @@
       object-fit:cover;
     }
 
-/* Spinner + spacing for loading buttons */
-/* spinner animation */
-@keyframes btnspin { to { transform: rotate(360deg); } }
-
-/* make buttons flex so an icon + text sit nicely */
-.btn{ display:inline-flex; align-items:center; gap:8px; }
-
-/* spinner element */
-.btn .spin{
+/* tiny, conflict-free spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
   width:16px; height:16px; border-radius:50%;
-  border:2px solid currentColor;            /* uses text color (white on danger) */
-  border-right-color: transparent;
-  animation: btnspin .7s linear infinite;
+  border:2px solid currentColor; border-right-color:transparent;
+  display:inline-block; vertical-align:-2px;
+  animation: spin .7s linear infinite;
 }
 
-/* give the logout button a bit more room while loading */
-#logoutBtn.loading{
-  min-width: 132px;           /* <- increase box size */
-  padding-left: 14px;
-  padding-right: 14px;
-}
 
 /* make the spinner a touch larger on logout for visibility */
 #logoutBtn.loading .spin{ width:18px; height:18px; }
