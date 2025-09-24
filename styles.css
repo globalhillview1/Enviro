@@ -1,58 +1,30 @@
-/* Global smoothing */
-body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* /styles.css */
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; }
+.table td, .table th { vertical-align: middle; }
+
+:root{
+  --border:#e5e7eb;
+  --card:#ffffff;
 }
 
-/* Small media preview */
-.thumb {
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
+.dark{
+  --border:#1f2937;
+  --card:#121a2a;
 }
 
-/* Table alignment */
-.table td,
-.table th {
-  vertical-align: middle;
+/* user name pill (icon + name) */
+.userpill{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 10px; border:1px solid var(--border);
+  border-radius:999px; background:var(--card); font-weight:600;
 }
+.userpill svg{
+  width:16px; height:16px; stroke:currentColor;
+  display:block;          /* avoids extra inline-space */
+  flex:0 0 16px;          /* keeps icon from shrinking */
+}
+.userpill span{ line-height:1; }  /* tighter baseline */
 
-/* Theme variables */
-:root {
-  --border: #e5e7eb;
-  --card: #ffffff;
-}
-
-/* Dark mode overrides (toggle .dark on <body>) */
-.dark {
-  --border: #1f2937;
-  --card: #121a2a;
-}
-
-/* Username pill (icon + name) */
-.userpill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--card);
-  font-weight: 600;
-  color: inherit; /* match surrounding text color */
-  transition: background-color .15s ease, border-color .15s ease;
-}
-
-.userpill svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  display: block;   /* removes inline-gap */
-  flex: 0 0 16px;   /* prevents shrinking */
-}
-
-.userpill span {
-  line-height: 1;   /* slightly tighter baseline */
-}
+/* brand logo in header */
+.brand img{ height:32px; width:32px; border-radius:6px }
