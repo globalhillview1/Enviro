@@ -216,26 +216,31 @@
     const HEARTBEAT_MS = 5000; // 5s
 
 // replaces the old logoutNow()
-const logoutNow = () => {
-  const btn = document.getElementById('logoutBtn');
-  if (btn) {
-    btn.classList.add('loading');
-    btn.disabled = true;
-    // spinner + label inside the button
-    btn.innerHTML = '<span class="spin" aria-hidden="true"></span><span>Logging out…</span>';
-  }
+<script>
+  const logoutNow = () => {
+    const btn = document.getElementById('logoutBtn');
 
-  try {
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
-    if (state?.timer) clearInterval(state.timer);
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('username');
-  } catch(_) {}
+    // show spinner and preserve button width so it doesn’t shrink
+    if (btn && !btn.dataset.loading) {
+      btn.dataset.loading = '1';
+      btn.disabled = true;
+      btn.style.minWidth = btn.offsetWidth + 'px';
+      btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Logging out…';
+    }
 
-  // short delay so the user sees the spinner
-  setTimeout(() => location.replace('/login'), 800);
-};
+    try {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      if (state?.timer) clearInterval(state.timer);
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('username');
+    } catch (_) {}
+
+    // let the user see the spinner briefly
+    setTimeout(() => location.replace('/login'), 700);
+  };
+</script>
+
 
 
 
