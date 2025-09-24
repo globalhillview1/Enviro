@@ -379,6 +379,15 @@
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "helpdesk.csv"; a.click();
     }
 
+    <!-- in index.html toolbar, after Export CSV -->
+<button class="btn" id="adminBtn" style="display:none">Admin</button>
+<script>
+  // after state.isAdmin is set in init()
+  if (getRole() === 'admin') {
+    const b = document.getElementById('adminBtn');
+    b.style.display = 'inline-block';
+    b.addEventListener('click', ()=> location.href='/admin');
+  }
     function debounce(fn,ms){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(this,args),ms) } }
 
     /* ===== Init ===== */
