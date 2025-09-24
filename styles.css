@@ -6,3 +6,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   padding:6px 10px; border:1px solid var(--border);
   border-radius:999px; background:var(--card); font-weight:600;
 }
+.userpill{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 10px; border:1px solid var(--border);
+  border-radius:999px; background:var(--card); font-weight:600;
+}
+.userpill svg{ width:16px; height:16px; stroke:currentColor }
