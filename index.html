@@ -221,19 +221,22 @@ const logoutNow = () => {
   if (btn) {
     btn.classList.add('loading');
     btn.disabled = true;
-    btn.textContent = 'Logging out…';
+    // spinner + label inside the button
+    btn.innerHTML = '<span class="spin" aria-hidden="true"></span><span>Logging out…</span>';
   }
+
   try {
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     if (state?.timer) clearInterval(state.timer);
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     localStorage.removeItem('username');
-  } catch (_) {}
+  } catch(_) {}
 
-  // Give spinner time to be seen
-  setTimeout(() => location.replace('/login'), 1200);
+  // short delay so the user sees the spinner
+  setTimeout(() => location.replace('/login'), 800);
 };
+
 
 
 
