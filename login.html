@@ -1,30 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- _favicons.html -->
-<link rel="icon" href="/logo.svg" type="image/svg+xml">
-<link rel="alternate icon" href="/favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
-  
+  <!-- _favicons.html -->
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Login | Helpdesk</title>
+
   <style>
     :root{ --card:#ffffff; --bg:#f7f9fc; --border:#e5e7eb; --muted:#6b7280; --text:#0f172a; --blue:#0d6efd; --danger:#ef4444; }
-    *{box-sizing:border-box}
-    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; background:var(--bg); color:var(--text);}
-    .wrap{min-height:100vh; display:grid; place-items:center; padding:24px;}
-    .card{width:100%; max-width:420px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,.06)}
-    h1{font-size:22px; margin:0 0 8px}
-    p{color:var(--muted); margin:0 0 18px}
-    label{display:block; font-size:13px; color:var(--muted); margin:10px 0 6px}
-    input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;}
-    button{width:100%; margin-top:16px; padding:10px 12px; border-radius:10px; border:0; background:var(--blue); color:#fff; font-weight:700; cursor:pointer}
-    .err{margin-top:10px; color:#fff; background:var(--danger); border-radius:10px; padding:8px 12px; display:none}
-    .muted{color:var(--muted); font-size:12px; margin-top:12px; text-align:center}
+    *{ box-sizing:border-box }
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; background:var(--bg); color:var(--text) }
+    .wrap{ min-height:100vh; display:grid; place-items:center; padding:24px }
+    .card{ width:100%; max-width:420px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,.06) }
+    h1{ font-size:22px; margin:0 0 8px }
+    p{ color:var(--muted); margin:0 0 18px }
+    label{ display:block; font-size:13px; color:var(--muted); margin:10px 0 6px }
+    input{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px }
+    button{ width:100%; margin-top:16px; padding:10px 12px; border-radius:10px; border:0; background:var(--blue); color:#fff; font-weight:700; cursor:pointer }
+    .err{ margin-top:10px; color:#fff; background:var(--danger); border-radius:10px; padding:8px 12px; display:none }
+    .muted{ color:var(--muted); font-size:12px; margin-top:12px; text-align:center }
+
+    /* Inline spinner when button has .loading */
+    @keyframes btnspin { to { transform: translateY(-50%) rotate(360deg); } }
+    .btn.loading{
+      position:relative;
+      pointer-events:none;       /* block double-clicks */
+      padding-left:34px;         /* space for spinner */
+      opacity:.95;
+    }
+    .btn.loading::before{
+      content:"";
+      position:absolute;
+      left:12px; top:50%;
+      width:16px; height:16px;
+      border-radius:50%;
+      border:2px solid currentColor;
+      border-right-color:transparent;
+      transform:translateY(-50%);
+      animation:btnspin .7s linear infinite;
+    }
   </style>
 </head>
 <body>
@@ -33,56 +54,80 @@
       <h1>Sign in</h1>
       <p>Enter your credentials to access the Global Hillview Helpdesk Dashboard.</p>
 
-      <label>Username</label>
+      <label for="u">Username</label>
       <input id="u" type="text" autocomplete="username" autofocus>
 
-      <label>Password</label>
+      <label for="p">Password</label>
       <input id="p" type="password" autocomplete="current-password">
 
-      <button id="btn">Sign in</button>
+      <button id="btn" class="btn">Sign in</button>
 
-      <div id="err" class="err"></div>
+      <div id="err" class="err" role="alert" aria-live="polite"></div>
       <div class="muted">Tip: ask an admin to create or reset your account.</div>
     </div>
   </div>
 
   <script>
-    const showErr = (msg) => { const el = document.getElementById('err'); el.textContent = msg; el.style.display = 'block'; };
-    const saveSession = (token, user) => {
-      try {
-        localStorage.setItem('token', token);
-        localStorage.setItem('role', user?.role || 'user');
-      } catch (e) {}
-    };
-    // If already logged in, go to dashboard
+    const $ = (id) => document.getElementById(id);
+    const showErr = (msg) => { const el = $('err'); el.textContent = msg; el.style.display = 'block'; };
+    const hideErr = () => { const el = $('err'); el.textContent = ''; el.style.display = 'none'; };
+
+    // already logged in? bounce to dashboard
     try { if (localStorage.getItem('token')) location.replace('/'); } catch(e){}
 
+    function setLoading(on){
+      const btn = $('btn');
+      if (on) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+        btn.textContent = 'Signing in…';
+      } else {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+    }
+
     async function doLogin() {
-      const u = document.getElementById('u').value.trim();
-      const p = document.getElementById('p').value;
+      if ($('btn').disabled) return;           // guard against double submit
+      hideErr();
+
+      const u = $('u').value.trim();
+      const p = $('p').value;
       if (!u || !p) { showErr('Missing username or password.'); return; }
 
-      const btn = document.getElementById('btn');
-      btn.disabled = true; btn.textContent = 'Signing in...';
+      setLoading(true);
       try {
         const res = await fetch('/api?action=login', {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'accept': 'application/json' },
           body: JSON.stringify({ username: u, password: p })
         });
-        const json = await res.json();
-        if (!json.ok) { showErr(json.error || 'Invalid credentials'); return; }
-        saveSession(json.data.token, json.data.user);
+        const json = await res.json().catch(() => ({}));
+        if (!json.ok || !json.data) {
+          setLoading(false);
+          showErr(json.error || 'Invalid credentials');
+          return;
+        }
+
+        // Save session
+        try {
+          localStorage.setItem('token', json.data.token);
+          localStorage.setItem('role', json.data.user?.role || 'user');
+          localStorage.setItem('username', json.data.user?.username || u);
+        } catch (e) {}
+
         location.replace('/');
       } catch (e) {
+        setLoading(false);
         showErr('Network error. Please try again.');
-      } finally {
-        btn.disabled = false; btn.textContent = 'Sign in';
       }
     }
 
-    document.getElementById('btn').addEventListener('click', doLogin);
+    $('btn').addEventListener('click', doLogin);
     document.addEventListener('keydown', (e)=>{ if(e.key==='Enter') doLogin(); });
+    $('u').addEventListener('input', hideErr);
+    $('p').addEventListener('input', hideErr);
   </script>
 </body>
 </html>
