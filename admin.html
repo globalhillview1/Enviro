@@ -3,56 +3,90 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Admin · Reset Password</title>
+  <title>Admin · User Management</title>
   <style>
     :root{ --card:#ffffff; --bg:#f7f9fc; --border:#e5e7eb; --muted:#6b7280; --text:#0f172a; --blue:#0d6efd; --danger:#ef4444; --green:#16a34a; }
     *{box-sizing:border-box}
     body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; background:var(--bg); color:var(--text);}
     header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);background:#fff}
     a{color:var(--blue);text-decoration:none}
-    .wrap{min-height:calc(100vh - 64px); display:grid; place-items:center; padding:24px;}
-    .card{width:100%; max-width:520px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,.06)}
-    h1{font-size:22px; margin:0 0 12px}
-    p{color:var(--muted); margin:0 0 18px}
+    .wrap{max-width:1100px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,.06)}
+    h1{font-size:22px;margin:0 0 12px}
+    h2{font-size:18px;margin:0 0 8px}
+    p{color:var(--muted); margin:0 0 16px}
     label{display:block; font-size:13px; color:var(--muted); margin:10px 0 6px}
-    input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;}
+    input,select{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;}
     button{padding:10px 12px; border-radius:10px; border:0; background:var(--blue); color:#fff; font-weight:700; cursor:pointer}
     .row{display:flex; gap:10px; align-items:center; margin-top:16px}
     .ok{margin-top:12px; color:#fff; background:var(--green); padding:8px 12px; border-radius:10px; display:none}
     .err{margin-top:12px; color:#fff; background:var(--danger); padding:8px 12px; border-radius:10px; display:none}
+    @media(max-width:900px){ .wrap{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
   <header>
-    <strong>Admin · Reset Password</strong>
+    <strong>Admin · User Management</strong>
     <nav><a href="/">← Back to Dashboard</a></nav>
   </header>
 
   <div class="wrap">
-    <div class="card">
-      <h1>Reset a user’s password</h1>
-      <p>Requires admin role. This writes a SHA-256 hash to <em>PasswordHash</em>, clears <em>Password</em>, and sets <em>Active</em> to TRUE.</p>
+    <!-- Create User -->
+    <section class="card">
+      <h1>Create user</h1>
+      <p>Creates a new account with a SHA-256 password hash. Fails if the username already exists.</p>
 
       <label>Username</label>
-      <input id="u" type="text" placeholder="e.g. admin" autofocus>
+      <input id="cu_u" type="text" placeholder="e.g. jdoe" autofocus>
 
-      <label>New password</label>
-      <input id="p" type="password" placeholder="NewStrongP@ssw0rd">
+      <label>Password</label>
+      <input id="cu_p" type="password" placeholder="StrongP@ssw0rd">
 
       <div class="row">
-        <button id="btn">Reset password</button>
-        <span id="who" class="muted"></span>
+        <label style="margin:0">Role</label>
+        <select id="cu_r">
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
+        <label style="margin-left:16px;display:flex;gap:8px;align-items:center">
+          <input id="cu_a" type="checkbox" checked> Active
+        </label>
       </div>
 
-      <div id="ok"  class="ok"></div>
-      <div id="err" class="err"></div>
-    </div>
+      <div class="row">
+        <button id="cu_btn">Create user</button>
+      </div>
+
+      <div id="cu_ok" class="ok"></div>
+      <div id="cu_err" class="err"></div>
+    </section>
+
+    <!-- Reset Password -->
+    <section class="card">
+      <h1>Reset a user’s password</h1>
+      <p>Writes SHA-256 to <em>PasswordHash</em>, clears <em>Password</em>, sets <em>Active</em> to TRUE.</p>
+
+      <label>Username</label>
+      <input id="rp_u" type="text" placeholder="e.g. admin">
+
+      <label>New password</label>
+      <input id="rp_p" type="password" placeholder="NewStrongP@ssw0rd">
+
+      <div class="row">
+        <button id="rp_btn">Reset password</button>
+        <span id="who" class="muted" style="margin-left:10px"></span>
+      </div>
+
+      <div id="rp_ok" class="ok"></div>
+      <div id="rp_err" class="err"></div>
+    </section>
   </div>
 
   <script>
     const token = localStorage.getItem('token') || '';
     const role  = (localStorage.getItem('role') || 'user').toLowerCase();
     const show = (id,msg) => { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; };
+    const hide = id => { const el=document.getElementById(id); el.style.display='none'; };
 
     // Gate: must be logged in and admin
     if (!token) location.replace('/login');
@@ -60,34 +94,47 @@
 
     document.getElementById('who').textContent = '(You are admin)';
 
-    async function resetPwd() {
-      document.getElementById('ok').style.display='none';
-      document.getElementById('err').style.display='none';
-      const u = document.getElementById('u').value.trim();
-      const p = document.getElementById('p').value;
-      if(!u || !p){ show('err','Username and new password are required.'); return; }
-
-      const btn = document.getElementById('btn');
-      btn.disabled=true; btn.textContent='Working...';
-      try{
-        const qs = new URLSearchParams({ action:'setpassword', token }).toString();
-        const res = await fetch(`/api?${qs}`, {
-          method:'POST',
-          headers:{ 'content-type':'application/json', 'accept':'application/json' },
-          body: JSON.stringify({ username:u, password:p })
-        });
-        const json = await res.json();
-        if(!json.ok) { show('err', json.error || 'Failed'); return; }
-        show('ok', 'Password updated for '+u);
-        document.getElementById('p').value='';
-      }catch(e){
-        show('err','Network error');
-      }finally{
-        btn.disabled=false; btn.textContent='Reset password';
-      }
+    async function callApi(action, payload){
+      const qs = new URLSearchParams({ action, token }).toString();
+      const res = await fetch(`/api?${qs}`, {
+        method:'POST',
+        headers:{ 'content-type':'application/json', 'accept':'application/json' },
+        body: JSON.stringify(payload||{})
+      });
+      return res.json();
     }
-    document.getElementById('btn').addEventListener('click', resetPwd);
-    document.addEventListener('keydown', e=>{ if(e.key==='Enter') resetPwd(); });
+
+    // Create user
+    document.getElementById('cu_btn').addEventListener('click', async ()=>{
+      hide('cu_ok'); hide('cu_err');
+      const u = document.getElementById('cu_u').value.trim();
+      const p = document.getElementById('cu_p').value;
+      const r = document.getElementById('cu_r').value;
+      const a = document.getElementById('cu_a').checked;
+      if(!u || !p){ show('cu_err','Username and password are required.'); return; }
+      const btn = document.getElementById('cu_btn'); btn.disabled=true; btn.textContent='Working...';
+      try{
+        const j = await callApi('createuser', { username:u, password:p, role:r, active:a });
+        if(!j.ok){ show('cu_err', j.error||'Failed'); }
+        else { show('cu_ok', `User created: ${u} (${r})`); document.getElementById('cu_p').value=''; }
+      }catch{ show('cu_err','Network error'); }
+      finally{ btn.disabled=false; btn.textContent='Create user'; }
+    });
+
+    // Reset password
+    document.getElementById('rp_btn').addEventListener('click', async ()=>{
+      hide('rp_ok'); hide('rp_err');
+      const u = document.getElementById('rp_u').value.trim();
+      const p = document.getElementById('rp_p').value;
+      if(!u || !p){ show('rp_err','Username and new password are required.'); return; }
+      const btn = document.getElementById('rp_btn'); btn.disabled=true; btn.textContent='Working...';
+      try{
+        const j = await callApi('setpassword', { username:u, password:p });
+        if(!j.ok){ show('rp_err', j.error||'Failed'); }
+        else { show('rp_ok', `Password updated for ${u}`); document.getElementById('rp_p').value=''; }
+      }catch{ show('rp_err','Network error'); }
+      finally{ btn.disabled=false; btn.textContent='Reset password'; }
+    });
   </script>
 </body>
 </html>
