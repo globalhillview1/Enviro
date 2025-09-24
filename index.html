@@ -61,6 +61,25 @@
     .banner.info{display:block;background:#e0f2fe;color:#0c4a6e;border-color:#bae6fd}
     .edit{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text)}
     .cell-actions{display:flex; gap:6px; align-items:center}
+
+    /* Icon buttons */
+    .icon-btn{
+      border:1px solid var(--border);
+      background:var(--card);
+      border-radius:8px;
+      padding:6px;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .icon-btn:hover{ background:var(--hover); }
+    .icon{
+      width:18px; height:18px; display:block;
+      fill:currentColor; color:var(--text);
+    }
+    .cell-flex{display:flex; gap:8px; align-items:center}
+    .remark-text{white-space:pre-wrap}
     @media(max-width:1080px){.kpis{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
   </style>
@@ -140,34 +159,53 @@
     /* ===== Auth helpers ===== */
     const getTok  = () => { try{ return localStorage.getItem('token'); }catch(_){ return null; } };
     const setTok  = (t) => { try{ t ? localStorage.setItem('token',t) : localStorage.removeItem('token'); }catch(_){} };
-    const logoutNow = () => { try{
+    let heartbeatTimer = null;
+    const HEARTBEAT_MS = 5000; // 5s
+
+    const logoutNow = () => {
+      try {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        if (state?.timer) clearInterval(state.timer);
         localStorage.removeItem('token');
         localStorage.removeItem('role');
         localStorage.removeItem('username');
-      }catch(_){}; location.href='/login';
+      } catch(_) {}
+      location.href = '/login';
     };
 
-    /* ===== Verify session with server (for force-logout) ===== */
+    /* ===== Verify session (used by heartbeat too) ===== */
     async function verifySession(){
       const t = getTok(); if(!t){ logoutNow(); throw new Error('no token'); }
       const r = await fetch(`${API}?action=whoami&token=${encodeURIComponent(t)}`, {cache:'no-store'});
       const j = await r.json().catch(()=>({}));
       if(!j.ok || !j.data || !j.data.user){ logoutNow(); throw new Error('unauthorized'); }
-      // Sync UI role + username
       try{
         localStorage.setItem('role', j.data.user.role);
         localStorage.setItem('username', j.data.user.username);
       }catch(_){}
       state.isAdmin = (j.data.user.role === 'admin');
-      // Show Admin button if applicable
-      const ab = document.getElementById('adminBtn');
-      ab.style.display = state.isAdmin ? 'inline-block' : 'none';
+      document.getElementById('adminBtn').style.display = state.isAdmin ? 'inline-block' : 'none';
+    }
+
+    async function heartbeatOnce(){ try{ await verifySession(); }catch(_){ /* verifySession redirects on failure */ } }
+    function startHeartbeat(){
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(heartbeatOnce, HEARTBEAT_MS);
+      window.addEventListener('focus', heartbeatOnce, { passive:true });
+      document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) heartbeatOnce(); }, { passive:true });
     }
 
     /* ===== State ===== */
-    const state = { all:[], filtered:[], sort:{key:"Date and Time Raised",dir:"desc"}, page:1, pageSize:10, tz:"local", timer:null, lastFetchOk:true, isAdmin:false };
+    const state = {
+      all:[], filtered:[],
+      sort:{key:"Date and Time Raised",dir:"desc"},
+      page:1, pageSize:10, tz:"local",
+      timer:null, lastFetchOk:true, isAdmin:false,
+      editing:{} // { [trackingId]: true }
+    };
 
     /* ===== Utils ===== */
+    function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function parseDateSafe(s){ if(!s) return null; if(s instanceof Date) return s; if(typeof s==="number") return new Date(s); const d=new Date(String(s).includes("T")?s:String(s).replace(" ","T")); return isNaN(d)?null:d; }
     function fmtDate(d,tzMode){ if(!d) return ""; const o={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:tzMode==="utc"?"UTC":undefined}; const s=new Intl.DateTimeFormat(undefined,o).format(d); return tzMode==="utc"?s+" UTC":s; }
     function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
@@ -193,7 +231,6 @@
         applyFilters();
         setStickyHeights();
       }catch(err){
-        // If token invalid/expired => redirect to login immediately
         if((err.message||'').toLowerCase().includes('unauthorized')){ logoutNow(); return; }
         state.lastFetchOk = false;
         document.getElementById("netError").style.display = "block";
@@ -257,42 +294,70 @@
       render();
     }
 
-    function rowEditor(r){
-      if(!state.isAdmin){
-        return `
-          <td><span class="badge ${r["Status"]||""}">${r["Status"]||""}</span></td>
-          <td>${r["Redressal Remark"]||""}</td>
-        `;
-      }
+    /* ===== Icons (inline SVG) ===== */
+    const svgPencil = '<svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm3.92 2.33H5v-1.92l8.06-8.06 1.92 1.92L6.92 19.58zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>';
+    const svgFloppy = '<svg class="icon" viewBox="0 0 24 24"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4Zm-3 16H6v-6h8v6Zm2-12H6V5h10v2Z"/></svg>';
+
+    /* ===== Row rendering with view/edit modes ===== */
+    function rowEditorCells(r){
       const id = String(r["Tracking ID"]||"");
       const st = String(r["Status"]||"");
-      const remark = (r["Redressal Remark"]||"").toString().replace(/"/g,'&quot;');
-      return `
-        <td>
-          <select class="edit" id="st-${id}">
-            <option value="Open" ${st==="Open"?"selected":""}>Open</option>
-            <option value="InProgress" ${st==="InProgress"?"selected":""}>In Progress</option>
-            <option value="Resolved" ${st==="Resolved"?"selected":""}>Resolved</option>
-          </select>
-        </td>
-        <td>
-          <div class="cell-actions">
-            <input class="edit" id="rm-${id}" value="${remark}" placeholder="Enter remark">
-            <button class="btn small primary" onclick="saveRow('${id}')">Save</button>
-          </div>
-        </td>
-      `;
+      const remark = r["Redressal Remark"] || "";
+
+      if (!state.isAdmin) {
+        // View-only for non-admins
+        return {
+          status: `<span class="badge ${st}">${escapeHtml(st)}</span>`,
+          remark: `<div class="remark-text">${escapeHtml(remark)}</div>`
+        };
+      }
+
+      const editing = !!state.editing[id];
+      if (!editing) {
+        // View mode + pencil
+        return {
+          status: `<span class="badge ${st}">${escapeHtml(st)}</span>`,
+          remark: `
+            <div class="cell-flex">
+              <div class="remark-text">${escapeHtml(remark)}</div>
+              <button class="icon-btn" title="Edit" onclick="enterEdit('${id}')">${svgPencil}</button>
+            </div>`
+        };
+      } else {
+        // Edit mode + floppy (save)
+        const remarkEsc = escapeHtml(remark).replace(/"/g,'&quot;');
+        return {
+          status: `
+            <select class="edit" id="st-${id}">
+              <option value="Open" ${st==="Open"?"selected":""}>Open</option>
+              <option value="InProgress" ${st==="InProgress"?"selected":""}>In Progress</option>
+              <option value="Resolved" ${st==="Resolved"?"selected":""}>Resolved</option>
+            </select>`,
+          remark: `
+            <div class="cell-flex">
+              <input class="edit" id="rm-${id}" value="${remarkEsc}" placeholder="Enter remark">
+              <button class="icon-btn" title="Save" onclick="saveRow('${id}')">${svgFloppy}</button>
+            </div>`
+        };
+      }
     }
 
+    function enterEdit(id){
+      if(!state.isAdmin) return;
+      state.editing[id] = true;
+      render();
+    }
+    window.enterEdit = enterEdit;
+
     async function saveRow(id){
+      if(!state.isAdmin) return;
       const stEl = document.getElementById(`st-${id}`);
       const rmEl = document.getElementById(`rm-${id}`);
       if(!stEl || !rmEl) return;
       const status = stEl.value;
       const remark = rmEl.value;
 
-      const btn = stEl.nextElementSibling?.querySelector?.('button') || null;
-      if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
+      // Optimistic lock: disable button during save (optional)
 
       try{
         const res = await fetch(`${API}?action=updateissue&token=${encodeURIComponent(getTok())}`, {
@@ -301,12 +366,12 @@
           body: JSON.stringify({ trackingId: id, status, remark })
         });
         const out = await res.json().catch(()=>({}));
-        if(!out.ok){ 
+        if(!out.ok){
           if((out.error||'').toLowerCase().includes('unauthorized')) { logoutNow(); return; }
           throw new Error(out.error || 'Save failed');
         }
 
-        // Update local copy for immediate UI feedback
+        // Update local copy
         const row = state.all.find(x=>String(x["Tracking ID"])===String(id));
         if(row){
           row.Status = status;
@@ -314,14 +379,14 @@
           if(status==="Resolved" && !row.__resolved){ row.__resolved = new Date(); row["Date and Time Resolved"] = row.__resolved.toISOString(); }
           row.__computed_time = row.__raised && row.__resolved ? Math.max(0, row.__resolved - row.__raised) : row.__computed_time;
         }
+        // Exit edit mode
+        delete state.editing[id];
         applyFilters();
       }catch(e){
         alert('Save failed: ' + e.message);
-      }finally{
-        if(btn){ btn.disabled=false; btn.textContent='Save'; }
       }
     }
-    window.saveRow = saveRow; // expose for onclick
+    window.saveRow = saveRow;
 
     function render(){
       const {key, dir} = state.sort;
@@ -354,10 +419,11 @@
       const tbody = document.querySelector("#grid tbody");
       tbody.innerHTML = "";
       slice.forEach(r=>{
-        const tr = document.createElement("tr");
+        const cells = rowEditorCells(r);
         const raisedStr = fmtDate(r.__raised, state.tz);
         const resolvedStr = fmtDate(r.__resolved, state.tz);
         const timeStr = msToHuman(r.__computed_time);
+        const tr = document.createElement("tr");
         tr.innerHTML = `
           <td><span class="muted" style="border-bottom:1px dashed var(--muted); cursor:copy" title="Click to copy" onclick="navigator.clipboard.writeText('${String(r["Tracking ID"]||"")}')">${r["Tracking ID"]||""}</span></td>
           <td>${raisedStr}</td>
@@ -366,7 +432,8 @@
           <td>${r["Issue"]||""}</td>
           <td>${r["Description"]||""}</td>
           <td>${renderMediaCell(r["Media URL"])}</td>
-          ${rowEditor(r)}
+          <td>${cells.status}</td>
+          <td>${cells.remark}</td>
           <td>${r["User ID"]||""}</td>
           <td>${resolvedStr}</td>
           <td>${timeStr}</td>
@@ -406,8 +473,9 @@
 
     /* ===== Init ===== */
     async function init(){
-      if (!getTok()) { location.href = "/login"; return; }       // quick client check
-      await verifySession();                                     // server check + set admin flag
+      if (!getTok()) { location.href = "/login"; return; }
+      await verifySession();
+      startHeartbeat();
 
       document.getElementById("toggleDark").addEventListener("click", ()=>document.body.classList.toggle("dark"));
       document.getElementById("exportCsv").addEventListener("click", exportCSV);
@@ -423,7 +491,6 @@
 
       await fetchData();
       state.timer = setInterval(async ()=>{
-        // on every tick, verify token first (this makes Force-Logout immediate on next refresh)
         try{ await verifySession(); }catch(_){ return; }
         if(document.getElementById("autoRefresh").checked) fetchData();
       }, 60000);
