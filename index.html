@@ -1,32 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- _favicons.html -->
-<link rel="alternate icon" href="/favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
-  
+  <!-- Favicons (local) -->
+  <link rel="alternate icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+
   <meta charset="UTF-8" />
   <title>Global Hillview, Enviro Helpdesk Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Early guard: if no token, prevent paint and hard-redirect -->
   <script>
-  (function () {
-    try {
-      const t = localStorage.getItem('token');
-      if (!t) {
-        // Prevent any paint, then hard-redirect (no back-button ping-pong)
+    (function () {
+      try {
+        const t = localStorage.getItem('token');
+        if (!t) {
+          document.documentElement.style.display = 'none';
+          location.replace('/login');
+        }
+      } catch (e) {
         document.documentElement.style.display = 'none';
         location.replace('/login');
       }
-    } catch (e) {
-      document.documentElement.style.display = 'none';
-      location.replace('/login');
-    }
-  })();
-</script>
-  
+    })();
+  </script>
+
   <style>
     :root{
       --bg:#f7f9fc; --card:#ffffff; --muted:#6b7280; --text:#0f172a;
@@ -102,6 +103,18 @@
     }
     .cell-flex{display:flex; gap:8px; align-items:center}
     .remark-text{white-space:pre-wrap}
+
+    /* Username pill */
+    .userpill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border:1px solid var(--border);
+      border-radius:999px; background:var(--card); font-weight:600;
+    }
+    .userpill svg,.userpill img{
+      width:16px; height:16px; display:block; flex:0 0 16px;
+    }
+    .userpill span{ line-height:1; }
+
     @media(max-width:1080px){.kpis{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
   </style>
@@ -109,7 +122,8 @@
 <body>
   <header>
     <div class="brand">
-     <img src="/android-chrome-512x512.png" alt="Global Hillview logo" height="512" width="512">
+      <!-- Local icon, sized via CSS -->
+      <img src="/android-chrome-512x512.png" alt="Global Hillview logo">
       <h1>Global Hillview, Enviro Helpdesk Dashboard</h1>
     </div>
     <div class="toolbar">
@@ -179,6 +193,22 @@
   <script>
     const API = "/api";
 
+    /* Small escape helper available early */
+    const esc = (s) => String(s).replace(/[&<>"']/g, m => (
+      {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]
+    ));
+
+    /* Inline user icon (swap to an <img> if you prefer a PNG/SVG asset) */
+    function userIcon(){
+      return `
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"
+             style="width:16px;height:16px;stroke:currentColor;display:block;">
+          <circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle>
+          <path d="M4.5 19.5a7.5 7.5 0 0115 0"
+                stroke-width="1.6" stroke-linecap="round"></path>
+        </svg>`;
+    }
+
     /* ===== Auth helpers ===== */
     const getTok  = () => { try{ return localStorage.getItem('token'); }catch(_){ return null; } };
     const setTok  = (t) => { try{ t ? localStorage.setItem('token',t) : localStorage.removeItem('token'); }catch(_){} };
@@ -195,34 +225,31 @@
       } catch(_) {}
       location.href = '/login';
     };
-    
-    function userIcon(){
-  return `
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"
-         style="width:16px;height:16px;stroke:currentColor;display:block;">
-      <circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle>
-      <path d="M4.5 19.5a7.5 7.5 0 0115 0"
-            stroke-width="1.6" stroke-linecap="round"></path>
-    </svg>`;
-}
 
-    /* ===== Verify session (used by heartbeat too) ===== */
+    /* ===== Verify session (also used by heartbeat) ===== */
     async function verifySession(){
       const t = getTok(); if(!t){ logoutNow(); throw new Error('no token'); }
       const r = await fetch(`${API}?action=whoami&token=${encodeURIComponent(t)}`, {cache:'no-store'});
       const j = await r.json().catch(()=>({}));
       if(!j.ok || !j.data || !j.data.user){ logoutNow(); throw new Error('unauthorized'); }
+
       try{
         localStorage.setItem('role', j.data.user.role);
         localStorage.setItem('username', j.data.user.username);
       }catch(_){}
+
       state.isAdmin = (j.data.user.role === 'admin');
       document.getElementById('adminBtn').style.display = state.isAdmin ? 'inline-block' : 'none';
-       const ub = document.getElementById('userBadge');
-  if (ub) { ub.textContent = j.data.user.username; ub.style.display = 'inline-flex'; }
+
+      // Render the pill: icon + username
+      const ub = document.getElementById('userBadge');
+      if (ub) {
+        ub.style.display = 'inline-flex';
+        ub.innerHTML = userIcon() + `<span>${esc(j.data.user.username || '')}</span>`;
+      }
     }
 
-    async function heartbeatOnce(){ try{ await verifySession(); }catch(_){ /* verifySession redirects on failure */ } }
+    async function heartbeatOnce(){ try{ await verifySession(); }catch(_){ } }
     function startHeartbeat(){
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(heartbeatOnce, HEARTBEAT_MS);
@@ -245,7 +272,7 @@
     function fmtDate(d,tzMode){ if(!d) return ""; const o={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:tzMode==="utc"?"UTC":undefined}; const s=new Intl.DateTimeFormat(undefined,o).format(d); return tzMode==="utc"?s+" UTC":s; }
     function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
     function msToHuman(ms){ if(ms==null||isNaN(ms)) return ""; const m=Math.floor(ms/60000); if(m<60) return `${m}m`; const h=Math.floor(m/60),rem=m%60; if(h<24) return `${h}h ${rem}m`; const days=Math.floor(h/24),rh=h%24; return `${days}d ${rh}h ${rem}m`; }
-    function renderMediaCell(url){ if(!url) return "<span class='muted'>No media</span>"; const esc=s=>String(s).replace(/"/g,"&quot;"); if(/\.(jpe?g|png|gif|webp)$/i.test(url)) return `<div class="media"><img src="${esc(url)}" alt="media" onclick="openLightbox('${esc(url)}')" /></div>`; if(/\.(mp4|webm|mov)$/i.test(url)) return `<div class="media"><video controls><source src="${esc(url)}"></video></div>`; if(/\.(mp3|wav|m4a)$/i.test(url)) return `<div class="media"><audio controls src="${esc(url)}"></audio></div>`; return `<a href="${esc(url)}" target="_blank" rel="noopener">Open</a>`; }
+    function renderMediaCell(url){ if(!url) return "<span class='muted'>No media</span>"; const escq=s=>String(s).replace(/"/g,"&quot;"); if(/\.(jpe?g|png|gif|webp)$/i.test(url)) return `<div class="media"><img src="${escq(url)}" alt="media" onclick="openLightbox('${escq(url)}')" /></div>`; if(/\.(mp4|webm|mov)$/i.test(url)) return `<div class="media"><video controls><source src="${escq(url)}"></video></div>`; if(/\.(mp3|wav|m4a)$/i.test(url)) return `<div class="media"><audio controls src="${escq(url)}"></audio></div>`; return `<a href="${escq(url)}" target="_blank" rel="noopener">Open</a>`; }
     function openLightbox(url){ document.getElementById("lightbox-img").src=url; document.getElementById("lightbox").style.display="flex"; }
     function setStickyHeights(){ const h=document.querySelector('header'); const c=document.getElementById('controls'); if(h) document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px'); if(c) document.documentElement.style.setProperty('--controls-h',c.offsetHeight+'px'); }
     window.addEventListener('resize', setStickyHeights);
@@ -340,7 +367,6 @@
       const remark = r["Redressal Remark"] || "";
 
       if (!state.isAdmin) {
-        // View-only for non-admins
         return {
           status: `<span class="badge ${st}">${escapeHtml(st)}</span>`,
           remark: `<div class="remark-text">${escapeHtml(remark)}</div>`
@@ -349,7 +375,6 @@
 
       const editing = !!state.editing[id];
       if (!editing) {
-        // View mode + pencil
         return {
           status: `<span class="badge ${st}">${escapeHtml(st)}</span>`,
           remark: `
@@ -359,7 +384,6 @@
             </div>`
         };
       } else {
-        // Edit mode + floppy (save)
         const remarkEsc = escapeHtml(remark).replace(/"/g,'&quot;');
         return {
           status: `
@@ -392,8 +416,6 @@
       const status = stEl.value;
       const remark = rmEl.value;
 
-      // Optimistic lock: disable button during save (optional)
-
       try{
         const res = await fetch(`${API}?action=updateissue&token=${encodeURIComponent(getTok())}`, {
           method:'POST',
@@ -406,7 +428,6 @@
           throw new Error(out.error || 'Save failed');
         }
 
-        // Update local copy
         const row = state.all.find(x=>String(x["Tracking ID"])===String(id));
         if(row){
           row.Status = status;
@@ -414,7 +435,6 @@
           if(status==="Resolved" && !row.__resolved){ row.__resolved = new Date(); row["Date and Time Resolved"] = row.__resolved.toISOString(); }
           row.__computed_time = row.__raised && row.__resolved ? Math.max(0, row.__resolved - row.__raised) : row.__computed_time;
         }
-        // Exit edit mode
         delete state.editing[id];
         applyFilters();
       }catch(e){
