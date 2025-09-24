@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin · Reset Password</title>
+  <style>
+    :root{ --card:#ffffff; --bg:#f7f9fc; --border:#e5e7eb; --muted:#6b7280; --text:#0f172a; --blue:#0d6efd; --danger:#ef4444; --green:#16a34a; }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; background:var(--bg); color:var(--text);}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);background:#fff}
+    a{color:var(--blue);text-decoration:none}
+    .wrap{min-height:calc(100vh - 64px); display:grid; place-items:center; padding:24px;}
+    .card{width:100%; max-width:520px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,.06)}
+    h1{font-size:22px; margin:0 0 12px}
+    p{color:var(--muted); margin:0 0 18px}
+    label{display:block; font-size:13px; color:var(--muted); margin:10px 0 6px}
+    input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;}
+    button{padding:10px 12px; border-radius:10px; border:0; background:var(--blue); color:#fff; font-weight:700; cursor:pointer}
+    .row{display:flex; gap:10px; align-items:center; margin-top:16px}
+    .ok{margin-top:12px; color:#fff; background:var(--green); padding:8px 12px; border-radius:10px; display:none}
+    .err{margin-top:12px; color:#fff; background:var(--danger); padding:8px 12px; border-radius:10px; display:none}
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Admin · Reset Password</strong>
+    <nav><a href="/">← Back to Dashboard</a></nav>
+  </header>
+
+  <div class="wrap">
+    <div class="card">
+      <h1>Reset a user’s password</h1>
+      <p>Requires admin role. This writes a SHA-256 hash to <em>PasswordHash</em>, clears <em>Password</em>, and sets <em>Active</em> to TRUE.</p>
+
+      <label>Username</label>
+      <input id="u" type="text" placeholder="e.g. admin" autofocus>
+
+      <label>New password</label>
+      <input id="p" type="password" placeholder="NewStrongP@ssw0rd">
+
+      <div class="row">
+        <button id="btn">Reset password</button>
+        <span id="who" class="muted"></span>
+      </div>
+
+      <div id="ok"  class="ok"></div>
+      <div id="err" class="err"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token') || '';
+    const role  = (localStorage.getItem('role') || 'user').toLowerCase();
+    const show = (id,msg) => { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; };
+
+    // Gate: must be logged in and admin
+    if (!token) location.replace('/login');
+    if (role !== 'admin') { alert('Admin only'); location.replace('/'); }
+
+    document.getElementById('who').textContent = '(You are admin)';
+
+    async function resetPwd() {
+      document.getElementById('ok').style.display='none';
+      document.getElementById('err').style.display='none';
+      const u = document.getElementById('u').value.trim();
+      const p = document.getElementById('p').value;
+      if(!u || !p){ show('err','Username and new password are required.'); return; }
+
+      const btn = document.getElementById('btn');
+      btn.disabled=true; btn.textContent='Working...';
+      try{
+        const qs = new URLSearchParams({ action:'setpassword', token }).toString();
+        const res = await fetch(`/api?${qs}`, {
+          method:'POST',
+          headers:{ 'content-type':'application/json', 'accept':'application/json' },
+          body: JSON.stringify({ username:u, password:p })
+        });
+        const json = await res.json();
+        if(!json.ok) { show('err', json.error || 'Failed'); return; }
+        show('ok', 'Password updated for '+u);
+        document.getElementById('p').value='';
+      }catch(e){
+        show('err','Network error');
+      }finally{
+        btn.disabled=false; btn.textContent='Reset password';
+      }
+    }
+    document.getElementById('btn').addEventListener('click', resetPwd);
+    document.addEventListener('keydown', e=>{ if(e.key==='Enter') resetPwd(); });
+  </script>
+</body>
+</html>
