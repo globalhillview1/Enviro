@@ -215,16 +215,26 @@
     let heartbeatTimer = null;
     const HEARTBEAT_MS = 5000; // 5s
 
-    const logoutNow = () => {
-      try {
-        if (heartbeatTimer) clearInterval(heartbeatTimer);
-        if (state?.timer) clearInterval(state.timer);
-        localStorage.removeItem('token');
-        localStorage.removeItem('role');
-        localStorage.removeItem('username');
-      } catch(_) {}
-      location.href = '/login';
-    };
+// replaces the old logoutNow()
+const logoutNow = () => {
+  const btn = document.getElementById('logoutBtn');
+  if (btn) {
+    btn.classList.add('loading');
+    btn.disabled = true;
+    btn.textContent = 'Logging out…';
+  }
+  try {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    if (state?.timer) clearInterval(state.timer);
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('username');
+  } catch(_) {}
+
+  // small delay so the user can see the spinner
+  setTimeout(() => { location.replace('/login'); }, 700);
+};
+
 
     /* ===== Verify session (also used by heartbeat) ===== */
     async function verifySession(){
