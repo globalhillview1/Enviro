@@ -1,0 +1,14 @@
+<!-- /logo.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Global Hillview">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16a34a"/>
+      <stop offset="1" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="20" fill="url(#g)"/>
+  <circle cx="64" cy="64" r="48" fill="#fff" opacity=".12"/>
+  <g fill="#fff" font-family="Inter, system-ui, Segoe UI, Roboto, Arial" font-weight="800" text-anchor="middle">
+    <text x="64" y="72" font-size="40">GH</text>
+  </g>
+</svg>
