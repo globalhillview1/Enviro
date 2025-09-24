@@ -78,7 +78,7 @@
       <label class="switch"><span>Auto-refresh</span><input id="autoRefresh" type="checkbox" checked /><span class="muted">60s</span></label>
       <button id="toggleDark" class="btn">Dark mode</button>
       <button class="btn" id="exportCsv">Export CSV</button>
-       <button class="btn" id="adminBtn" style="display:none">Admin</button>
+      <button class="btn" id="adminBtn" style="display:none">Admin</button>
       <button class="btn danger" id="logoutBtn">Logout</button>
     </div>
   </header>
@@ -135,25 +135,39 @@
   <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" src="" alt="preview" /></div>
 
   <script>
-    const API = "/api"; // proxied by _worker.js
+    const API = "/api";
 
-    /* ===== Auth helpers (token-based) ===== */
-    const getTok = () => { try { return localStorage.getItem('token') || ''; } catch(e){ return ''; } };
-    const getRole = () => { try { return localStorage.getItem('role') || 'user'; } catch(e){ return 'user'; } };
-    const clearSession = () => { try { localStorage.removeItem('token'); localStorage.removeItem('role'); } catch(e){} };
-    const logoutNow = () => { clearSession(); location.href='/login'; };
+    /* ===== Auth helpers ===== */
+    const getTok  = () => { try{ return localStorage.getItem('token'); }catch(_){ return null; } };
+    const setTok  = (t) => { try{ t ? localStorage.setItem('token',t) : localStorage.removeItem('token'); }catch(_){} };
+    const logoutNow = () => { try{
+        localStorage.removeItem('token');
+        localStorage.removeItem('role');
+        localStorage.removeItem('username');
+      }catch(_){}; location.href='/login';
+    };
+
+    /* ===== Verify session with server (for force-logout) ===== */
+    async function verifySession(){
+      const t = getTok(); if(!t){ logoutNow(); throw new Error('no token'); }
+      const r = await fetch(`${API}?action=whoami&token=${encodeURIComponent(t)}`, {cache:'no-store'});
+      const j = await r.json().catch(()=>({}));
+      if(!j.ok || !j.data || !j.data.user){ logoutNow(); throw new Error('unauthorized'); }
+      // Sync UI role + username
+      try{
+        localStorage.setItem('role', j.data.user.role);
+        localStorage.setItem('username', j.data.user.username);
+      }catch(_){}
+      state.isAdmin = (j.data.user.role === 'admin');
+      // Show Admin button if applicable
+      const ab = document.getElementById('adminBtn');
+      ab.style.display = state.isAdmin ? 'inline-block' : 'none';
+    }
 
     /* ===== State ===== */
     const state = { all:[], filtered:[], sort:{key:"Date and Time Raised",dir:"desc"}, page:1, pageSize:10, tz:"local", timer:null, lastFetchOk:true, isAdmin:false };
 
     /* ===== Utils ===== */
-    function toast(msg, kind="info"){
-      const b = document.getElementById("infoMsg");
-      b.className = "banner " + (kind==="error" ? "error" : "info");
-      b.textContent = msg;
-      b.style.display = "block";
-      setTimeout(()=> b.style.display="none", 2200);
-    }
     function parseDateSafe(s){ if(!s) return null; if(s instanceof Date) return s; if(typeof s==="number") return new Date(s); const d=new Date(String(s).includes("T")?s:String(s).replace(" ","T")); return isNaN(d)?null:d; }
     function fmtDate(d,tzMode){ if(!d) return ""; const o={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:tzMode==="utc"?"UTC":undefined}; const s=new Intl.DateTimeFormat(undefined,o).format(d); return tzMode==="utc"?s+" UTC":s; }
     function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
@@ -166,24 +180,27 @@
     /* ===== Data ===== */
     async function fetchData(){
       try{
-        const qs = new URLSearchParams({ token: getTok(), mode:'data' }).toString();
-        const r = await fetch(`/api?${qs}`, { cache:"no-store" });
-        if(!r.ok) throw new Error(r.statusText);
-        const data = await r.json(); // { ok:true, data:[...] }
-        const rows = data.ok ? data.data : data; // compat
+        const t = getTok();
+        const r = await fetch(`${API}?action=issues&token=${encodeURIComponent(t)}`, { cache:"no-store" });
+        const j = await r.json();
+        if(!j.ok) throw new Error(j.error || 'Unauthorized');
+        const data = j.data || [];
         state.lastFetchOk = true;
         document.getElementById("netError").style.display = "none";
         document.getElementById("infoMsg").style.display = "none";
-        state.all = normalizeRows(rows);
+        state.all = normalizeRows(data);
         populateTowerFilter(state.all);
         applyFilters();
         setStickyHeights();
       }catch(err){
+        // If token invalid/expired => redirect to login immediately
+        if((err.message||'').toLowerCase().includes('unauthorized')){ logoutNow(); return; }
         state.lastFetchOk = false;
         document.getElementById("netError").style.display = "block";
         if(state.all.length){ document.getElementById("infoMsg").style.display = "block"; render(); }
       }
     }
+
     function normalizeRows(rows){
       return rows.map(r=>{
         const raised = parseDateSafe(r["Date and Time Raised"]);
@@ -197,6 +214,7 @@
         return { ...r, __raised: raised, __resolved: resolved, __computed_time: ms };
       });
     }
+
     function populateTowerFilter(data){
       const sel = document.getElementById("towerFilter");
       const existing = new Set([...sel.options].map(o=>o.value));
@@ -204,6 +222,7 @@
         if(!existing.has(v)){ const o=document.createElement("option"); o.value=v; o.textContent=v; sel.appendChild(o); }
       });
     }
+
     function applyFilters(){
       const tower = document.getElementById("towerFilter").value;
       const status = document.getElementById("statusFilter").value;
@@ -226,6 +245,7 @@
       state.page = 1;
       render();
     }
+
     function resetFilters(){
       document.getElementById("towerFilter").value = "";
       document.getElementById("statusFilter").value = "";
@@ -270,21 +290,23 @@
       if(!stEl || !rmEl) return;
       const status = stEl.value;
       const remark = rmEl.value;
+
       const btn = stEl.nextElementSibling?.querySelector?.('button') || null;
       if(btn){ btn.disabled=true; btn.textContent='Saving...'; }
 
       try{
-        const qs = new URLSearchParams({ mode:'api', op:'update', token:getTok() }).toString();
-        const res = await fetch(`/api?${qs}`, {
+        const res = await fetch(`${API}?action=updateissue&token=${encodeURIComponent(getTok())}`, {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ id, status, remark })
+          body: JSON.stringify({ trackingId: id, status, remark })
         });
-        if(!res.ok){ throw new Error(await res.text()); }
-        const out = await res.json().catch(()=>({ok:true}));
-        if(out && out.ok===false){ throw new Error(out.message||'Save failed'); }
+        const out = await res.json().catch(()=>({}));
+        if(!out.ok){ 
+          if((out.error||'').toLowerCase().includes('unauthorized')) { logoutNow(); return; }
+          throw new Error(out.error || 'Save failed');
+        }
 
-        // Update local copy so UI reflects change immediately
+        // Update local copy for immediate UI feedback
         const row = state.all.find(x=>String(x["Tracking ID"])===String(id));
         if(row){
           row.Status = status;
@@ -299,7 +321,7 @@
         if(btn){ btn.disabled=false; btn.textContent='Save'; }
       }
     }
-    window.saveRow = saveRow;
+    window.saveRow = saveRow; // expose for onclick
 
     function render(){
       const {key, dir} = state.sort;
@@ -379,38 +401,38 @@
       const blob = new Blob([csvRows.join("\n")], {type:"text/csv;charset=utf-8"});
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "helpdesk.csv"; a.click();
     }
+
     function debounce(fn,ms){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(this,args),ms) } }
 
     /* ===== Init ===== */
     async function init(){
-      // Require token
-      if (!getTok()) { location.replace('/login'); return; }
-      state.isAdmin = (getRole()==='admin');
-      if (state.isAdmin) {
-  const b = document.getElementById('adminBtn');
-  if (b) {
-    b.style.display = 'inline-block';
-    b.addEventListener('click', () => location.href = '/admin');
-  }
-}
+      if (!getTok()) { location.href = "/login"; return; }       // quick client check
+      await verifySession();                                     // server check + set admin flag
 
       document.getElementById("toggleDark").addEventListener("click", ()=>document.body.classList.toggle("dark"));
       document.getElementById("exportCsv").addEventListener("click", exportCSV);
       document.getElementById("applyBtn").addEventListener("click", applyFilters);
       document.getElementById("resetBtn").addEventListener("click", resetFilters);
       document.getElementById("prevPage").addEventListener("click", ()=>{ if(state.page>1){ state.page--; render(); }});
-      document.getElementById("nextPage").addEventListener("click", ()=>{ const m=Math.max(1, Math.ceil(state.filtered.length/state.pageSize)); if(state.page<m){ state.page++; render(); }});
+      document.getElementById("nextPage").addEventListener("click", ()=>{ const max=Math.max(1, Math.ceil(state.filtered.length/state.pageSize)); if(state.page<max){ state.page++; render(); }});
       document.getElementById("pageSize").addEventListener("change", e=>{ state.pageSize=Math.max(5, Math.min(100, parseInt(e.target.value)||10)); state.page=1; render(); });
       document.getElementById("tzSelect").addEventListener("change", e=>{ state.tz=e.target.value; render(); });
       document.getElementById("search").addEventListener("input", debounce(applyFilters, 250));
       document.getElementById("logoutBtn").addEventListener("click", logoutNow);
+      document.getElementById("adminBtn").addEventListener("click", ()=>location.href='/admin');
 
       await fetchData();
-      state.timer = setInterval(()=>{ if(document.getElementById("autoRefresh").checked) fetchData(); }, 60000);
+      state.timer = setInterval(async ()=>{
+        // on every tick, verify token first (this makes Force-Logout immediate on next refresh)
+        try{ await verifySession(); }catch(_){ return; }
+        if(document.getElementById("autoRefresh").checked) fetchData();
+      }, 60000);
+
       setStickyHeights();
     }
     window.onload = init;
 
+    // Sorting handlers
     document.addEventListener('DOMContentLoaded', ()=>{
       document.querySelectorAll("th.sortable").forEach(th=>{
         th.addEventListener("click", ()=>{
