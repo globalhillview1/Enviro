@@ -1,10 +1,7 @@
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 .thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; }
 .table td, .table th { vertical-align: middle; }
-:root{
-  --border: #e5e7eb;
-  --card: #ffffff;
-}
+:root{ --border:#e5e7eb; --card:#ffffff; }
 
 .userpill{
   display:inline-flex; align-items:center; gap:8px;
@@ -12,3 +9,4 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   border-radius:999px; background:var(--card); font-weight:600;
 }
 .userpill svg{ width:16px; height:16px; stroke:currentColor }
+
