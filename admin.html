@@ -10,18 +10,24 @@
     body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; background:var(--bg); color:var(--text);}
     header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);background:#fff}
     a{color:var(--blue);text-decoration:none}
-    .wrap{max-width:1100px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .grid{max-width:1200px;margin:24px auto;padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .full{grid-column:1/-1}
     .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,.06)}
     h1{font-size:22px;margin:0 0 12px}
-    h2{font-size:18px;margin:0 0 8px}
     p{color:var(--muted); margin:0 0 16px}
     label{display:block; font-size:13px; color:var(--muted); margin:10px 0 6px}
     input,select{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;}
     button{padding:10px 12px; border-radius:10px; border:0; background:var(--blue); color:#fff; font-weight:700; cursor:pointer}
-    .row{display:flex; gap:10px; align-items:center; margin-top:16px}
+    .btn-danger{background:var(--danger)}
+    .row{display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap}
     .ok{margin-top:12px; color:#fff; background:var(--green); padding:8px 12px; border-radius:10px; display:none}
     .err{margin-top:12px; color:#fff; background:var(--danger); padding:8px 12px; border-radius:10px; display:none}
-    @media(max-width:900px){ .wrap{grid-template-columns:1fr} }
+    table{width:100%; border-collapse:separate; border-spacing:0}
+    th,td{padding:10px; border-top:1px solid var(--border); vertical-align:middle}
+    thead th{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);text-align:left}
+    .actions{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+    .muted{color:var(--muted)}
+    @media(max-width:1000px){ .grid{grid-template-columns:1fr} }
   </style>
 </head>
 <body>
@@ -30,11 +36,11 @@
     <nav><a href="/">← Back to Dashboard</a></nav>
   </header>
 
-  <div class="wrap">
+  <div class="grid">
     <!-- Create User -->
     <section class="card">
       <h1>Create user</h1>
-      <p>Creates a new account with a SHA-256 password hash. Fails if the username already exists.</p>
+      <p>Create a new account. Password is stored as SHA-256. Usernames are case-insensitive unique.</p>
 
       <label>Username</label>
       <input id="cu_u" type="text" placeholder="e.g. jdoe" autofocus>
@@ -80,27 +86,49 @@
       <div id="rp_ok" class="ok"></div>
       <div id="rp_err" class="err"></div>
     </section>
+
+    <!-- Users table -->
+    <section class="card full">
+      <h1>Users</h1>
+      <div class="row">
+        <input id="q" placeholder="Search username/role…" style="max-width:340px">
+        <button id="refresh">Refresh</button>
+      </div>
+      <div style="overflow:auto;max-height:60vh;margin-top:10px;border:1px solid var(--border);border-radius:12px">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Active</th>
+              <th>Created</th>
+              <th>Last login</th>
+              <th style="width:320px">Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script>
     const token = localStorage.getItem('token') || '';
     const role  = (localStorage.getItem('role') || 'user').toLowerCase();
+    const me    = localStorage.getItem('username') || '';  // ensure login stores this
     const show = (id,msg) => { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; };
     const hide = id => { const el=document.getElementById(id); el.style.display='none'; };
 
-    // Gate: must be logged in and admin
     if (!token) location.replace('/login');
     if (role !== 'admin') { alert('Admin only'); location.replace('/'); }
 
-    document.getElementById('who').textContent = '(You are admin)';
+    document.getElementById('who').textContent = `(You are admin${me? ', '+me:''})`;
 
-    async function callApi(action, payload){
+    async function callApi(action, payload, method='POST'){
       const qs = new URLSearchParams({ action, token }).toString();
-      const res = await fetch(`/api?${qs}`, {
-        method:'POST',
-        headers:{ 'content-type':'application/json', 'accept':'application/json' },
-        body: JSON.stringify(payload||{})
-      });
+      const options = { method, headers:{ 'accept':'application/json' } };
+      if(method==='POST'){ options.headers['content-type']='application/json'; options.body=JSON.stringify(payload||{}); }
+      const res = await fetch(`/api?${qs}`, options);
       return res.json();
     }
 
@@ -116,7 +144,7 @@
       try{
         const j = await callApi('createuser', { username:u, password:p, role:r, active:a });
         if(!j.ok){ show('cu_err', j.error||'Failed'); }
-        else { show('cu_ok', `User created: ${u} (${r})`); document.getElementById('cu_p').value=''; }
+        else { show('cu_ok', `User created: ${u} (${r})`); document.getElementById('cu_p').value=''; await loadUsers(); }
       }catch{ show('cu_err','Network error'); }
       finally{ btn.disabled=false; btn.textContent='Create user'; }
     });
@@ -135,6 +163,96 @@
       }catch{ show('rp_err','Network error'); }
       finally{ btn.disabled=false; btn.textContent='Reset password'; }
     });
+
+    // Users table
+    const T = document.querySelector('#tbl tbody');
+    let USERS = [];
+
+    function render(){
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      const rows = !q ? USERS : USERS.filter(u => (u.username+' '+u.role).toLowerCase().includes(q));
+      T.innerHTML = '';
+      rows.forEach(u=>{
+        const isMe = me && u.username.toLowerCase()===me.toLowerCase();
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${u.username}${isMe?' <span class="muted">(you)</span>':''}</strong></td>
+          <td>
+            <select data-user="${u.username}" class="role">
+              <option value="user" ${u.role==='user'?'selected':''}>user</option>
+              <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+            </select>
+          </td>
+          <td><input type="checkbox" class="active" data-user="${u.username}" ${u.active?'checked':''}></td>
+          <td><span class="muted">${u.created||''}</span></td>
+          <td><span class="muted">${u.lastLogin||''}</span></td>
+          <td class="actions">
+            <button class="save" data-user="${u.username}">Save</button>
+            <button class="logout" data-user="${u.username}">Force logout</button>
+            <button class="del btn-danger" data-user="${u.username}" ${isMe?'disabled title="Cannot delete your own account"':''}>Delete</button>
+          </td>
+        `;
+        T.appendChild(tr);
+      });
+    }
+
+    async function loadUsers(){
+      const j = await callApi('listusers', null, 'GET');
+      if(!j.ok){ alert(j.error||'Failed to load users'); return; }
+      // basic date formatting
+      USERS = (j.data||[]).map(u=>{
+        const fmt = v => (v && !String(v).startsWith('=') ? new Date(v) : null);
+        const f = (d)=> d? new Intl.DateTimeFormat(undefined,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(d) : '';
+        return {...u, created: f(fmt(u.created)), lastLogin: f(fmt(u.lastLogin))};
+      });
+      render();
+    }
+
+    T.addEventListener('click', async e=>{
+      const user = e.target.getAttribute('data-user');
+      if(!user) return;
+
+      if(e.target.classList.contains('save')){
+        const row = e.target.closest('tr');
+        const roleSel = row.querySelector('select.role');
+        const actChk  = row.querySelector('input.active');
+        e.target.disabled = true; e.target.textContent='Saving…';
+        try{
+          const j = await callApi('updateuser', { username:user, role: roleSel.value, active: actChk.checked });
+          if(!j.ok) alert(j.error||'Failed');
+        } finally {
+          e.target.disabled = false; e.target.textContent='Save';
+        }
+      }
+
+      if(e.target.classList.contains('logout')){
+        e.target.disabled = true; e.target.textContent='Revoking…';
+        try{
+          const j = await callApi('revokesessions', { username:user });
+          if(!j.ok) alert(j.error||'Failed');
+          else alert(`Revoked ${j.data.revoked||0} session(s) for ${user}`);
+        } finally {
+          e.target.disabled = false; e.target.textContent='Force logout';
+        }
+      }
+
+      if(e.target.classList.contains('del')){
+        if(!confirm(`Delete user "${user}"?\nThis will also revoke all active sessions.`)) return;
+        e.target.disabled = true; e.target.textContent='Deleting…';
+        try{
+          const j = await callApi('deleteuser', { username:user });
+          if(!j.ok) alert(j.error||'Failed');
+          else await loadUsers();
+        } finally {
+          e.target.disabled = false; e.target.textContent='Delete';
+        }
+      }
+    });
+
+    document.getElementById('q').addEventListener('input', render);
+    document.getElementById('refresh').addEventListener('click', loadUsers);
+
+    (async function init(){ await loadUsers(); })();
   </script>
 </body>
 </html>
