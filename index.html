@@ -378,8 +378,6 @@
       const blob = new Blob([csvRows.join("\n")], {type:"text/csv;charset=utf-8"});
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "helpdesk.csv"; a.click();
     }
-
-    <!-- in index.html toolbar, after Export CSV -->
 <button class="btn" id="adminBtn" style="display:none">Admin</button>
 <script>
   // after state.isAdmin is set in init()
