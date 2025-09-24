@@ -20,6 +20,50 @@ async function apiPost(path, body={}) {
   });
   return res.json();
 }
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]
+  ));
+}
+function userSvg(){
+  return `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle>
+      <path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path>
+    </svg>`;
+}
+async function ensureSession(){
+  // no token? bounce to login (hard redirect, avoids history ping-pong)
+  if (!token) {
+    if (location.pathname !== '/login.html') location.replace('/login.html');
+    return;
+  }
+
+  try {
+    const res = await apiGet('whoami'); // should return {ok:true, data:{username, role}}
+    if (!res.ok || !res.data) throw new Error('unauthorized');
+
+    // store for later if you want it elsewhere
+    localStorage.setItem('enviro_user', JSON.stringify(res.data));
+
+    // render the badge
+    const ub = document.getElementById('userBadge');
+    if (ub) {
+      ub.style.display = 'inline-flex';
+      ub.innerHTML = `${userSvg()}<span>${escapeHtml(res.data.username || '')}</span>`;
+    }
+
+    // If you used the "auth-pending" pattern in <head>, reveal the page now:
+    // document.documentElement.classList.remove('auth-pending');
+
+  } catch (e) {
+    // token invalid -> clear and go to login
+    localStorage.removeItem('enviro_token');
+    localStorage.removeItem('enviro_user');
+    if (location.pathname !== '/login.html') location.replace('/login.html');
+  }
+}
+
 
 function el(tag, attrs={}, ...children) {
   const e = document.createElement(tag);
@@ -31,6 +75,16 @@ function el(tag, attrs={}, ...children) {
   for (const c of children) e.append(c.nodeType ? c : document.createTextNode(c));
   return e;
 }
+
+const token = localStorage.getItem('enviro_token');
+
+if (!token) {
+  if (location.pathname !== '/login.html') location.href = '/login.html';
+} else {
+  // verify token and render username pill
+  ensureSession();
+}
+
 
 async function loadStats() {
   const res = await apiGet('stats');
