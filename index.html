@@ -229,11 +229,12 @@ const logoutNow = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     localStorage.removeItem('username');
-  } catch(_) {}
+  } catch (_) {}
 
-  // small delay so the user can see the spinner
-  setTimeout(() => { location.replace('/login'); }, 700);
+  // Give spinner time to be seen
+  setTimeout(() => location.replace('/login'), 1200);
 };
+
 
 
     /* ===== Verify session (also used by heartbeat) ===== */
