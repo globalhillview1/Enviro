@@ -386,17 +386,21 @@
       } else {
         const remarkEsc = escapeHtml(remark).replace(/"/g,'&quot;');
         return {
-          status: `
-            <select class="edit" id="st-${id}">
-              <option value="Open" ${st==="Open"?"selected":""}>Open</option>
-              <option value="InProgress" ${st==="InProgress"?"selected":""}>In Progress</option>
-              <option value="Resolved" ${st==="Resolved"?"selected":""}>Resolved</option>
-            </select>`,
-          remark: `
-            <div class="cell-flex">
-              <input class="edit" id="rm-${id}" value="${remarkEsc}" placeholder="Enter remark">
-              <button class="icon-btn" title="Save" onclick="saveRow('${id}')">${svgFloppy}</button>
-            </div>`
+status: `
+  <select class="edit" id="st-${id}"
+          onkeydown="if(event.key==='Enter'){event.preventDefault(); saveRow('${id}')}">
+    <option value="Open" ${st==="Open"?"selected":""}>Open</option>
+    <option value="InProgress" ${st==="InProgress"?"selected":""}>In Progress</option>
+    <option value="Resolved" ${st==="Resolved"?"selected":""}>Resolved</option>
+  </select>`,
+
+remark: `
+  <div class="cell-flex">
+    <input class="edit" id="rm-${id}" value="${remarkEsc}" placeholder="Enter remark"
+           onkeydown="if(event.key==='Enter'){event.preventDefault(); saveRow('${id}')}">
+    <button class="icon-btn" title="Save" onclick="saveRow('${id}')">${svgFloppy}</button>
+  </div>`
+
         };
       }
     }
