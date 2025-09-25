@@ -12,75 +12,17 @@
 
   <!-- No-paint guard -->
   <script>
-    <script>
-  // Utility: get token from localStorage
-  const getTok = () => { try { return localStorage.getItem('token'); } catch(_) { return null; } };
-
-  // Small helper to toggle a spinner on the Upload button
-  function setUploadBusy(on){
-    const btn = document.getElementById('btnPick');
-    if (!btn) return;
-    if (on){
-      btn.disabled = true;
-      btn.dataset._w = btn.offsetWidth;         // preserve width
-      btn.style.minWidth = btn.dataset._w + 'px';
-      btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Uploading…';
-    } else {
-      btn.disabled = false;
-      btn.style.minWidth = '';
-      btn.innerHTML = 'Upload to Drive';
-    }
-  }
-
-  // Click “Upload to Drive” -> open OS file picker
-  document.getElementById('btnPick').addEventListener('click', () => {
-    document.getElementById('pickFile').click();
-  });
-
-  // When a file is chosen, upload to /api?action=uploaddoc
-  document.getElementById('pickFile').addEventListener('change', async (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-
-    setUploadBusy(true);
-    try{
-      const fd = new FormData();
-      // You can pass action/token either in querystring or inside FormData; both work.
-      fd.append('file', file); // <-- name must be "file" to match e.files.file
-
-      const res = await fetch(`/api?action=uploaddoc&token=${encodeURIComponent(getTok())}`, {
-        method: 'POST',
-        body: fd
-      });
-      const json = await res.json();
-
-      if (!json.ok) throw new Error(json.error || 'Upload failed');
-
-      // Autofill your “Subject” and “URL” inputs after upload:
-      const subjectEl = document.getElementById('docSubject'); // <input id="docSubject">
-      const urlEl     = document.getElementById('docUrl');     // <input id="docUrl">
-      if (subjectEl && !subjectEl.value) subjectEl.value = json.data.name || file.name;
-      if (urlEl) urlEl.value = json.data.url;
-
-      // Optional: immediately add the entry to the “Documents” sheet:
-      //    await fetch(`/api?action=adddoc&token=${encodeURIComponent(getTok())}`, {
-      //      method: 'POST',
-      //      headers: { 'content-type': 'application/json' },
-      //      body: JSON.stringify({ subject: subjectEl.value, date: document.getElementById('docDate').value, url: json.data.url })
-      //    });
-
-      // Optional: show a toast or refresh your table here
-      // loadDocuments(); // if you have this
-    }catch(err){
-      alert('Upload error: ' + err.message);
-    }finally{
-      setUploadBusy(false);
-      e.target.value = ''; // reset the input so selecting same file again re-fires change
-    }
-  });
-</script>
-
-    (function(){ try{ if(!localStorage.getItem('token')){ document.documentElement.style.display='none'; location.replace('/login'); } }catch{ document.documentElement.style.display='none'; location.replace('/login'); }})();
+    (function(){
+      try{
+        if(!localStorage.getItem('token')){
+          document.documentElement.style.display='none';
+          location.replace('/login');
+        }
+      }catch(e){
+        document.documentElement.style.display='none';
+        location.replace('/login');
+      }
+    })();
   </script>
 
   <style>
@@ -111,12 +53,13 @@
   </style>
 </head>
 <body>
+  <!-- single hidden file input for OS picker -->
   <input id="pickFile" type="file" style="display:none" />
+
   <header>
     <div class="brand">
       <img src="/android-chrome-512x512.png" alt="logo">
       <h1 class="title">Document Repository</h1>
-      <input id="pickFile" type="file" style="display:none" />
     </div>
     <div class="toolbar">
       <span id="userBadge" class="userpill" style="display:none"></span>
@@ -128,8 +71,9 @@
   <div class="wrap">
     <div id="adminBar" class="card" style="display:none; margin-bottom:12px">
       <div class="row" style="align-items:center">
-        <button id="upBtn" class="btn primary">Upload to Drive</button>
-        <span class="muted">Uploads go to the shared Drive folder. After uploading, paste the file link below and click “Add”.</span>
+        <!-- IMPORTANT: id is btnPick (used by JS) -->
+        <button id="btnPick" class="btn primary">Upload to Drive</button>
+        <span class="muted">Uploads go to the shared Drive folder. After uploading, the file link will auto-fill below. Click “Add entry” to save it to the list.</span>
       </div>
       <div class="row" style="margin-top:8px">
         <input id="d_subject" placeholder="Subject" style="flex:2 1 260px">
@@ -161,7 +105,6 @@
       </div>
     </div>
 
-    <!-- Embedded folder (view-only for users). Adjust height if you want. -->
     <div class="card" style="margin-top:12px">
       <h3 style="margin:0 0 10px">Drive Folder</h3>
       <iframe id="driveEmbed" src="" style="width:100%;height:480px;border:0;border-radius:12px"></iframe>
@@ -171,18 +114,22 @@
 
   <script>
     const API = '/api';
-    const SHEET_ID = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';   // same spreadsheet as Directory/Notices
+    const SHEET_ID = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';
     const SHEET_TAB = 'Documents';
-    const DRIVE_FOLDER_ID = '1lFHxYeF3z73Zn75sRU0aG12tT93JGDjN'; // given by you
+    const DRIVE_FOLDER_ID = '1lFHxYeF3z73Zn75sRU0aG12tT93JGDjN';
 
     const esc = s => String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    const getTok = () => { try{ return localStorage.getItem('token'); }catch{ return null; } };
+    const getTok = () => { try { return localStorage.getItem('token'); } catch(_) { return null; } };
     const isAdmin = () => (localStorage.getItem('role') === 'admin');
 
-    (function chrome(){
+    // Header setup & embed
+    (function setupHeader(){
       const name = localStorage.getItem('username')||'';
       const ub = document.getElementById('userBadge');
-      if (name && ub){ ub.style.display='inline-flex'; ub.innerHTML = `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg><span>${esc(name)}</span>`; }
+      if (name && ub){
+        ub.style.display='inline-flex';
+        ub.innerHTML = `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg><span>${esc(name)}</span>`;
+      }
       document.getElementById('logoutBtn').addEventListener('click', ()=>{
         const btn = document.getElementById('logoutBtn');
         btn.disabled = true; btn.style.minWidth = btn.offsetWidth + 'px';
@@ -194,19 +141,73 @@
         document.getElementById('adminBar').style.display = 'block';
         document.getElementById('d_date').valueAsDate = new Date();
       }
-      // embed drive folder
       document.getElementById('driveEmbed').src = `https://drive.google.com/embeddedfolderview?id=${encodeURIComponent(DRIVE_FOLDER_ID)}#grid`;
     })();
 
-    document.getElementById('upBtn')?.addEventListener('click', ()=>{
-      // open folder in a new tab for admin to upload
-      window.open(`https://drive.google.com/drive/folders/${DRIVE_FOLDER_ID}`, '_blank', 'noopener');
+    // Upload UI helpers
+    function setUploadBusy(on){
+      const btn = document.getElementById('btnPick');
+      if (!btn) return;
+      if (on){
+        btn.disabled = true;
+        btn.dataset._w = btn.offsetWidth;
+        btn.style.minWidth = btn.dataset._w + 'px';
+        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Uploading…';
+      } else {
+        btn.disabled = false;
+        btn.style.minWidth = '';
+        btn.innerHTML = 'Upload to Drive';
+      }
+    }
+
+    // “Upload to Drive” -> open OS file picker
+    document.getElementById('btnPick').addEventListener('click', () => {
+      document.getElementById('pickFile').click();
+    });
+
+    // When a file is chosen, upload to GAS: /api?action=uploaddoc
+    document.getElementById('pickFile').addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      setUploadBusy(true);
+      try{
+        const fd = new FormData();
+        fd.append('file', file); // must be "file" to match e.files.file on server
+
+        const res = await fetch(`${API}?action=uploaddoc&token=${encodeURIComponent(getTok())}`, {
+          method: 'POST',
+          body: fd
+        });
+        const json = await res.json();
+
+        if (!json.ok) throw new Error(json.error || 'Upload failed');
+
+        // Autofill Subject/URL after upload
+        const subjectEl = document.getElementById('d_subject');
+        const urlEl     = document.getElementById('d_url');
+        if (subjectEl && !subjectEl.value) subjectEl.value = json.data.name || file.name;
+        if (urlEl) urlEl.value = json.data.url;
+
+        // Optional: immediately add to sheet
+        // const dateEl = document.getElementById('d_date');
+        // await fetch(`${API}?action=adddoc&token=${encodeURIComponent(getTok())}`, {
+        //   method: 'POST',
+        //   headers: { 'content-type': 'application/json' },
+        //   body: JSON.stringify({ subject: subjectEl.value, date: dateEl.value, url: json.data.url })
+        // });
+        // all = await fetchDocs(); render();
+      }catch(err){
+        alert('Upload error: ' + err.message);
+      }finally{
+        setUploadBusy(false);
+        e.target.value = ''; // allow re-uploading same file
+      }
     });
 
     async function fetchDocs(){
       const status = document.getElementById('status');
       status.textContent = 'Loading…';
-      // read via gviz (works without auth if sheet is published for viewing)
       const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(SHEET_ID)}/gviz/tq?sheet=${encodeURIComponent(SHEET_TAB)}&tqx=out:json`;
       const res = await fetch(url, {cache:'no-store'});
       if(!res.ok) throw new Error('HTTP '+res.status);
@@ -270,7 +271,8 @@
         const j = await res.json().catch(()=>({}));
         if(!j.ok) throw new Error(j.error || 'Failed');
         s.textContent = 'Added.';
-        document.getElementById('d_subject').value=''; document.getElementById('d_url').value='';
+        document.getElementById('d_subject').value='';
+        document.getElementById('d_url').value='';
         all = await fetchDocs(); render();
       }catch(e){ s.textContent = 'Failed to add (configure /api?action=adddoc).'; }
     });
@@ -282,4 +284,3 @@
   </script>
 </body>
 </html>
-
