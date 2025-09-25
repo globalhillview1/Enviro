@@ -34,13 +34,13 @@
 
     .wrap{padding:14px 20px}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px}
-    .grid{width:100%;border-collapse:separate;border-spacing:0}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    input, textarea{padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit}
+    textarea{min-height:140px; width:100%; resize:vertical}
+    table{width:100%;border-collapse:separate;border-spacing:0}
     thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700}
     tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
     .muted{color:var(--muted)}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    input, textarea{padding:10px 12px;border:1px solid var(--border);border-radius:10px}
-    textarea{min-height:120px}
   </style>
 </head>
 <body>
@@ -57,33 +57,34 @@
   </header>
 
   <div class="wrap">
-    <div id="compose" class="card" style="display:none; margin-bottom:12px">
+    <!-- Admin post area -->
+    <div id="adminBar" class="card" style="display:none; margin-bottom:12px">
       <h3 style="margin:0 0 10px">Post a Notice (admins only)</h3>
       <div class="row">
         <input id="n_subject" placeholder="Subject" style="flex:2 1 260px">
         <input id="n_date" type="date" style="flex:1 1 160px">
       </div>
       <div class="row" style="margin-top:8px">
-        <textarea id="n_body" placeholder="Notice text (body)" style="flex:1 1 100%"></textarea>
+        <textarea id="n_body" placeholder="Write the notice…"></textarea>
       </div>
-      <div class="row" style="margin-top:8px">
-        <button id="n_post" class="btn primary">Post Notice</button>
+      <div class="row" style="margin-top:8px; align-items:center">
+        <button id="n_add" class="btn primary">Post Notice</button>
         <span id="n_status" class="muted"></span>
       </div>
     </div>
 
+    <!-- List/search -->
     <div class="card">
       <div class="row" style="margin-bottom:8px">
         <input id="q" type="search" placeholder="Search subject/body…" style="min-width:260px">
         <span id="status" class="muted" style="margin-left:auto"></span>
       </div>
-
       <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
-        <table id="grid" class="grid">
+        <table id="grid">
           <thead><tr>
-            <th style="width:80px">Serial #</th>
+            <th style="width:90px">Serial #</th>
             <th style="width:160px">Date</th>
-            <th>Subject</th>
+            <th style="width:260px">Subject</th>
             <th>Notice</th>
           </tr></thead>
           <tbody></tbody>
@@ -94,88 +95,80 @@
 
   <script>
     const API = '/api';
-    const SHEET_ID = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';  // Same spreadsheet as Directory
-    const SHEET_TAB = 'Notices';
-
     const esc = s => String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     const getTok = () => { try{ return localStorage.getItem('token'); }catch{ return null; } };
-    const isAdmin = () => (localStorage.getItem('role') === 'admin');
 
-    // user pill + logout spinner
-    (function initChrome(){
-      const name = localStorage.getItem('username')||'';
-      const ub = document.getElementById('userBadge');
-      if (name && ub){ ub.style.display='inline-flex'; ub.innerHTML = `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg><span>${esc(name)}</span>`; }
-      document.getElementById('logoutBtn').addEventListener('click', ()=>{
-        const btn = document.getElementById('logoutBtn');
-        btn.disabled = true; btn.style.minWidth = btn.offsetWidth + 'px';
-        btn.innerHTML = '<span class="spinner"></span> Logging out…';
-        try{ localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username'); }catch{}
-        setTimeout(()=>location.replace('/login'), 600);
-      });
-      if (isAdmin()) {
-        document.getElementById('compose').style.display = 'block';
-        document.getElementById('n_date').valueAsDate = new Date();
+    function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
+
+    function setBusy(btn, on, txtIdle, txtBusy){
+      if(!btn) return;
+      if(on){
+        btn.disabled = true;
+        btn.dataset._w = btn.offsetWidth;
+        btn.style.minWidth = btn.dataset._w + 'px';
+        btn.innerHTML = `<span class="spinner" aria-hidden="true"></span> ${txtBusy}`;
+      }else{
+        btn.disabled = false;
+        btn.style.minWidth = '';
+        btn.innerHTML = txtIdle;
       }
-    })();
-
-    async function fetchNotices(){
-      const status = document.getElementById('status');
-      status.textContent = 'Loading…';
-      // read via gviz so it works even if POST API not ready
-      const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(SHEET_ID)}/gviz/tq?sheet=${encodeURIComponent(SHEET_TAB)}&tqx=out:json`;
-      const res = await fetch(url, {cache:'no-store'});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const text = await res.text();
-      const a = text.indexOf('{'), b = text.lastIndexOf('}');
-      const json = JSON.parse(text.slice(a,b+1));
-      const cols = json.table.cols.map(c => (c.label||c.id||'').trim());
-      const rows = (json.table.rows||[]).map(r => (r.c||[]).map(c => c ? c.v : ''));
-
-      const idx = {
-        serial: cols.findIndex(x=>/^serial/i.test(x)),
-        subject: cols.findIndex(x=>/^subject/i.test(x)),
-        date: cols.findIndex(x=>/^date$/i.test(x)),
-        body: cols.findIndex(x=>/^notice|^body/i.test(x)),
-      };
-
-      const data = rows.map(r => ({
-        serial: r[idx.serial] ?? '',
-        subject: r[idx.subject] ?? '',
-        date: r[idx.date] ?? '',
-        body: r[idx.body] ?? ''
-      })).filter(r => r.subject || r.body);
-
-      status.textContent = `Loaded ${data.length} notice(s)`;
-      return data;
     }
 
+    async function whoami(){
+      const r = await fetch(`${API}?action=whoami&token=${encodeURIComponent(getTok())}`, {cache:'no-store'});
+      const j = await r.json().catch(()=>({}));
+      if(!j.ok) throw new Error('unauthorized');
+      return j.data.user; // {username, role}
+    }
+
+    // state
     let all = [];
+    let isAdmin = false;
+
     function render(){
       const q = (document.getElementById('q').value||'').toLowerCase().trim();
       const tbody = document.querySelector('#grid tbody');
       tbody.innerHTML = '';
-      const filtered = all.filter(r => !q || [r.subject,r.body,r.date,String(r.serial)].some(v => String(v||'').toLowerCase().includes(q)));
+      const filtered = all.filter(r => {
+        const hay = [r.subject, r.body, r.date, String(r.serial)].map(v=>String(v||'').toLowerCase()).join(' ');
+        return !q || hay.includes(q);
+      });
       filtered.forEach(r=>{
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${esc(r.serial)}</td>
           <td>${esc(r.date)}</td>
-          <td><strong>${esc(r.subject)}</strong></td>
-          <td>${esc(r.body)}</td>`;
+          <td>${esc(r.subject)}</td>
+          <td style="white-space:pre-wrap">${esc(r.body)}</td>`;
         tbody.appendChild(tr);
       });
+      document.getElementById('status').textContent = `Loaded ${all.length} notice(s)`;
     }
 
-    document.getElementById('q').addEventListener('input', render);
-    document.getElementById('n_post').addEventListener('click', async ()=>{
-      if(!isAdmin()) return;
+    async function fetchNotices(){
+      const status = document.getElementById('status');
+      status.textContent = 'Loading…';
+      const res = await fetch(`${API}?action=notices&token=${encodeURIComponent(getTok())}`, {cache:'no-store'});
+      const j = await res.json();
+      if(!j.ok) throw new Error(j.error || 'Failed');
+      all = (j.data || []).sort((a,b)=>{
+        // Sort by date desc then serial desc
+        const ad = new Date(a.date||0).getTime(), bd = new Date(b.date||0).getTime();
+        if(ad!==bd) return bd-ad;
+        return (b.serial||0)-(a.serial||0);
+      });
+      render();
+    }
+
+    async function addNotice(){
+      const btn = document.getElementById('n_add');
+      const s = document.getElementById('n_status');
       const subject = document.getElementById('n_subject').value.trim();
       const date = document.getElementById('n_date').value;
       const body = document.getElementById('n_body').value.trim();
-      const s = document.getElementById('n_status');
-      if(!subject || !date || !body){ s.textContent = 'Fill subject, date and notice text.'; return; }
-      s.textContent = 'Posting…';
+      if(!subject || !body){ s.textContent = 'Subject and notice text are required.'; return; }
+      setBusy(btn, true, 'Post Notice', 'Posting…');
+      s.textContent = '';
       try{
         const res = await fetch(`${API}?action=addnotice&token=${encodeURIComponent(getTok())}`,{
           method:'POST', headers:{'Content-Type':'application/json'},
@@ -183,17 +176,47 @@
         });
         const j = await res.json().catch(()=>({}));
         if(!j.ok) throw new Error(j.error || 'Failed');
+        // clear inputs
+        document.getElementById('n_subject').value = '';
+        document.getElementById('n_body').value = '';
         s.textContent = 'Posted.';
-        document.getElementById('n_subject').value=''; document.getElementById('n_body').value='';
-        all = await fetchNotices(); render();
-      }catch(e){ s.textContent = 'Failed to post (configure /api?action=addnotice).'; }
-    });
+        await fetchNotices();
+      }catch(e){
+        s.textContent = 'Failed to post (configure /api?action=addnotice).';
+      }finally{
+        setBusy(btn, false, 'Post Notice', 'Posting…');
+      }
+    }
 
     (async function init(){
-      try{ all = await fetchNotices(); render(); }
-      catch(e){ document.getElementById('status').textContent = 'Failed to load (publish sheet or check ID)'; }
+      // header chrome + logout
+      const ub = document.getElementById('userBadge');
+      document.getElementById('logoutBtn').addEventListener('click', ()=>{
+        const b = document.getElementById('logoutBtn');
+        setBusy(b, true, 'Logout', 'Logging out…');
+        try{ localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username'); }catch{}
+        setTimeout(()=>location.replace('/login'), 600);
+      });
+
+      try{
+        const me = await whoami();
+        isAdmin = (me.role === 'admin');
+        try{ localStorage.setItem('role', me.role); localStorage.setItem('username', me.username); }catch{}
+        if(ub){ ub.style.display='inline-flex'; ub.innerHTML = userIcon()+`<span>${esc(me.username||'')}</span>`; }
+        if(isAdmin){
+          document.getElementById('adminBar').style.display = 'block';
+          document.getElementById('n_date').valueAsDate = new Date();
+          document.getElementById('n_add').addEventListener('click', addNotice);
+        }
+      }catch{
+        // invalid session
+        location.replace('/login');
+        return;
+      }
+
+      document.getElementById('q').addEventListener('input', render);
+      await fetchNotices();
     })();
   </script>
 </body>
 </html>
-
