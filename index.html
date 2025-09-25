@@ -97,8 +97,10 @@
       <label class="switch"><span>Auto-refresh</span><input id="autoRefresh" type="checkbox" checked><span class="muted">60s</span></label>
       <button id="toggleDark" class="btn">Dark mode</button>
 
-      <!-- NEW -->
+      <!-- NEW buttons -->
       <button class="btn" id="directoryBtn">Directory</button>
+      <button class="btn" id="noticesBtn">Notices</button>
+      <button class="btn" id="docsBtn">Documents</button>
 
       <button class="btn" id="exportCsv">Export CSV</button>
       <button class="btn" id="adminBtn" style="display:none">Admin</button>
@@ -160,7 +162,7 @@
 
   <script>
     const API = "/api";
-    const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
 
     const getTok = () => { try{ return localStorage.getItem('token'); }catch{ return null; } };
@@ -453,8 +455,10 @@
       document.getElementById("logoutBtn").addEventListener("click", logoutNow);
       document.getElementById("adminBtn").addEventListener("click", ()=>location.href='/admin');
 
-      // NEW: directory button
+      // NEW buttons
       document.getElementById("directoryBtn").addEventListener("click", ()=>location.href='/directory.html');
+      document.getElementById("noticesBtn").addEventListener("click", ()=>location.href='/notices.html');
+      document.getElementById("docsBtn").addEventListener("click", ()=>location.href='/documents.html');
 
       await fetchData();
       state.timer = setInterval(async ()=>{
