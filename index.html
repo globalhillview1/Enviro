@@ -18,7 +18,7 @@
       try {
         const t = localStorage.getItem('token');
         if (!t) { document.documentElement.style.display='none'; location.replace('/login'); }
-      } catch { document.documentElement.style.display='none'; location.replace('/login'); }
+      } catch (e) { document.documentElement.style.display='none'; location.replace('/login'); }
     })();
   </script>
 
@@ -162,10 +162,10 @@
 
   <script>
     const API = "/api";
-    const esc = s => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
+    const esc = function(s){ return String(s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); };
+    function userIcon(){ return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>'; }
 
-    const getTok = () => { try{ return localStorage.getItem('token'); }catch{ return null; } };
+    const getTok = function(){ try{ return localStorage.getItem('token'); }catch(e){ return null; } };
     let heartbeatTimer = null;
     const HEARTBEAT_MS = 5000;
 
@@ -179,48 +179,48 @@
       }
       try {
         if (heartbeatTimer) clearInterval(heartbeatTimer);
-        if (state?.timer) clearInterval(state.timer);
+        if (typeof state !== 'undefined' && state && state.timer) clearInterval(state.timer);
         localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username');
-      } catch {}
-      setTimeout(()=>location.replace('/login'), 600);
+      } catch (e) {}
+      setTimeout(function(){ location.replace('/login'); }, 600);
     };
 
     async function verifySession(){
       const t = getTok(); if(!t){ logoutNow(); throw new Error('no token'); }
-      const r = await fetch(`${API}?action=whoami&token=${encodeURIComponent(t)}`, {cache:'no-store'});
-      const j = await r.json().catch(()=>({}));
+      const r = await fetch(API + '?action=whoami&token=' + encodeURIComponent(t), {cache:'no-store'});
+      const j = await r.json().catch(function(){ return {}; });
       if(!j.ok || !j.data || !j.data.user){ logoutNow(); throw new Error('unauthorized'); }
-      try{ localStorage.setItem('role', j.data.user.role); localStorage.setItem('username', j.data.user.username); }catch{}
+      try{ localStorage.setItem('role', j.data.user.role); localStorage.setItem('username', j.data.user.username); }catch(e){}
       state.isAdmin = (j.data.user.role === 'admin');
       document.getElementById('adminBtn').style.display = state.isAdmin ? 'inline-block' : 'none';
       const ub = document.getElementById('userBadge');
-      if (ub) { ub.style.display='inline-flex'; ub.innerHTML = userIcon()+`<span>${esc(j.data.user.username||'')}</span>`; }
+      if (ub) { ub.style.display='inline-flex'; ub.innerHTML = userIcon()+'<span>'+esc(j.data.user.username||'')+'</span>'; }
     }
 
-    async function heartbeatOnce(){ try{ await verifySession(); }catch{} }
+    async function heartbeatOnce(){ try{ await verifySession(); }catch(e){} }
     function startHeartbeat(){
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       heartbeatTimer = setInterval(heartbeatOnce, HEARTBEAT_MS);
       window.addEventListener('focus', heartbeatOnce, { passive:true });
-      document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) heartbeatOnce(); }, { passive:true });
+      document.addEventListener('visibilitychange', function(){ if(!document.hidden) heartbeatOnce(); }, { passive:true });
     }
 
     const state = { all:[], filtered:[], sort:{key:"Date and Time Raised",dir:"desc"},
       page:1, pageSize:10, tz:"local", timer:null, lastFetchOk:true, isAdmin:false, editing:{} };
 
-    function parseDateSafe(s){ if(!s) return null; if(s instanceof Date) return s; if(typeof s==="number") return new Date(s); const d=new Date(String(s).includes("T")?s:String(s).replace(" ","T")); return isNaN(d)?null:d; }
-    function fmtDate(d,tzMode){ if(!d) return ""; const o={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:tzMode==="utc"?"UTC":undefined}; const s=new Intl.DateTimeFormat(undefined,o).format(d); return tzMode==="utc"?s+" UTC":s; }
-    function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
-    function msToHuman(ms){ if(ms==null||isNaN(ms)) return ""; const m=Math.floor(ms/60000); if(m<60) return `${m}m`; const h=Math.floor(m/60),rem=m%60; if(h<24) return `${h}h ${rem}m`; const days=Math.floor(h/24),rh=h%24; return `${days}d ${rh}h ${rem}m`; }
-    function renderMediaCell(url){ if(!url) return "<span class='muted'>No media</span>"; const q=s=>String(s).replace(/"/g,"&quot;"); if(/\.(jpe?g|png|gif|webp)$/i.test(url)) return `<div class="media"><img src="${q(url)}" alt="media" onclick="openLightbox('${q(url)}')"></div>`; if(/\.(mp4|webm|mov)$/i.test(url)) return `<div class="media"><video controls><source src="${q(url)}"></video></div>`; if(/\.(mp3|wav|m4a)$/i.test(url)) return `<div class="media"><audio controls src="${q(url)}"></audio></div>`; return `<a href="${q(url)}" target="_blank" rel="noopener">Open</a>`; }
+    function parseDateSafe(s){ if(!s) return null; if(s instanceof Date) return s; if(typeof s==="number") return new Date(s); var d=new Date(String(s).includes("T")?s:String(s).replace(" ","T")); return isNaN(d)?null:d; }
+    function fmtDate(d,tzMode){ if(!d) return ""; var o={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:tzMode==="utc"?"UTC":undefined}; var s=new Intl.DateTimeFormat(undefined,o).format(d); return tzMode==="utc"?s+" UTC":s; }
+    function endOfDay(d){ var x=new Date(d); x.setHours(23,59,59,999); return x; }
+    function msToHuman(ms){ if(ms==null||isNaN(ms)) return ""; var m=Math.floor(ms/60000); if(m<60) return m+"m"; var h=Math.floor(m/60),rem=m%60; if(h<24) return h+"h "+rem+"m"; var days=Math.floor(h/24),rh=h%24; return days+"d "+rh+"h "+rem+"m"; }
+    function renderMediaCell(url){ if(!url) return "<span class='muted'>No media</span>"; var q=function(s){return String(s).replace(/"/g,"&quot;")}; if(/\.(jpe?g|png|gif|webp)$/i.test(url)) return '<div class="media"><img src="'+q(url)+'" alt="media" onclick="openLightbox(\''+q(url)+'\')"></div>'; if(/\.(mp4|webm|mov)$/i.test(url)) return '<div class="media"><video controls><source src="'+q(url)+'"></video></div>'; if(/\.(mp3|wav|m4a)$/i.test(url)) return '<div class="media"><audio controls src="'+q(url)+'"></audio></div>'; return '<a href="'+q(url)+'" target="_blank" rel="noopener">Open</a>'; }
     function openLightbox(url){ document.getElementById("lightbox-img").src=url; document.getElementById("lightbox").style.display="flex"; }
-    function setStickyHeights(){ const h=document.querySelector('header'); const c=document.getElementById('controls'); if(h) document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px'); if(c) document.documentElement.style.setProperty('--controls-h',c.offsetHeight+'px'); }
+    function setStickyHeights(){ var h=document.querySelector('header'); var c=document.getElementById('controls'); if(h) document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px'); if(c) document.documentElement.style.setProperty('--controls-h',c.offsetHeight+'px'); }
     window.addEventListener('resize', setStickyHeights);
 
     async function fetchData(){
       try{
         const t = getTok();
-        const r = await fetch(`${API}?action=issues&token=${encodeURIComponent(t)}`, { cache:"no-store" });
+        const r = await fetch(API + '?action=issues&token=' + encodeURIComponent(t), { cache:"no-store" });
         const j = await r.json();
         if(!j.ok) throw new Error(j.error || 'Unauthorized');
         const data = j.data || [];
@@ -239,22 +239,22 @@
       }
     }
     function normalizeRows(rows){
-      return rows.map(r=>{
+      return rows.map(function(r){
         const raised = parseDateSafe(r["Date and Time Raised"]);
         const resolved = parseDateSafe(r["Date and Time Resolved"]);
-        let ms = null;
+        var ms = null;
         if(raised && resolved) ms = Math.max(0, resolved - raised);
         if(ms==null && r["Time Taken"]){
           const m = String(r["Time Taken"]).match(/(\d+)\s*m/);
           if(m) ms = parseInt(m[1],10)*60000;
         }
-        return { ...r, __raised: raised, __resolved: resolved, __computed_time: ms };
+        return { }.constructor.assign({}, r, { __raised: raised, __resolved: resolved, __computed_time: ms });
       });
     }
     function populateTowerFilter(data){
       const sel = document.getElementById("towerFilter");
-      const existing = new Set([...sel.options].map(o=>o.value));
-      [...new Set(data.map(d=>d.Tower).filter(Boolean))].sort().forEach(v=>{
+      const existing = new Set(Array.prototype.slice.call(sel.options).map(function(o){return o.value;}));
+      Array.from(new Set(data.map(function(d){return d.Tower;}).filter(Boolean))).sort().forEach(function(v){
         if(!existing.has(v)){ const o=document.createElement("option"); o.value=v; o.textContent=v; sel.appendChild(o); }
       });
     }
@@ -265,14 +265,14 @@
       const to = document.getElementById("toDate").value ? endOfDay(document.getElementById("toDate").value) : null;
       const q = document.getElementById("search").value.trim().toLowerCase();
 
-      state.filtered = state.all.filter(r=>{
+      state.filtered = state.all.filter(function(r){
         if(tower && r.Tower !== tower) return false;
         if(status && r.Status !== status) return false;
         if(from && r.__raised && r.__raised < from) return false;
         if(to && r.__raised && r.__raised > to) return false;
         if(q){
           const blob = [r["Tracking ID"], r["Tower"], r["Flat"], r["Issue"], r["Description"], r["Redressal Remark"], r["Status"], r["User ID"], r["Feedback Rating"]]
-            .map(x=>String(x||"").toLowerCase()).join(" ");
+            .map(function(x){return String(x||"").toLowerCase();}).join(" ");
           if(!blob.includes(q)) return false;
         }
         return true;
@@ -299,27 +299,26 @@
       const st = String(r["Status"]||"");
       const remark = r["Redressal Remark"] || "";
       if (!state.isAdmin) {
-        return { status:`<span class="badge ${st}">${esc(st)}</span>`, remark:`<div class="remark-text">${esc(remark)}</div>` };
+        return { status:'<span class="badge '+st+'">'+esc(st)+'</span>', remark:'<div class="remark-text">'+esc(remark)+'</div>' };
       }
       const editing = !!state.editing[id];
       if (!editing) {
         return {
-          status:`<span class="badge ${st}">${esc(st)}</span>`,
-          remark:`<div class="cell-flex"><div class="remark-text">${esc(remark)}</div><button class="btn small" title="Edit" onclick="enterEdit('${id}')">${svgPencil}</button></div>`
+          status:'<span class="badge '+st+'">'+esc(st)+'</span>',
+          remark:'<div class="cell-flex"><div class="remark-text">'+esc(remark)+'</div><button class="btn small" title="Edit" onclick="enterEdit(\''+id+'\')">'+svgPencil+'</button></div>'
         };
       } else {
         const rem = esc(remark).replace(/"/g,'&quot;');
         return {
-          status:`<select class="edit" id="st-${id}" onkeydown="if(event.key==='Enter'){event.preventDefault(); saveRow('${id}')}">
-              <option value="Open" ${st==="Open"?"selected":""}>Open</option>
-              <option value="InProgress" ${st==="InProgress"?"selected":""}>In Progress</option>
-              <option value="Resolved" ${st==="Resolved"?"selected":""}>Resolved</option>
-            </select>`,
-          remark:`<div class="cell-flex">
-              <input class="edit" id="rm-${id}" value="${rem}" placeholder="Enter remark"
-                     onkeydown="if(event.key==='Enter'){event.preventDefault(); saveRow('${id}')}">
-              <button class="btn small" title="Save" onclick="saveRow('${id}')">${svgFloppy}</button>
-            </div>`
+          status:'<select class="edit" id="st-'+id+'" onkeydown="if(event.key===\'Enter\'){event.preventDefault(); saveRow(\''+id+'\')}">'+
+              '<option value="Open" '+(st==="Open"?"selected":"")+'>Open</option>'+
+              '<option value="InProgress" '+(st==="InProgress"?"selected":"")+'>In Progress</option>'+
+              '<option value="Resolved" '+(st==="Resolved"?"selected":"")+'>Resolved</option>'+
+            '</select>',
+          remark:'<div class="cell-flex">'+
+              '<input class="edit" id="rm-'+id+'" value="'+rem+'" placeholder="Enter remark" onkeydown="if(event.key===\'Enter\'){event.preventDefault(); saveRow(\''+id+'\')}">'+
+              '<button class="btn small" title="Save" onclick="saveRow(\''+id+'\')">'+svgFloppy+'</button>'+
+            '</div>'
         };
       }
     }
@@ -328,22 +327,22 @@
 
     async function saveRow(id){
       if(!state.isAdmin) return;
-      const stEl = document.getElementById(`st-${id}`);
-      const rmEl = document.getElementById(`rm-${id}`);
+      const stEl = document.getElementById('st-'+id);
+      const rmEl = document.getElementById('rm-'+id);
       if(!stEl || !rmEl) return;
       const status = stEl.value;
       const remark = rmEl.value;
       try{
-        const res = await fetch(`${API}?action=updateissue&token=${encodeURIComponent(getTok())}`, {
+        const res = await fetch(API + '?action=updateissue&token=' + encodeURIComponent(getTok()), {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ trackingId:id, status, remark })
+          body: JSON.stringify({ trackingId:id, status:status, remark:remark })
         });
-        const out = await res.json().catch(()=>({}));
+        const out = await res.json().catch(function(){ return {}; });
         if(!out.ok){
           if((out.error||'').toLowerCase().includes('unauthorized')) { logoutNow(); return; }
           throw new Error(out.error || 'Save failed');
         }
-        const row = state.all.find(x=>String(x["Tracking ID"])===String(id));
+        const row = state.all.find(function(x){ return String(x["Tracking ID"])===String(id); });
         if(row){
           row.Status = status;
           row["Redressal Remark"] = remark;
@@ -357,8 +356,8 @@
     window.saveRow = saveRow;
 
     function render(){
-      const {key, dir} = state.sort;
-      const data = state.filtered.slice().sort((a,b)=>{
+      const key = state.sort.key, dir = state.sort.dir;
+      const data = state.filtered.slice().sort(function(a,b){
         const av = key==="__computed_time" ? a.__computed_time : (key==="Date and Time Raised" ? a.__raised : (key==="Date and Time Resolved" ? a.__resolved : a[key]));
         const bv = key==="__computed_time" ? b.__computed_time : (key==="Date and Time Raised" ? b.__raised : (key==="Date and Time Resolved" ? b.__resolved : b[key]));
         const aa = av==null ? "" : av, bb = bv==null ? "" : bv;
@@ -369,13 +368,13 @@
       const slice = data.slice(start, start+state.pageSize);
 
       const total = state.filtered.length;
-      const open = state.filtered.filter(x=>x.Status==="Open").length;
-      const progress = state.filtered.filter(x=>x.Status==="InProgress").length;
-      const resolvedRows = state.filtered.filter(x=>x.Status==="Resolved");
+      const open = state.filtered.filter(function(x){return x.Status==="Open";}).length;
+      const progress = state.filtered.filter(function(x){return x.Status==="InProgress";}).length;
+      const resolvedRows = state.filtered.filter(function(x){return x.Status==="Resolved";});
       const resolved = resolvedRows.length;
-      const avgMs = resolvedRows.length ? Math.round(resolvedRows.reduce((s,x)=>s+(x.__computed_time||0),0)/resolvedRows.length) : 0;
-      const ratings = resolvedRows.map(x=>parseFloat(x["Feedback Rating"])).filter(n=>!isNaN(n));
-      const avgRating = ratings.length ? (ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1) : "0";
+      const avgMs = resolvedRows.length ? Math.round(resolvedRows.reduce(function(s,x){return s+(x.__computed_time||0);},0)/resolvedRows.length) : 0;
+      const ratings = resolvedRows.map(function(x){return parseFloat(x["Feedback Rating"]);}).filter(function(n){return !isNaN(n);});
+      const avgRating = ratings.length ? (ratings.reduce(function(a,b){return a+b;},0)/ratings.length).toFixed(1) : "0";
 
       document.getElementById("kpiTotal").textContent = total;
       document.getElementById("kpiOpen").textContent = open;
@@ -386,83 +385,83 @@
 
       const tbody = document.querySelector("#grid tbody");
       tbody.innerHTML = "";
-      slice.forEach(r=>{
+      slice.forEach(function(r){
         const cells = rowEditorCells(r);
         const raisedStr = fmtDate(r.__raised, state.tz);
         const resolvedStr = fmtDate(r.__resolved, state.tz);
         const timeStr = msToHuman(r.__computed_time);
         const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><span class="muted" style="border-bottom:1px dashed var(--muted); cursor:copy" title="Click to copy" onclick="navigator.clipboard.writeText('${String(r["Tracking ID"]||"")}')">${r["Tracking ID"]||""}</span></td>
-          <td>${raisedStr}</td>
-          <td>${r["Tower"]||""}</td>
-          <td>${r["Flat"]||""}</td>
-          <td>${r["Issue"]||""}</td>
-          <td>${r["Description"]||""}</td>
-          <td>${renderMediaCell(r["Media URL"])}</td>
-          <td>${cells.status}</td>
-          <td>${cells.remark}</td>
-          <td>${r["User ID"]||""}</td>
-          <td>${resolvedStr}</td>
-          <td>${timeStr}</td>
-          <td>${r["Feedback Rating"]||""}</td>`;
+        tr.innerHTML =
+          '<td><span class="muted" style="border-bottom:1px dashed var(--muted); cursor:copy" title="Click to copy" onclick="navigator.clipboard.writeText(\''+String(r["Tracking ID"]||"")+'\')">'+(r["Tracking ID"]||"")+'</span></td>'+
+          '<td>'+raisedStr+'</td>'+
+          '<td>'+(r["Tower"]||"")+'</td>'+
+          '<td>'+(r["Flat"]||"")+'</td>'+
+          '<td>'+(r["Issue"]||"")+'</td>'+
+          '<td>'+(r["Description"]||"")+'</td>'+
+          '<td>'+renderMediaCell(r["Media URL"])+'</td>'+
+          '<td>'+cells.status+'</td>'+
+          '<td>'+cells.remark+'</td>'+
+          '<td>'+(r["User ID"]||"")+'</td>'+
+          '<td>'+resolvedStr+'</td>'+
+          '<td>'+timeStr+'</td>'+
+          '<td>'+(r["Feedback Rating"]||"")+'</td>';
         tbody.appendChild(tr);
       });
 
-      document.querySelectorAll("th.sortable").forEach(th=>{
+      Array.prototype.forEach.call(document.querySelectorAll("th.sortable"), function(th){
         th.style.textDecoration = (th.dataset.key===state.sort.key) ? "underline" : "none";
       });
 
       const maxPage = Math.max(1, Math.ceil(data.length / state.pageSize));
-      document.getElementById("pageInfo").textContent = `Page ${state.page} / ${maxPage}`;
-      document.getElementById("rowCount").textContent = `${data.length} row(s), showing ${slice.length}`;
+      document.getElementById("pageInfo").textContent = 'Page '+state.page+' / '+maxPage;
+      document.getElementById("rowCount").textContent = data.length+' row(s), showing '+slice.length;
     }
 
     function exportCSV(){
       const rows = state.filtered.length ? state.filtered : state.all;
       const hdr = ["Tracking ID","Date & Time Raised","Tower","Flat","Issue","Description","Media","Status","Redressal Remark","User ID","Date & Time Resolved","Time Taken","Feedback"];
       const csvRows = [hdr.join(",")];
-      rows.forEach(r=>{
+      rows.forEach(function(r){
         const raised = fmtDate(r.__raised, state.tz);
         const resolved = fmtDate(r.__resolved, state.tz);
         const time = msToHuman(r.__computed_time);
-        const vals = [ r["Tracking ID"]||"", raised, r["Tower"]||"", r["Flat"]||"", r["Issue"]||"", (r["Description"]||"").replace(/"/g,'""'),
-                       r["Media URL"]||"", r["Status"]||"", (r["Redressal Remark"]||"").replace(/"/g,'""'),
+        const vals = [ r["Tracking ID"]||"", raised, r["Tower"]||"", r["Flat"]||"", r["Issue"]||"", String(r["Description"]||"").replace(/"/g,'""'),
+                       r["Media URL"]||"", r["Status"]||"", String(r["Redressal Remark"]||"").replace(/"/g,'""'),
                        r["User ID"]||"", resolved, time, r["Feedback Rating"]||"" ]
-                       .map(v=>`"${String(v)}"`);
+                       .map(function(v){ return '"'+String(v)+'"'; });
         csvRows.push(vals.join(","));
       });
       const blob = new Blob([csvRows.join("\n")], {type:"text/csv;charset=utf-8"});
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "helpdesk.csv"; a.click();
     }
 
-    function debounce(fn,ms){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(this,args),ms) } }
+    function debounce(fn,ms){ var t; return function(){ var args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(null,args); },ms); } }
 
     async function init(){
       if (!getTok()) { location.href = "/login"; return; }
       await verifySession();
       startHeartbeat();
 
-      document.getElementById("toggleDark").addEventListener("click", ()=>document.body.classList.toggle("dark"));
+      document.getElementById("toggleDark").addEventListener("click", function(){ document.body.classList.toggle("dark"); });
       document.getElementById("exportCsv").addEventListener("click", exportCSV);
       document.getElementById("applyBtn").addEventListener("click", applyFilters);
       document.getElementById("resetBtn").addEventListener("click", resetFilters);
-      document.getElementById("prevPage").addEventListener("click", ()=>{ if(state.page>1){ state.page--; render(); }});
-      document.getElementById("nextPage").addEventListener("click", ()=>{ const max=Math.max(1, Math.ceil(state.filtered.length/state.pageSize)); if(state.page<max){ state.page++; render(); }});
-      document.getElementById("pageSize").addEventListener("change", e=>{ state.pageSize=Math.max(5, Math.min(100, parseInt(e.target.value)||10)); state.page=1; render(); });
-      document.getElementById("tzSelect").addEventListener("change", e=>{ state.tz=e.target.value; render(); });
+      document.getElementById("prevPage").addEventListener("click", function(){ if(state.page>1){ state.page--; render(); }});
+      document.getElementById("nextPage").addEventListener("click", function(){ const max=Math.max(1, Math.ceil(state.filtered.length/state.pageSize)); if(state.page<max){ state.page++; render(); }});
+      document.getElementById("pageSize").addEventListener("change", function(e){ state.pageSize=Math.max(5, Math.min(100, parseInt(e.target.value,10)||10)); state.page=1; render(); });
+      document.getElementById("tzSelect").addEventListener("change", function(e){ state.tz=e.target.value; render(); });
       document.getElementById("search").addEventListener("input", debounce(applyFilters, 250));
       document.getElementById("logoutBtn").addEventListener("click", logoutNow);
-      document.getElementById("adminBtn").addEventListener("click", ()=>location.href='/admin');
+      document.getElementById("adminBtn").addEventListener("click", function(){ location.href='/admin'; });
 
       // NEW buttons
-      document.getElementById("directoryBtn").addEventListener("click", ()=>location.href='/directory.html');
-      document.getElementById("noticesBtn").addEventListener("click", ()=>location.href='/notices.html');
-      document.getElementById("docsBtn").addEventListener("click", ()=>location.href='/documents.html');
+      document.getElementById("directoryBtn").addEventListener("click", function(){ location.href='/directory.html'; });
+      document.getElementById("noticesBtn").addEventListener("click", function(){ location.href='/notices.html'; });
+      document.getElementById("docsBtn").addEventListener("click", function(){ location.href='/documents.html'; });
 
       await fetchData();
-      state.timer = setInterval(async ()=>{
-        try{ await verifySession(); }catch{ return; }
+      state.timer = setInterval(async function(){
+        try { await verifySession(); } catch (e) { return; }
         if(document.getElementById("autoRefresh").checked) fetchData();
       }, 60000);
 
@@ -470,9 +469,9 @@
     }
     window.onload = init;
 
-    document.addEventListener('DOMContentLoaded', ()=>{
-      document.querySelectorAll("th.sortable").forEach(th=>{
-        th.addEventListener("click", ()=>{
+    document.addEventListener('DOMContentLoaded', function(){
+      Array.prototype.forEach.call(document.querySelectorAll("th.sortable"), function(th){
+        th.addEventListener("click", function(){
           const key = th.dataset.key;
           if(state.sort.key === key){ state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc"; }
           else { state.sort.key = key; state.sort.dir = "asc"; }
