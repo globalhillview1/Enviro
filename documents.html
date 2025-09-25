@@ -162,22 +162,68 @@ async function fetchDocs(){
 }
 
 let all=[];
+
+<script>
+  /* …keep your code above… */
+
+  // quick icon labels (you can swap for inline SVGs later)
+  const fileIcon = {
+    gdoc:  '📝 Google Doc',
+    gsheet:'📊 Google Sheet',
+    gslides:'📈 Google Slide',
+    pdf:   '📄 PDF',
+    word:  '📝 Word',
+    excel: '📊 Excel',
+    ppt:   '📈 PPT',
+    other: '📎 File'
+  };
+
+  function classifyByUrl(u){
+    if(!u) return null;
+    const s = String(u);
+    // Google-native (no file extension)
+    if (/docs\.google\.com\/document\/d\//i.test(s))   return 'gdoc';
+    if (/docs\.google\.com\/spreadsheets\/d\//i.test(s)) return 'gsheet';
+    if (/docs\.google\.com\/presentation\/d\//i.test(s)) return 'gslides';
+
+    // by extension for non-native
+    if (/\.(pdf)(\?|#|$)/i.test(s))                  return 'pdf';
+    if (/\.(docx?|odt)(\?|#|$)/i.test(s))            return 'word';
+    if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))            return 'excel';
+    if (/\.(pptx?|odp)(\?|#|$)/i.test(s))            return 'ppt';
+    if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
+    if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))          return 'video';
+    return 'other';
+  }
+
+  function mediaCellHtml(url){
+    if(!url) return '';
+    const kind = classifyByUrl(url);
+
+    if (kind === 'image')  return `<img src="${esc(url)}" class="thumb" alt="image">`;
+    if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
+
+    // icons for the rest (clickable)
+    const label = fileIcon[kind] || fileIcon.other;
+    return `<a href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`;
+  }
+  
+  
+  
 function render(){
   const q=document.getElementById('q').value.toLowerCase();
   const tbody=document.querySelector('#grid tbody'); tbody.innerHTML='';
-  all.filter(r=>!q||r.subject.toLowerCase().includes(q)).forEach(r=>{
-    let mediaCell='';
-    if(r.media){
-      if(/\.(jpg|jpeg|png|gif|webp)$/i.test(r.media)) mediaCell=`<img src="${esc(r.media)}" class="thumb">`;
-      else if(/\.(mp4|webm)$/i.test(r.media)) mediaCell=`<video src="${esc(r.media)}" class="thumb" controls></video>`;
-      else if(/\.pdf$/i.test(r.media)) mediaCell='📄 PDF';
-      else if(/\.(docx?|odt)$/i.test(r.media)) mediaCell='📝 Word';
-      else if(/\.(xlsx?|ods)$/i.test(r.media)) mediaCell='📊 Excel';
-      else if(/\.(pptx?|odp)$/i.test(r.media)) mediaCell='📈 PPT';
-      else mediaCell=`<a href="${esc(r.media)}" target="_blank">Open</a>`;
-    }
-    const linkCell = r.url ? `<a href="${esc(r.url)}" target="_blank">Open</a>` : '';
-    tbody.innerHTML += `<tr><td>${esc(r.serial)}</td><td>${esc(r.date)}</td><td>${esc(r.subject)}</td><td>${mediaCell}</td><td>${linkCell}</td></tr>`;
+  all.filter(r=>!q||String(r.subject||'').toLowerCase().includes(q)).forEach(r=>{
+    const mediaCell = mediaCellHtml(r.media);        // <— changed
+    const linkCell  = r.url ? `<a href="${esc(r.url)}" target="_blank">Open</a>` : '';
+    tbody.innerHTML += `
+      <tr>
+        <td>${esc(r.serial)}</td>
+        <td>${esc(r.date)}</td>
+        <td>${esc(r.subject)}</td>
+        <td>${mediaCell}</td>
+        <td>${linkCell}</td>
+      </tr>`;
   });
 }
 
