@@ -12,6 +12,74 @@
 
   <!-- No-paint guard -->
   <script>
+    <script>
+  // Utility: get token from localStorage
+  const getTok = () => { try { return localStorage.getItem('token'); } catch(_) { return null; } };
+
+  // Small helper to toggle a spinner on the Upload button
+  function setUploadBusy(on){
+    const btn = document.getElementById('btnPick');
+    if (!btn) return;
+    if (on){
+      btn.disabled = true;
+      btn.dataset._w = btn.offsetWidth;         // preserve width
+      btn.style.minWidth = btn.dataset._w + 'px';
+      btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Uploading…';
+    } else {
+      btn.disabled = false;
+      btn.style.minWidth = '';
+      btn.innerHTML = 'Upload to Drive';
+    }
+  }
+
+  // Click “Upload to Drive” -> open OS file picker
+  document.getElementById('btnPick').addEventListener('click', () => {
+    document.getElementById('pickFile').click();
+  });
+
+  // When a file is chosen, upload to /api?action=uploaddoc
+  document.getElementById('pickFile').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setUploadBusy(true);
+    try{
+      const fd = new FormData();
+      // You can pass action/token either in querystring or inside FormData; both work.
+      fd.append('file', file); // <-- name must be "file" to match e.files.file
+
+      const res = await fetch(`/api?action=uploaddoc&token=${encodeURIComponent(getTok())}`, {
+        method: 'POST',
+        body: fd
+      });
+      const json = await res.json();
+
+      if (!json.ok) throw new Error(json.error || 'Upload failed');
+
+      // Autofill your “Subject” and “URL” inputs after upload:
+      const subjectEl = document.getElementById('docSubject'); // <input id="docSubject">
+      const urlEl     = document.getElementById('docUrl');     // <input id="docUrl">
+      if (subjectEl && !subjectEl.value) subjectEl.value = json.data.name || file.name;
+      if (urlEl) urlEl.value = json.data.url;
+
+      // Optional: immediately add the entry to the “Documents” sheet:
+      //    await fetch(`/api?action=adddoc&token=${encodeURIComponent(getTok())}`, {
+      //      method: 'POST',
+      //      headers: { 'content-type': 'application/json' },
+      //      body: JSON.stringify({ subject: subjectEl.value, date: document.getElementById('docDate').value, url: json.data.url })
+      //    });
+
+      // Optional: show a toast or refresh your table here
+      // loadDocuments(); // if you have this
+    }catch(err){
+      alert('Upload error: ' + err.message);
+    }finally{
+      setUploadBusy(false);
+      e.target.value = ''; // reset the input so selecting same file again re-fires change
+    }
+  });
+</script>
+
     (function(){ try{ if(!localStorage.getItem('token')){ document.documentElement.style.display='none'; location.replace('/login'); } }catch{ document.documentElement.style.display='none'; location.replace('/login'); }})();
   </script>
 
@@ -43,10 +111,12 @@
   </style>
 </head>
 <body>
+  <input id="pickFile" type="file" style="display:none" />
   <header>
     <div class="brand">
       <img src="/android-chrome-512x512.png" alt="logo">
       <h1 class="title">Document Repository</h1>
+      <input id="pickFile" type="file" style="display:none" />
     </div>
     <div class="toolbar">
       <span id="userBadge" class="userpill" style="display:none"></span>
