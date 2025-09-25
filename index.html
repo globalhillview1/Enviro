@@ -78,10 +78,8 @@
     .edit{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text)}
     .cell-flex{display:flex; gap:8px; align-items:center}
     .remark-text{white-space:pre-wrap}
-    /* username pill */
     .userpill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-weight:600}
     .userpill svg{width:16px;height:16px;display:block;flex:0 0 16px}
-    /* spinner */
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
   </style>
@@ -98,6 +96,10 @@
       </label>
       <label class="switch"><span>Auto-refresh</span><input id="autoRefresh" type="checkbox" checked><span class="muted">60s</span></label>
       <button id="toggleDark" class="btn">Dark mode</button>
+
+      <!-- NEW -->
+      <button class="btn" id="directoryBtn">Directory</button>
+
       <button class="btn" id="exportCsv">Export CSV</button>
       <button class="btn" id="adminBtn" style="display:none">Admin</button>
       <span id="userBadge" class="userpill" style="display:none"></span>
@@ -159,19 +161,12 @@
   <script>
     const API = "/api";
     const esc = (s) => String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
-    function userIcon(){
-      return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;display:block">
-        <circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle>
-        <path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path>
-      </svg>`;
-    }
+    function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
 
     const getTok = () => { try{ return localStorage.getItem('token'); }catch{ return null; } };
     let heartbeatTimer = null;
     const HEARTBEAT_MS = 5000;
 
-    // Logout with spinner
     const logoutNow = () => {
       const btn = document.getElementById('logoutBtn');
       if (btn && !btn.dataset.loading){
@@ -183,30 +178,21 @@
       try {
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         if (state?.timer) clearInterval(state.timer);
-        localStorage.removeItem('token');
-        localStorage.removeItem('role');
-        localStorage.removeItem('username');
+        localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username');
       } catch {}
       setTimeout(()=>location.replace('/login'), 600);
     };
 
-    /* ===== Verify session (and render username pill) ===== */
     async function verifySession(){
       const t = getTok(); if(!t){ logoutNow(); throw new Error('no token'); }
       const r = await fetch(`${API}?action=whoami&token=${encodeURIComponent(t)}`, {cache:'no-store'});
       const j = await r.json().catch(()=>({}));
       if(!j.ok || !j.data || !j.data.user){ logoutNow(); throw new Error('unauthorized'); }
-
-      try{
-        localStorage.setItem('role', j.data.user.role);
-        localStorage.setItem('username', j.data.user.username);
-      }catch{}
-
+      try{ localStorage.setItem('role', j.data.user.role); localStorage.setItem('username', j.data.user.username); }catch{}
       state.isAdmin = (j.data.user.role === 'admin');
       document.getElementById('adminBtn').style.display = state.isAdmin ? 'inline-block' : 'none';
-
       const ub = document.getElementById('userBadge');
-      if (ub) { ub.style.display='inline-flex'; ub.innerHTML = userIcon() + `<span>${esc(j.data.user.username||'')}</span>`; }
+      if (ub) { ub.style.display='inline-flex'; ub.innerHTML = userIcon()+`<span>${esc(j.data.user.username||'')}</span>`; }
     }
 
     async function heartbeatOnce(){ try{ await verifySession(); }catch{} }
@@ -217,11 +203,9 @@
       document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) heartbeatOnce(); }, { passive:true });
     }
 
-    /* ===== State ===== */
     const state = { all:[], filtered:[], sort:{key:"Date and Time Raised",dir:"desc"},
       page:1, pageSize:10, tz:"local", timer:null, lastFetchOk:true, isAdmin:false, editing:{} };
 
-    /* ===== Utils ===== */
     function parseDateSafe(s){ if(!s) return null; if(s instanceof Date) return s; if(typeof s==="number") return new Date(s); const d=new Date(String(s).includes("T")?s:String(s).replace(" ","T")); return isNaN(d)?null:d; }
     function fmtDate(d,tzMode){ if(!d) return ""; const o={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:tzMode==="utc"?"UTC":undefined}; const s=new Intl.DateTimeFormat(undefined,o).format(d); return tzMode==="utc"?s+" UTC":s; }
     function endOfDay(d){ const x=new Date(d); x.setHours(23,59,59,999); return x; }
@@ -231,7 +215,6 @@
     function setStickyHeights(){ const h=document.querySelector('header'); const c=document.getElementById('controls'); if(h) document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px'); if(c) document.documentElement.style.setProperty('--controls-h',c.offsetHeight+'px'); }
     window.addEventListener('resize', setStickyHeights);
 
-    /* ===== Data ===== */
     async function fetchData(){
       try{
         const t = getTok();
@@ -306,7 +289,6 @@
       render();
     }
 
-    /* Icons for edit/save */
     const svgPencil = '<svg class="icon" viewBox="0 0 24 24" width="18" height="18"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm3.92 2.33H5v-1.92l8.06-8.06 1.92 1.92L6.92 19.58zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>';
     const svgFloppy = '<svg class="icon" viewBox="0 0 24 24" width="18" height="18"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4Zm-3 16H6v-6h8v6Zm2-12H6V5h10v2Z"/></svg>';
 
@@ -314,7 +296,6 @@
       const id = String(r["Tracking ID"]||"");
       const st = String(r["Status"]||"");
       const remark = r["Redressal Remark"] || "";
-
       if (!state.isAdmin) {
         return { status:`<span class="badge ${st}">${esc(st)}</span>`, remark:`<div class="remark-text">${esc(remark)}</div>` };
       }
@@ -455,7 +436,6 @@
 
     function debounce(fn,ms){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(this,args),ms) } }
 
-    /* ===== Init ===== */
     async function init(){
       if (!getTok()) { location.href = "/login"; return; }
       await verifySession();
@@ -473,6 +453,9 @@
       document.getElementById("logoutBtn").addEventListener("click", logoutNow);
       document.getElementById("adminBtn").addEventListener("click", ()=>location.href='/admin');
 
+      // NEW: directory button
+      document.getElementById("directoryBtn").addEventListener("click", ()=>location.href='/directory.html');
+
       await fetchData();
       state.timer = setInterval(async ()=>{
         try{ await verifySession(); }catch{ return; }
@@ -483,7 +466,6 @@
     }
     window.onload = init;
 
-    // Sorting
     document.addEventListener('DOMContentLoaded', ()=>{
       document.querySelectorAll("th.sortable").forEach(th=>{
         th.addEventListener("click", ()=>{
