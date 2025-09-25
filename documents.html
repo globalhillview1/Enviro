@@ -68,6 +68,7 @@
   </header>
 
   <div class="wrap">
+    <!-- Admin-only bar -->
     <div id="adminBar" class="card" style="display:none; margin-bottom:12px">
       <div class="row" style="align-items:center">
         <button id="btnPick" class="btn primary">Upload to Drive</button>
@@ -76,7 +77,7 @@
       <div class="row" style="margin-top:8px">
         <input id="d_subject" placeholder="Subject" style="flex:2 1 260px">
         <input id="d_date" type="date" style="flex:1 1 160px">
-        <input id="d_url" placeholder="Document URL (share link)" style="flex:2 1 260px">
+        <input id="d_url" placeholder="Document URL (share link or uploaded file URL)" style="flex:2 1 260px">
       </div>
       <div class="row" style="margin-top:8px">
         <button id="d_add" class="btn">Add entry</button>
@@ -105,149 +106,192 @@
     </div>
   </div>
 
-<script>
-const API = '/api';
-const SHEET_ID = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';
-const SHEET_TAB = 'Documents';
-const DRIVE_FOLDER_ID = '1lFHxYeF3z73Zn75sRU0aG12tT93JGDjN';
+  <script>
+    const API = '/api';
+    const SHEET_ID = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';
+    const SHEET_TAB = 'Documents';
+    const DRIVE_FOLDER_ID = '1lFHxYeF3z73Zn75sRU0aG12tT93JGDjN';
 
-const esc = s => String(s||'');
-const getTok = () => localStorage.getItem('token');
-const isAdmin = () => (localStorage.getItem('role') === 'admin');
+    const esc = s => String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    const getTok = () => { try { return localStorage.getItem('token'); } catch { return null; } };
+    const isAdmin = () => (localStorage.getItem('role') === 'admin');
 
-function setUploadBusy(on){
-  const btn = document.getElementById('btnPick');
-  if (on){ btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Uploading…'; }
-  else { btn.disabled = false; btn.innerHTML = 'Upload to Drive'; }
-}
-
-// File → base64 → POST to GAS
-document.getElementById('btnPick').addEventListener('click', ()=>document.getElementById('pickFile').click());
-document.getElementById('pickFile').addEventListener('change', (e)=>{
-  const f = e.target.files && e.target.files[0];
-  if(!f) return;
-  const r = new FileReader();
-  setUploadBusy(true);
-  r.onload = async ()=>{
-    try{
-      const base64 = r.result.split(',')[1];
-      const res = await fetch(`/api?action=uploaddocb64&token=${encodeURIComponent(getTok())}`, {
-        method:'POST', headers:{'content-type':'application/json'},
-        body: JSON.stringify({ name:f.name, mime:f.type||'application/octet-stream', data: base64 })
+    // header chrome (user badge + logout)
+    (function chrome(){
+      const name = localStorage.getItem('username')||'';
+      const ub = document.getElementById('userBadge');
+      if (name && ub){
+        ub.style.display='inline-flex';
+        ub.innerHTML = `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg><span>${esc(name)}</span>`;
+      }
+      document.getElementById('logoutBtn').addEventListener('click', ()=>{
+        const btn = document.getElementById('logoutBtn');
+        btn.disabled = true; btn.style.minWidth = btn.offsetWidth + 'px';
+        btn.innerHTML = '<span class="spinner"></span> Logging out…';
+        try{ localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username'); }catch{}
+        setTimeout(()=>location.replace('/login'), 600);
       });
-      const j = await res.json();
-      if(!j.ok) throw new Error(j.error||'Upload failed');
-      document.getElementById('d_subject').value ||= f.name;
-      // save file url in Media column when adding
-      document.getElementById('d_url').value = j.data.url;
-    }catch(err){ alert('Upload error: ' + err.message); }
-    finally{ setUploadBusy(false); e.target.value=''; }
-  };
-  r.readAsDataURL(f);
-});
+      if (isAdmin()){
+        document.getElementById('adminBar').style.display = 'block';
+        const d = document.getElementById('d_date');
+        if (d && !d.value) d.valueAsDate = new Date();
+      }
+    })();
 
-async function fetchDocs(){
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_TAB}&tqx=out:json`;
-  const res = await fetch(url); const txt = await res.text();
-  const a=txt.indexOf('{'), b=txt.lastIndexOf('}');
-  const json = JSON.parse(txt.slice(a,b+1));
-  const cols = json.table.cols.map(c=>(c.label||c.id||'').trim());
-  const rows = (json.table.rows||[]).map(r=>(r.c||[]).map(c=>c?c.v:''));
+    function setUploadBusy(on){
+      const btn = document.getElementById('btnPick');
+      if (!btn) return;
+      if (on){ btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Uploading…'; }
+      else { btn.disabled = false; btn.innerHTML = 'Upload to Drive'; }
+    }
 
-  const idx={serial:cols.indexOf('Serial Number'), subject:cols.indexOf('Subject'),
-             date:cols.indexOf('Date'), media:cols.indexOf('Media'), url:cols.indexOf('URL')};
-
-  return rows.map(r=>({serial:r[idx.serial],subject:r[idx.subject],date:r[idx.date],media:r[idx.media],url:r[idx.url]}))
-             .filter(r=>r.subject||r.media||r.url);
-}
-
-let all=[];
-
-<script>
-  /* …keep your code above… */
-
-  // quick icon labels (you can swap for inline SVGs later)
-  const fileIcon = {
-    gdoc:  '📝 Google Doc',
-    gsheet:'📊 Google Sheet',
-    gslides:'📈 Google Slide',
-    pdf:   '📄 PDF',
-    word:  '📝 Word',
-    excel: '📊 Excel',
-    ppt:   '📈 PPT',
-    other: '📎 File'
-  };
-
-  function classifyByUrl(u){
-    if(!u) return null;
-    const s = String(u);
-    // Google-native (no file extension)
-    if (/docs\.google\.com\/document\/d\//i.test(s))   return 'gdoc';
-    if (/docs\.google\.com\/spreadsheets\/d\//i.test(s)) return 'gsheet';
-    if (/docs\.google\.com\/presentation\/d\//i.test(s)) return 'gslides';
-
-    // by extension for non-native
-    if (/\.(pdf)(\?|#|$)/i.test(s))                  return 'pdf';
-    if (/\.(docx?|odt)(\?|#|$)/i.test(s))            return 'word';
-    if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))            return 'excel';
-    if (/\.(pptx?|odp)(\?|#|$)/i.test(s))            return 'ppt';
-    if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
-    if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))          return 'video';
-    return 'other';
-  }
-
-  function mediaCellHtml(url){
-    if(!url) return '';
-    const kind = classifyByUrl(url);
-
-    if (kind === 'image')  return `<img src="${esc(url)}" class="thumb" alt="image">`;
-    if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
-
-    // icons for the rest (clickable)
-    const label = fileIcon[kind] || fileIcon.other;
-    return `<a href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`;
-  }
-  
-  
-  
-function render(){
-  const q=document.getElementById('q').value.toLowerCase();
-  const tbody=document.querySelector('#grid tbody'); tbody.innerHTML='';
-  all.filter(r=>!q||String(r.subject||'').toLowerCase().includes(q)).forEach(r=>{
-    const mediaCell = mediaCellHtml(r.media);        // <— changed
-    const linkCell  = r.url ? `<a href="${esc(r.url)}" target="_blank">Open</a>` : '';
-    tbody.innerHTML += `
-      <tr>
-        <td>${esc(r.serial)}</td>
-        <td>${esc(r.date)}</td>
-        <td>${esc(r.subject)}</td>
-        <td>${mediaCell}</td>
-        <td>${linkCell}</td>
-      </tr>`;
-  });
-}
-
-document.getElementById('d_add')?.addEventListener('click', async()=>{
-  if(!isAdmin()) return;
-  const subject=document.getElementById('d_subject').value.trim();
-  const date=document.getElementById('d_date').value;
-  const media=document.getElementById('d_url').value.trim(); // treat as media if from upload
-  const s=document.getElementById('d_status');
-  if(!subject||!date||( !media )){ s.textContent='Fill subject, date and media/url.'; return; }
-  s.textContent='Adding…';
-  try{
-    const res=await fetch(`${API}?action=adddoc&token=${encodeURIComponent(getTok())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({subject,date,media})
+    // Upload: file -> base64 -> POST to GAS
+    document.getElementById('btnPick')?.addEventListener('click', ()=>document.getElementById('pickFile').click());
+    document.getElementById('pickFile')?.addEventListener('change', (e)=>{
+      const f = e.target.files && e.target.files[0];
+      if(!f) return;
+      const r = new FileReader();
+      setUploadBusy(true);
+      r.onload = async ()=>{
+        try{
+          const base64 = String(r.result||'').split(',')[1];
+          const res = await fetch(`/api?action=uploaddocb64&token=${encodeURIComponent(getTok())}`, {
+            method:'POST', headers:{'content-type':'application/json'},
+            body: JSON.stringify({ name:f.name, mime:f.type||'application/octet-stream', data: base64 })
+          });
+          const j = await res.json();
+          if(!j.ok) throw new Error(j.error||'Upload failed');
+          // Fill subject if empty and place the Drive link into URL box (we treat it as "media" on save)
+          const subj = document.getElementById('d_subject');
+          const url  = document.getElementById('d_url');
+          if (subj && !subj.value) subj.value = j.data.name || f.name;
+          if (url) url.value = j.data.url;
+        }catch(err){ alert('Upload error: ' + err.message); }
+        finally{ setUploadBusy(false); e.target.value=''; }
+      };
+      r.readAsDataURL(f);
     });
-    const j=await res.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    s.textContent='Added.'; document.getElementById('d_subject').value='';document.getElementById('d_url').value='';
-    all=await fetchDocs(); render();
-  }catch(e){ s.textContent='Failed to add.'; }
-});
 
-(async function init(){ all=await fetchDocs(); render(); })();
-document.getElementById('q').addEventListener('input', render);
-</script>
+    // Fetch Documents via gviz (works if sheet is viewable)
+    async function fetchDocs(){
+      const status = document.getElementById('status');
+      status.textContent = 'Loading…';
+      const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(SHEET_ID)}/gviz/tq?sheet=${encodeURIComponent(SHEET_TAB)}&tqx=out:json`;
+      const res = await fetch(url, {cache:'no-store'});
+      const txt = await res.text();
+      const a = txt.indexOf('{'), b = txt.lastIndexOf('}');
+      const json = JSON.parse(txt.slice(a,b+1));
+
+      const cols = json.table.cols.map(c => (c.label||c.id||'').trim());
+      const rows = (json.table.rows||[]).map(r => (r.c||[]).map(c => c ? c.v : ''));
+
+      // Accept either "URL" or "Link" as the link header
+      const idx = {
+        serial:  cols.findIndex(x => /^serial/i.test(x)),
+        subject: cols.findIndex(x => /^subject/i.test(x)),
+        date:    cols.findIndex(x => /^date$/i.test(x)),
+        media:   cols.findIndex(x => /^media$/i.test(x)),
+        url:     cols.findIndex(x => /^(url|link)$/i.test(x)),
+      };
+
+      const data = rows.map(r => ({
+        serial:  r[idx.serial] ?? '',
+        subject: r[idx.subject] ?? '',
+        date:    r[idx.date] ?? '',
+        media:   r[idx.media] ?? '',
+        url:     r[idx.url] ?? ''
+      })).filter(r => r.subject || r.media || r.url);
+
+      status.textContent = `Loaded ${data.length} document(s)`;
+      return data;
+    }
+
+    // Icon/thumbnail helpers
+    const fileIcon = {
+      gdoc:  '📝 Google Doc',
+      gsheet:'📊 Google Sheet',
+      gslides:'📈 Google Slide',
+      pdf:   '📄 PDF',
+      word:  '📝 Word',
+      excel: '📊 Excel',
+      ppt:   '📈 PPT',
+      other: '📎 File'
+    };
+
+    function classifyByUrl(u){
+      if(!u) return null;
+      const s = String(u);
+      if (/docs\.google\.com\/document\/d\//i.test(s))    return 'gdoc';
+      if (/docs\.google\.com\/spreadsheets\/d\//i.test(s))return 'gsheet';
+      if (/docs\.google\.com\/presentation\/d\//i.test(s))return 'gslides';
+
+      if (/\.(pdf)(\?|#|$)/i.test(s))                   return 'pdf';
+      if (/\.(docx?|odt)(\?|#|$)/i.test(s))             return 'word';
+      if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))             return 'excel';
+      if (/\.(pptx?|odp)(\?|#|$)/i.test(s))             return 'ppt';
+      if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s))  return 'image';
+      if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))           return 'video';
+      return 'other';
+    }
+
+    function mediaCellHtml(url){
+      if(!url) return '';
+      const kind = classifyByUrl(url);
+      if (kind === 'image')  return `<img src="${esc(url)}" class="thumb" alt="image">`;
+      if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
+      const label = fileIcon[kind] || fileIcon.other;
+      return `<a href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`;
+    }
+
+    let all = [];
+
+    function render(){
+      const q = (document.getElementById('q').value||'').toLowerCase().trim();
+      const tbody = document.querySelector('#grid tbody'); tbody.innerHTML='';
+      const filtered = all.filter(r => !q || [r.subject, r.date, String(r.serial)].some(v => String(v||'').toLowerCase().includes(q)));
+      filtered.forEach(r=>{
+        const mediaCell = mediaCellHtml(r.media);
+        const linkCell  = r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">Open</a>` : '';
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td>${esc(r.serial)}</td>
+            <td>${esc(r.date)}</td>
+            <td>${esc(r.subject)}</td>
+            <td>${mediaCell}</td>
+            <td>${linkCell}</td>
+          </tr>`);
+      });
+    }
+
+    document.getElementById('q').addEventListener('input', render);
+
+    // Add entry (admin only): we store the uploaded file URL into the "Media" column
+    document.getElementById('d_add')?.addEventListener('click', async()=>{
+      if(!isAdmin()) return;
+      const subject = document.getElementById('d_subject').value.trim();
+      const date    = document.getElementById('d_date').value;
+      const media   = document.getElementById('d_url').value.trim(); // treat as Media (uploaded file link)
+      const s       = document.getElementById('d_status');
+      if(!subject || !date || !media){ s.textContent='Fill subject, date and media/url.'; return; }
+      s.textContent='Adding…';
+      try{
+        const res = await fetch(`${API}?action=adddoc&token=${encodeURIComponent(getTok())}`,{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ subject, date, media })
+        });
+        const j = await res.json(); if(!j.ok) throw new Error(j.error||'Failed');
+        s.textContent = 'Added.';
+        document.getElementById('d_subject').value='';
+        document.getElementById('d_url').value='';
+        all = await fetchDocs(); render();
+      }catch(e){ s.textContent = 'Failed to add.'; }
+    });
+
+    // Init
+    (async function init(){
+      try{ all = await fetchDocs(); render(); }
+      catch(e){ document.getElementById('status').textContent = 'Failed to load (publish sheet or check ID)'; }
+    })();
+  </script>
 </body>
 </html>
