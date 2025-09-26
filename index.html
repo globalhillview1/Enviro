@@ -1,372 +1,484 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Helpdesk – Issues</title>
+  <!-- Favicons -->
+  <link rel="alternate icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+
+  <meta charset="UTF-8" />
+  <title>Global Hillview, Enviro Helpdesk Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- No-paint guard if no token -->
+  <script>
+    (function () {
+      try {
+        const t = localStorage.getItem('token');
+        if (!t) { document.documentElement.style.display='none'; location.replace('/login'); }
+      } catch (e) { document.documentElement.style.display='none'; location.replace('/login'); }
+    })();
+  </script>
+
   <style>
     :root{
-      --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --hover:#f1f5f9;
-      --blue:#0d6efd; --danger:#ef4444; --ok:#16a34a; --warn:#f59e0b;
+      --bg:#f7f9fc; --card:#ffffff; --muted:#6b7280; --text:#0f172a;
+      --blue:#0d6efd; --green:#22c55e; --amber:#f59e0b; --violet:#7c3aed; --cyan:#06b6d4; --gray:#374151; --danger:#ef4444;
+      --border:#e5e7eb; --hover:#f1f5f9; --header-h:72px; --controls-h:0px;
     }
+    .dark{ --bg:#0b1220; --card:#121a2a; --muted:#9aa4b2; --text:#e5e7eb; --border:#1f2937; --hover:#0f172a; }
     *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;background:var(--bg);color:var(--text)}
-    header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; margin:0; color:var(--text); background:var(--bg)}
+    header{position:sticky;top:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;background:var(--bg);border-bottom:1px solid var(--border)}
     .brand{display:flex;align-items:center;gap:10px}
-    .brand img{height:28px;width:28px;border-radius:6px;object-fit:cover}
-    .title{font-weight:800;font-size:18px;margin:0}
-    .btn{appearance:none;border:1px solid var(--border);background:var(--card);padding:8px 10px;border-radius:10px;cursor:pointer}
+    .brand img{height:32px;width:32px;border-radius:6px}
+    header h1{font-size:20px;margin:0;font-weight:700}
+    .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+    .switch{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+    .btn{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 10px;border-radius:10px;cursor:pointer}
     .btn:hover{background:var(--hover)}
     .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
     .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
-    .wrap{padding:14px 16px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px}
-    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-    input,select{padding:8px 10px;border:1px solid var(--border);border-radius:8px}
+    .btn.small{padding:4px 8px;font-size:12px}
+    .sticky-controls{position:sticky;top:var(--header-h);z-index:900;background:var(--bg);padding:8px 20px 12px;box-shadow:0 2px 0 rgba(0,0,0,.04)}
+    .kpis{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:12px;margin:8px 0 14px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px}
+    .card .label{font-size:12px;color:var(--muted);text-transform:uppercase}
+    .card .value{font-size:20px;font-weight:800;margin-top:6px}
+    .card.total{border-left:6px solid var(--green)}
+    .card.open{border-left:6px solid var(--gray)}
+    .card.progress{border-left:6px solid var(--amber)}
+    .card.resolved{border-left:6px solid var(--blue)}
+    .card.avgtime{border-left:6px solid var(--cyan)}
+    .card.avgrating{border-left:6px solid var(--violet)}
+    .filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .tablewrap{margin:12px 20px;height:calc(100vh - var(--header-h) - var(--controls-h) - 24px);overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:16px}
     table{width:100%;border-collapse:separate;border-spacing:0}
-    thead th{position:sticky;top:90px;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700;white-space:nowrap}
-    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
-    th.sort{cursor:pointer;user-select:none}
-    th.sort:after{content:" ⇵";color:#94a3b8;font-weight:400}
-    th.sort.asc:after{content:" ↑";}
-    th.sort.desc:after{content:" ↓";}
-    thead tr.filters th{background:#f8fafc;position:sticky;top:122px;z-index:1}
-    thead tr.filters input, thead tr.filters select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:8px}
+    thead th{position:sticky;top:0;z-index:1;background:var(--card);border-bottom:1px solid var(--border);font-weight:700;font-size:13px;text-align:left;padding:10px}
+    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top;font-size:14px}
+    tr:hover td{background:var(--hover)}
+    .sortable{cursor:pointer}
+    .sortable:after{content:" ⇅";color:var(--muted);font-weight:400;font-size:12px}
     .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:700;font-size:12px}
-    .b-open{color:#111;background:#e2e8f0}
-    .b-inprog{color:#111;background:#fde68a}
-    .b-res{color:#fff;background:#16a34a}
-    .thumb{width:58px;height:44px;object-fit:cover;border-radius:5px;border:1px solid #e5e7eb;background:#f8fafc}
-    .fileicon{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:6px;color:#334155;background:#f8fafc;font-size:12px}
-    .fileicon svg{width:14px;height:14px}
-    .row{display:flex;align-items:center;gap:8px}
-    .muted{color:var(--muted)}
-    .pager{display:flex;gap:8px;align-items:center;margin-top:10px}
-    .pager .btn{padding:6px 10px}
-    .editgrp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-    .remark{min-width:220px;max-width:420px}
+    .Open{background:#111827;color:#fff}
+    .InProgress{background:#f59e0b;color:#111}
+    .Resolved{background:#0d6efd;color:#fff}
+    .media img{width:64px;height:auto;border-radius:8px;cursor:pointer}
+    .media video,.media audio{width:140px;height:auto}
+    .pagination{display:flex;align-items:center;gap:8px;padding:10px}
+    .spacer{flex:1}
+    .muted{color:var(--muted);font-size:12px}
+    #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center}
+    #lightbox img{max-width:92vw;max-height:92vh;border-radius:12px}
+    .banner{display:none;padding:10px 12px;margin:10px 20px;border-radius:12px;border:1px solid var(--border)}
+    .banner.error{display:block;background:#fee2e2;color:#7f1d1d;border-color:#fecaca}
+    .banner.info{display:block;background:#e0f2fe;color:#0c4a6e;border-color:#bae6fd}
+    .edit{width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text)}
+    .cell-flex{display:flex; gap:8px; align-items:center}
+    .remark-text{white-space:pre-wrap}
+    .userpill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-weight:600}
+    .userpill svg{width:16px;height:16px;display:block;flex:0 0 16px}
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
   </style>
 </head>
 <body>
-<header>
-  <div class="brand">
-    <img src="/android-chrome-512x512.png" onerror="this.src='logo.png'" alt="logo">
-    <h1 class="title">Helpdesk – Issues</h1>
-  </div>
-  <div class="row">
-    <button class="btn" onclick="location.href='/documents'">Documents</button>
-    <button class="btn" onclick="location.href='/notices'">Notices</button>
-    <button class="btn danger" onclick="logout()">Logout</button>
-  </div>
-</header>
-
-<div class="wrap">
-  <div class="card">
-    <!-- top bar -->
+  <header>
+    <div class="brand">
+      <img src="/android-chrome-512x512.png" alt="Global Hillview logo">
+      <h1>Global Hillview, Enviro Helpdesk Dashboard</h1>
+    </div>
     <div class="toolbar">
-      <input id="q" placeholder="Quick search…">
-      <span class="muted" id="meta"></span>
-      <span style="margin-left:auto" class="muted" id="status"></span>
-    </div>
+      <label class="switch"><span>Timezone:</span>
+        <select id="tzSelect"><option value="local">Local</option><option value="utc">UTC</option></select>
+      </label>
+      <label class="switch"><span>Auto-refresh</span><input id="autoRefresh" type="checkbox" checked><span class="muted">60s</span></label>
+      <button id="toggleDark" class="btn">Dark mode</button>
 
-    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
-      <table id="grid">
-        <thead id="thead">
-          <tr>
-            <th class="sort" data-k="Tracking ID">Tracking ID</th>
-            <th class="sort" data-k="Date & Time Raised">Date & Time Raised</th>
-            <th class="sort" data-k="Tower">Tower</th>
-            <th class="sort" data-k="Flat">Flat</th>
-            <th class="sort" data-k="Issue">Issue</th>
-            <th class="sort" data-k="Description">Description</th>
-            <th class="sort" data-k="Media">Media</th>
-            <th class="sort" data-k="Status">Status</th>
-            <th class="sort" data-k="Redressal Remark">Redressal Remark</th>
-            <th class="sort" data-k="User ID">User ID</th>
-            <th class="sort" data-k="Date & Time Resolved">Date & Time Resolved</th>
-            <th class="sort" data-k="Time Taken">Time Taken</th>
-            <th class="sort" data-k="Feedback">Feedback</th>
-            <th>Actions</th>
-          </tr>
-          <!-- per-column filters -->
-          <tr class="filters">
-            <th><input id="f_tracking" placeholder="#"></th>
-            <th><input id="f_raised" placeholder="dd-mm-yyyy"></th>
-            <th><input id="f_tower" placeholder="tower…"></th>
-            <th><input id="f_flat" placeholder="flat…"></th>
-            <th><input id="f_issue" placeholder="contains…"></th>
-            <th><input id="f_desc" placeholder="contains…"></th>
-            <th><input id="f_media" placeholder="contains…"></th>
-            <th>
-              <select id="f_status">
-                <option value="">Any</option>
-                <option>Open</option>
-                <option>InProgress</option>
-                <option>Resolved</option>
-              </select>
-            </th>
-            <th><input id="f_remark" placeholder="contains…"></th>
-            <th><input id="f_user" placeholder="id…"></th>
-            <th><input id="f_resolved" placeholder="dd-mm-yyyy"></th>
-            <th><input id="f_taken" placeholder="e.g. 1h 20m"></th>
-            <th><input id="f_feedback" placeholder="★"></th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+      <!-- NEW buttons -->
+      <button class="btn" id="directoryBtn">Directory</button>
+      <button class="btn" id="noticesBtn">Notices</button>
+      <button class="btn" id="docsBtn">Documents</button>
 
-    <div class="pager">
-      <button id="prevBtn" class="btn">Prev</button>
-      <span class="muted" id="pageInfo">Page 1 / 1</span>
-      <button id="nextBtn" class="btn">Next</button>
+      <button class="btn" id="exportCsv">Export CSV</button>
+      <button class="btn" id="adminBtn" style="display:none">Admin</button>
+      <span id="userBadge" class="userpill" style="display:none"></span>
+      <button class="btn danger" id="logoutBtn">Logout</button>
+    </div>
+  </header>
+
+  <div id="controls" class="sticky-controls">
+    <section class="kpis">
+      <div class="card total"><div class="label">Total</div><div id="kpiTotal" class="value">0</div></div>
+      <div class="card open"><div class="label">Open</div><div id="kpiOpen" class="value">0</div></div>
+      <div class="card progress"><div class="label">In Progress</div><div id="kpiProgress" class="value">0</div></div>
+      <div class="card resolved"><div class="label">Resolved</div><div id="kpiResolved" class="value">0</div></div>
+      <div class="card avgtime"><div class="label">Avg Resolution</div><div id="kpiAvgTime" class="value">0m</div></div>
+      <div class="card avgrating"><div class="label">Avg Rating</div><div id="kpiAvgRating" class="value">0</div></div>
+    </section>
+    <section class="filters">
+      <select id="towerFilter"><option value="">All Towers</option></select>
+      <select id="statusFilter"><option value="">All Status</option><option value="Open">Open</option><option value="InProgress">In Progress</option><option value="Resolved">Resolved</option></select>
+      <input type="date" id="fromDate"><input type="date" id="toDate">
+      <input type="text" id="search" placeholder="Search (ID, flat, issue, remark, user...)" style="min-width:260px">
+      <label class="switch"><span>Rows</span><input id="pageSize" type="number" value="10" min="5" max="100" style="width:80px"></label>
+      <button id="applyBtn" class="btn primary">Apply</button><button id="resetBtn" class="btn">Reset</button>
+    </section>
+  </div>
+
+  <div id="netError" class="banner error" style="display:none">Network error while fetching data.</div>
+  <div id="infoMsg" class="banner info" style="display:none">Showing cached data.</div>
+
+  <div class="tablewrap">
+    <table id="grid">
+      <thead>
+        <tr>
+          <th class="sortable" data-key="Tracking ID">Tracking ID</th>
+          <th class="sortable" data-key="Date and Time Raised">Date & Time Raised</th>
+          <th class="sortable" data-key="Tower">Tower</th>
+          <th class="sortable" data-key="Flat">Flat</th>
+          <th class="sortable" data-key="Issue">Issue</th>
+          <th class="sortable" data-key="Description">Description</th>
+          <th>Media</th>
+          <th class="sortable" data-key="Status">Status</th>
+          <th class="sortable" data-key="Redressal Remark">Redressal Remark</th>
+          <th class="sortable" data-key="User ID">User ID</th>
+          <th class="sortable" data-key="Date and Time Resolved">Date & Time Resolved</th>
+          <th class="sortable" data-key="__computed_time">Time Taken</th>
+          <th class="sortable" data-key="Feedback Rating">Feedback</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="pagination">
+      <button class="btn" id="prevPage">Prev</button><span id="pageInfo" class="muted">Page 1 / 1</span><button class="btn" id="nextPage">Next</button>
+      <div class="spacer"></div><span id="rowCount" class="muted"></span>
     </div>
   </div>
-</div>
 
-<script>
-const API = '/api';
-const IST = 'Asia/Kolkata';
-const PAGE_SIZE = 10;
+  <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" src="" alt="preview"></div>
 
-function logout(){ try{ localStorage.clear(); }catch{} location.replace('/login'); }
-function token(){ try{ return localStorage.getItem('token'); }catch{ return null; } }
-const esc = s => String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  <script>
+    const API = "/api";
+    const esc = function(s){ return String(s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); };
+    function userIcon(){ return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>'; }
 
-function fmtDateTimeIST(d){
-  if(!d) return '';
-  // Handle ISO or Apps Script date serial / Date string
-  const dt = new Date(d);
-  if(isNaN(dt)) return esc(d);
-  const p = new Intl.DateTimeFormat('en-GB',{timeZone:IST,day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).formatToParts(dt);
-  const get=k=>p.find(x=>x.type===k)?.value||'';
-  return `${get('day')}-${get('month')}-${get('year')}, ${get('hour')}:${get('minute')}`;
-}
-function fmtDateIST(d){
-  if(!d) return '';
-  const dt = new Date(d);
-  if(isNaN(dt)) return esc(d);
-  const p = new Intl.DateTimeFormat('en-GB',{timeZone:IST,day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(dt);
-  const get=k=>p.find(x=>x.type===k)?.value||'';
-  return `${get('day')}-${get('month')}-${get('year')}`;
-}
+    const getTok = function(){ try{ return localStorage.getItem('token'); }catch(e){ return null; } };
+    let heartbeatTimer = null;
+    const HEARTBEAT_MS = 5000;
 
-function gdriveId(url){
-  if(!url) return null;
-  const m=/\/d\/([a-zA-Z0-9_-]{10,})\//.exec(url)||/id=([a-zA-Z0-9_-]{10,})/.exec(url);
-  return m?m[1]:null;
-}
-function driveThumb(url){
-  const id=gdriveId(url);
-  return id?`https://drive.google.com/thumbnail?authuser=0&sz=w200&id=${id}`:null;
-}
-function icon(name,label){
-  const svg={
-    pdf:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">PDF</text></svg>',
-    doc:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">DOC</text></svg>',
-    xls:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">XLS</text></svg>',
-    ppt:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">PPT</text></svg>',
-    csv:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">CSV</text></svg>',
-    zip:'<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor"/><path d="M12 4v14" stroke="currentColor" /><path d="M10 6h4M10 8h4M10 10h4" stroke="currentColor"/></svg>'
-  }[name]||'';
-  return `<span class="fileicon" title="${esc(label||name)}">${svg}<span>${esc(label||name)}</span></span>`;
-}
-function mediaCell(url){
-  if(!url) return '';
-  const lower=url.toLowerCase();
-  const img = (/\.(png|jpg|jpeg|gif|webp)$/i.test(lower) || driveThumb(url));
-  if(img){
-    const src=/\.(png|jpg|jpeg|gif|webp)$/i.test(lower)?url:driveThumb(url);
-    return `<a href="${esc(url)}" target="_blank"><img class="thumb" src="${esc(src)}" loading="lazy" alt="media"></a>`;
-  }
-  if(/\.pdf($|\?)/i.test(lower))  return `<a href="${esc(url)}" target="_blank">${icon('pdf','PDF')}</a>`;
-  if(/\.(doc|docx)($|\?)/i.test(lower)) return `<a href="${esc(url)}" target="_blank">${icon('doc','DOC')}</a>`;
-  if(/\.(xls|xlsx)($|\?)/i.test(lower)) return `<a href="${esc(url)}" target="_blank">${icon('xls','XLS')}</a>`;
-  if(/\.(ppt|pptx)($|\?)/i.test(lower)) return `<a href="${esc(url)}" target="_blank">${icon('ppt','PPT')}</a>`;
-  if(/\.csv($|\?)/i.test(lower))  return `<a href="${esc(url)}" target="_blank">${icon('csv','CSV')}</a>`;
-  if(/\.zip($|\?)/i.test(lower))  return `<a href="${esc(url)}" target="_blank">${icon('zip','ZIP')}</a>`;
-  return `<a href="${esc(url)}" target="_blank">open</a>`;
-}
+    const logoutNow = () => {
+      const btn = document.getElementById('logoutBtn');
+      if (btn && !btn.dataset.loading){
+        btn.dataset.loading = '1';
+        btn.disabled = true;
+        btn.style.minWidth = btn.offsetWidth + 'px';
+        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Logging out…';
+      }
+      try {
+        if (heartbeatTimer) clearInterval(heartbeatTimer);
+        if (typeof state !== 'undefined' && state && state.timer) clearInterval(state.timer);
+        localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username');
+      } catch (e) {}
+      setTimeout(function(){ location.replace('/login'); }, 600);
+    };
 
-let all = [];          // raw data from API
-let rows = [];         // filtered + sorted
-let sortKey = 'Date & Time Raised';
-let sortDir = 'desc';
-let page = 1;
-
-function badgeStatus(s){
-  const v=String(s||'').replace(/\s+/g,'').toLowerCase();
-  if(v==='open') return `<span class="badge b-open">Open</span>`;
-  if(v==='inprogress') return `<span class="badge b-inprog">InProgress</span>`;
-  if(v==='resolved') return `<span class="badge b-res">Resolved</span>`;
-  return esc(s||'');
-}
-
-// FILTERS
-function readFilters(){
-  return {
-    quick:(document.getElementById('q').value||'').toLowerCase(),
-    tracking:(document.getElementById('f_tracking').value||'').toLowerCase(),
-    raised:(document.getElementById('f_raised').value||''),
-    tower:(document.getElementById('f_tower').value||'').toLowerCase(),
-    flat:(document.getElementById('f_flat').value||'').toLowerCase(),
-    issue:(document.getElementById('f_issue').value||'').toLowerCase(),
-    desc:(document.getElementById('f_desc').value||'').toLowerCase(),
-    media:(document.getElementById('f_media').value||'').toLowerCase(),
-    status:(document.getElementById('f_status').value||''),
-    remark:(document.getElementById('f_remark').value||'').toLowerCase(),
-    user:(document.getElementById('f_user').value||'').toLowerCase(),
-    resolved:(document.getElementById('f_resolved').value||''),
-    taken:(document.getElementById('f_taken').value||'').toLowerCase(),
-    feedback:(document.getElementById('f_feedback').value||'').toLowerCase()
-  };
-}
-
-function apply(){
-  const f=readFilters();
-  const hayOf = r => ([
-    r['Tracking ID'], r['Date & Time Raised'], r['Tower'], r['Flat'],
-    r['Issue'], r['Description'], r['Media'], r['Status'], r['Redressal Remark'],
-    r['User ID'], r['Date & Time Resolved'], r['Time Taken'], r['Feedback']
-  ].map(v=>String(v||'').toLowerCase()).join(' '));
-
-  rows = all.filter(r=>{
-    if(f.quick && hayOf(r).indexOf(f.quick)===-1) return false;
-    if(f.tracking && String(r['Tracking ID']).toLowerCase().indexOf(f.tracking)===-1) return false;
-    if(f.raised && String(fmtDateIST(r['Date & Time Raised'])).indexOf(f.raised)===-1) return false;
-    if(f.tower && String(r['Tower']||'').toLowerCase().indexOf(f.tower)===-1) return false;
-    if(f.flat && String(r['Flat']||'').toLowerCase().indexOf(f.flat)===-1) return false;
-    if(f.issue && String(r['Issue']||'').toLowerCase().indexOf(f.issue)===-1) return false;
-    if(f.desc && String(r['Description']||'').toLowerCase().indexOf(f.desc)===-1) return false;
-    if(f.media && String(r['Media']||'').toLowerCase().indexOf(f.media)===-1) return false;
-    if(f.status && String(r['Status']||'').replace(/\s+/g,'').toLowerCase()!==f.status.toLowerCase().replace(/\s+/g,'')) return false;
-    if(f.remark && String(r['Redressal Remark']||'').toLowerCase().indexOf(f.remark)===-1) return false;
-    if(f.user && String(r['User ID']||'').toLowerCase().indexOf(f.user)===-1) return false;
-    if(f.resolved && String(fmtDateIST(r['Date & Time Resolved'])).indexOf(f.resolved)===-1) return false;
-    if(f.taken && String(r['Time Taken']||'').toLowerCase().indexOf(f.taken)===-1) return false;
-    if(f.feedback && String(r['Feedback']||'').toLowerCase().indexOf(f.feedback)===-1) return false;
-    return true;
-  });
-
-  rows.sort((a,b)=>{
-    const k=sortKey;
-    if(k==='Date & Time Raised' || k==='Date & Time Resolved'){
-      const A=new Date(a[k]||0), B=new Date(b[k]||0);
-      return sortDir==='asc' ? (A-B):(B-A);
+    async function verifySession(){
+      const t = getTok(); if(!t){ logoutNow(); throw new Error('no token'); }
+      const r = await fetch(API + '?action=whoami&token=' + encodeURIComponent(t), {cache:'no-store'});
+      const j = await r.json().catch(function(){ return {}; });
+      if(!j.ok || !j.data || !j.data.user){ logoutNow(); throw new Error('unauthorized'); }
+      try{ localStorage.setItem('role', j.data.user.role); localStorage.setItem('username', j.data.user.username); }catch(e){}
+      state.isAdmin = (j.data.user.role === 'admin');
+      document.getElementById('adminBtn').style.display = state.isAdmin ? 'inline-block' : 'none';
+      const ub = document.getElementById('userBadge');
+      if (ub) { ub.style.display='inline-flex'; ub.innerHTML = userIcon()+'<span>'+esc(j.data.user.username||'')+'</span>'; }
     }
-    const A=(a[k]??'').toString().toLowerCase();
-    const B=(b[k]??'').toString().toLowerCase();
-    if(A<B) return sortDir==='asc'?-1:1;
-    if(A>B) return sortDir==='asc'? 1:-1;
-    return 0;
-  });
 
-  page = 1;
-  render();
-}
+    async function heartbeatOnce(){ try{ await verifySession(); }catch(e){} }
+    function startHeartbeat(){
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = setInterval(heartbeatOnce, HEARTBEAT_MS);
+      window.addEventListener('focus', heartbeatOnce, { passive:true });
+      document.addEventListener('visibilitychange', function(){ if(!document.hidden) heartbeatOnce(); }, { passive:true });
+    }
 
-function render(){
-  const tbody=document.querySelector('#grid tbody');
-  tbody.innerHTML='';
-  const total = rows.length;
-  const pages = Math.max(1, Math.ceil(total/PAGE_SIZE));
-  page = Math.min(Math.max(1,page), pages);
-  const start=(page-1)*PAGE_SIZE;
-  const part=rows.slice(start, start+PAGE_SIZE);
+    const state = { all:[], filtered:[], sort:{key:"Date and Time Raised",dir:"desc"},
+      page:1, pageSize:10, tz:"local", timer:null, lastFetchOk:true, isAdmin:false, editing:{} };
 
-  part.forEach(r=>{
-    const tr=document.createElement('tr');
-    const tracking = r['Tracking ID'];
-    const statusVal = String(r['Status']||'');
-    tr.innerHTML = `
-      <td>${esc(tracking)}</td>
-      <td>${fmtDateTimeIST(r['Date & Time Raised'])}</td>
-      <td>${esc(r['Tower'])}</td>
-      <td>${esc(r['Flat'])}</td>
-      <td>${esc(r['Issue'])}</td>
-      <td>${esc(r['Description'])}</td>
-      <td>${mediaCell(r['Media'])}</td>
-      <td>${badgeStatus(statusVal)}</td>
-      <td>${esc(r['Redressal Remark']||'')}</td>
-      <td>${esc(r['User ID'])}</td>
-      <td>${fmtDateTimeIST(r['Date & Time Resolved'])}</td>
-      <td>${esc(r['Time Taken']||'')}</td>
-      <td>${esc(r['Feedback']||'')}</td>
-      <td>
-        <div class="editgrp">
-          <select id="st_${esc(tracking)}">
-            <option ${/open/i.test(statusVal)?'selected':''}>Open</option>
-            <option ${/in\s*progress/i.test(statusVal)?'selected':''}>InProgress</option>
-            <option ${/resolved/i.test(statusVal)?'selected':''}>Resolved</option>
-          </select>
-          <input id="rk_${esc(tracking)}" class="remark" placeholder="Remark…" value="${esc(r['Redressal Remark']||'')}"/>
-          <button class="btn primary" onclick="updateIssue('${esc(tracking)}')">Save</button>
-        </div>
-      </td>`;
-    tbody.appendChild(tr);
-  });
+    function parseDateSafe(s){ if(!s) return null; if(s instanceof Date) return s; if(typeof s==="number") return new Date(s); var d=new Date(String(s).includes("T")?s:String(s).replace(" ","T")); return isNaN(d)?null:d; }
+    function fmtDate(d,tzMode){ if(!d) return ""; var o={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,timeZone:tzMode==="utc"?"UTC":undefined}; var s=new Intl.DateTimeFormat(undefined,o).format(d); return tzMode==="utc"?s+" UTC":s; }
+    function endOfDay(d){ var x=new Date(d); x.setHours(23,59,59,999); return x; }
+    function msToHuman(ms){ if(ms==null||isNaN(ms)) return ""; var m=Math.floor(ms/60000); if(m<60) return m+"m"; var h=Math.floor(m/60),rem=m%60; if(h<24) return h+"h "+rem+"m"; var days=Math.floor(h/24),rh=h%24; return days+"d "+rh+"h "+rem+"m"; }
+    function renderMediaCell(url){ if(!url) return "<span class='muted'>No media</span>"; var q=function(s){return String(s).replace(/"/g,"&quot;")}; if(/\.(jpe?g|png|gif|webp)$/i.test(url)) return '<div class="media"><img src="'+q(url)+'" alt="media" onclick="openLightbox(\''+q(url)+'\')"></div>'; if(/\.(mp4|webm|mov)$/i.test(url)) return '<div class="media"><video controls><source src="'+q(url)+'"></video></div>'; if(/\.(mp3|wav|m4a)$/i.test(url)) return '<div class="media"><audio controls src="'+q(url)+'"></audio></div>'; return '<a href="'+q(url)+'" target="_blank" rel="noopener">Open</a>'; }
+    function openLightbox(url){ document.getElementById("lightbox-img").src=url; document.getElementById("lightbox").style.display="flex"; }
+    function setStickyHeights(){ var h=document.querySelector('header'); var c=document.getElementById('controls'); if(h) document.documentElement.style.setProperty('--header-h',h.offsetHeight+'px'); if(c) document.documentElement.style.setProperty('--controls-h',c.offsetHeight+'px'); }
+    window.addEventListener('resize', setStickyHeights);
 
-  document.getElementById('pageInfo').textContent=`Page ${page} / ${pages}`;
-  document.getElementById('status').textContent = `${total} row(s), showing ${part.length}`;
-}
+    async function fetchData(){
+      try{
+        const t = getTok();
+        const r = await fetch(API + '?action=issues&token=' + encodeURIComponent(t), { cache:"no-store" });
+        const j = await r.json();
+        if(!j.ok) throw new Error(j.error || 'Unauthorized');
+        const data = j.data || [];
+        state.lastFetchOk = true;
+        document.getElementById("netError").style.display = "none";
+        document.getElementById("infoMsg").style.display = "none";
+        state.all = normalizeRows(data);
+        populateTowerFilter(state.all);
+        applyFilters();
+        setStickyHeights();
+      }catch(err){
+        if((err.message||'').toLowerCase().includes('unauthorized')){ logoutNow(); return; }
+        state.lastFetchOk = false;
+        document.getElementById("netError").style.display = "block";
+        if(state.all.length){ document.getElementById("infoMsg").style.display = "block"; render(); }
+      }
+    }
+    function normalizeRows(rows){
+      return rows.map(function(r){
+        const raised = parseDateSafe(r["Date and Time Raised"]);
+        const resolved = parseDateSafe(r["Date and Time Resolved"]);
+        var ms = null;
+        if(raised && resolved) ms = Math.max(0, resolved - raised);
+        if(ms==null && r["Time Taken"]){
+          const m = String(r["Time Taken"]).match(/(\d+)\s*m/);
+          if(m) ms = parseInt(m[1],10)*60000;
+        }
+        return { }.constructor.assign({}, r, { __raised: raised, __resolved: resolved, __computed_time: ms });
+      });
+    }
+    function populateTowerFilter(data){
+      const sel = document.getElementById("towerFilter");
+      const existing = new Set(Array.prototype.slice.call(sel.options).map(function(o){return o.value;}));
+      Array.from(new Set(data.map(function(d){return d.Tower;}).filter(Boolean))).sort().forEach(function(v){
+        if(!existing.has(v)){ const o=document.createElement("option"); o.value=v; o.textContent=v; sel.appendChild(o); }
+      });
+    }
+    function applyFilters(){
+      const tower = document.getElementById("towerFilter").value;
+      const status = document.getElementById("statusFilter").value;
+      const from = document.getElementById("fromDate").value ? new Date(document.getElementById("fromDate").value) : null;
+      const to = document.getElementById("toDate").value ? endOfDay(document.getElementById("toDate").value) : null;
+      const q = document.getElementById("search").value.trim().toLowerCase();
 
-async function updateIssue(trackingId){
-  const status = document.getElementById(`st_${trackingId}`).value;
-  const remark = document.getElementById(`rk_${trackingId}`).value;
-  try{
-    const res = await fetch(`${API}?action=updateissue&token=${encodeURIComponent(token())}`,{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ trackingId, status, remark })
+      state.filtered = state.all.filter(function(r){
+        if(tower && r.Tower !== tower) return false;
+        if(status && r.Status !== status) return false;
+        if(from && r.__raised && r.__raised < from) return false;
+        if(to && r.__raised && r.__raised > to) return false;
+        if(q){
+          const blob = [r["Tracking ID"], r["Tower"], r["Flat"], r["Issue"], r["Description"], r["Redressal Remark"], r["Status"], r["User ID"], r["Feedback Rating"]]
+            .map(function(x){return String(x||"").toLowerCase();}).join(" ");
+          if(!blob.includes(q)) return false;
+        }
+        return true;
+      });
+      state.page = 1;
+      render();
+    }
+    function resetFilters(){
+      document.getElementById("towerFilter").value = "";
+      document.getElementById("statusFilter").value = "";
+      document.getElementById("fromDate").value = "";
+      document.getElementById("toDate").value = "";
+      document.getElementById("search").value = "";
+      state.page = 1;
+      state.filtered = state.all.slice();
+      render();
+    }
+
+    const svgPencil = '<svg class="icon" viewBox="0 0 24 24" width="18" height="18"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm3.92 2.33H5v-1.92l8.06-8.06 1.92 1.92L6.92 19.58zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>';
+    const svgFloppy = '<svg class="icon" viewBox="0 0 24 24" width="18" height="18"><path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4Zm-3 16H6v-6h8v6Zm2-12H6V5h10v2Z"/></svg>';
+
+    function rowEditorCells(r){
+      const id = String(r["Tracking ID"]||"");
+      const st = String(r["Status"]||"");
+      const remark = r["Redressal Remark"] || "";
+      if (!state.isAdmin) {
+        return { status:'<span class="badge '+st+'">'+esc(st)+'</span>', remark:'<div class="remark-text">'+esc(remark)+'</div>' };
+      }
+      const editing = !!state.editing[id];
+      if (!editing) {
+        return {
+          status:'<span class="badge '+st+'">'+esc(st)+'</span>',
+          remark:'<div class="cell-flex"><div class="remark-text">'+esc(remark)+'</div><button class="btn small" title="Edit" onclick="enterEdit(\''+id+'\')">'+svgPencil+'</button></div>'
+        };
+      } else {
+        const rem = esc(remark).replace(/"/g,'&quot;');
+        return {
+          status:'<select class="edit" id="st-'+id+'" onkeydown="if(event.key===\'Enter\'){event.preventDefault(); saveRow(\''+id+'\')}">'+
+              '<option value="Open" '+(st==="Open"?"selected":"")+'>Open</option>'+
+              '<option value="InProgress" '+(st==="InProgress"?"selected":"")+'>In Progress</option>'+
+              '<option value="Resolved" '+(st==="Resolved"?"selected":"")+'>Resolved</option>'+
+            '</select>',
+          remark:'<div class="cell-flex">'+
+              '<input class="edit" id="rm-'+id+'" value="'+rem+'" placeholder="Enter remark" onkeydown="if(event.key===\'Enter\'){event.preventDefault(); saveRow(\''+id+'\')}">'+
+              '<button class="btn small" title="Save" onclick="saveRow(\''+id+'\')">'+svgFloppy+'</button>'+
+            '</div>'
+        };
+      }
+    }
+    function enterEdit(id){ if(!state.isAdmin) return; state.editing[id]=true; render(); }
+    window.enterEdit = enterEdit;
+
+    async function saveRow(id){
+      if(!state.isAdmin) return;
+      const stEl = document.getElementById('st-'+id);
+      const rmEl = document.getElementById('rm-'+id);
+      if(!stEl || !rmEl) return;
+      const status = stEl.value;
+      const remark = rmEl.value;
+      try{
+        const res = await fetch(API + '?action=updateissue&token=' + encodeURIComponent(getTok()), {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ trackingId:id, status:status, remark:remark })
+        });
+        const out = await res.json().catch(function(){ return {}; });
+        if(!out.ok){
+          if((out.error||'').toLowerCase().includes('unauthorized')) { logoutNow(); return; }
+          throw new Error(out.error || 'Save failed');
+        }
+        const row = state.all.find(function(x){ return String(x["Tracking ID"])===String(id); });
+        if(row){
+          row.Status = status;
+          row["Redressal Remark"] = remark;
+          if(status==="Resolved" && !row.__resolved){ row.__resolved = new Date(); row["Date and Time Resolved"] = row.__resolved.toISOString(); }
+          row.__computed_time = row.__raised && row.__resolved ? Math.max(0, row.__resolved - row.__raised) : row.__computed_time;
+        }
+        delete state.editing[id];
+        applyFilters();
+      }catch(e){ alert('Save failed: ' + e.message); }
+    }
+    window.saveRow = saveRow;
+
+    function render(){
+      const key = state.sort.key, dir = state.sort.dir;
+      const data = state.filtered.slice().sort(function(a,b){
+        const av = key==="__computed_time" ? a.__computed_time : (key==="Date and Time Raised" ? a.__raised : (key==="Date and Time Resolved" ? a.__resolved : a[key]));
+        const bv = key==="__computed_time" ? b.__computed_time : (key==="Date and Time Raised" ? b.__raised : (key==="Date and Time Resolved" ? b.__resolved : b[key]));
+        const aa = av==null ? "" : av, bb = bv==null ? "" : bv;
+        if(aa<bb) return dir==="asc"?-1:1; if(aa>bb) return dir==="asc"?1:-1; return 0;
+      });
+
+      const start = (state.page-1)*state.pageSize;
+      const slice = data.slice(start, start+state.pageSize);
+
+      const total = state.filtered.length;
+      const open = state.filtered.filter(function(x){return x.Status==="Open";}).length;
+      const progress = state.filtered.filter(function(x){return x.Status==="InProgress";}).length;
+      const resolvedRows = state.filtered.filter(function(x){return x.Status==="Resolved";});
+      const resolved = resolvedRows.length;
+      const avgMs = resolvedRows.length ? Math.round(resolvedRows.reduce(function(s,x){return s+(x.__computed_time||0);},0)/resolvedRows.length) : 0;
+      const ratings = resolvedRows.map(function(x){return parseFloat(x["Feedback Rating"]);}).filter(function(n){return !isNaN(n);});
+      const avgRating = ratings.length ? (ratings.reduce(function(a,b){return a+b;},0)/ratings.length).toFixed(1) : "0";
+
+      document.getElementById("kpiTotal").textContent = total;
+      document.getElementById("kpiOpen").textContent = open;
+      document.getElementById("kpiProgress").textContent = progress;
+      document.getElementById("kpiResolved").textContent = resolved;
+      document.getElementById("kpiAvgTime").textContent = msToHuman(avgMs);
+      document.getElementById("kpiAvgRating").textContent = avgRating;
+
+      const tbody = document.querySelector("#grid tbody");
+      tbody.innerHTML = "";
+      slice.forEach(function(r){
+        const cells = rowEditorCells(r);
+        const raisedStr = fmtDate(r.__raised, state.tz);
+        const resolvedStr = fmtDate(r.__resolved, state.tz);
+        const timeStr = msToHuman(r.__computed_time);
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          '<td><span class="muted" style="border-bottom:1px dashed var(--muted); cursor:copy" title="Click to copy" onclick="navigator.clipboard.writeText(\''+String(r["Tracking ID"]||"")+'\')">'+(r["Tracking ID"]||"")+'</span></td>'+
+          '<td>'+raisedStr+'</td>'+
+          '<td>'+(r["Tower"]||"")+'</td>'+
+          '<td>'+(r["Flat"]||"")+'</td>'+
+          '<td>'+(r["Issue"]||"")+'</td>'+
+          '<td>'+(r["Description"]||"")+'</td>'+
+          '<td>'+renderMediaCell(r["Media URL"])+'</td>'+
+          '<td>'+cells.status+'</td>'+
+          '<td>'+cells.remark+'</td>'+
+          '<td>'+(r["User ID"]||"")+'</td>'+
+          '<td>'+resolvedStr+'</td>'+
+          '<td>'+timeStr+'</td>'+
+          '<td>'+(r["Feedback Rating"]||"")+'</td>';
+        tbody.appendChild(tr);
+      });
+
+      Array.prototype.forEach.call(document.querySelectorAll("th.sortable"), function(th){
+        th.style.textDecoration = (th.dataset.key===state.sort.key) ? "underline" : "none";
+      });
+
+      const maxPage = Math.max(1, Math.ceil(data.length / state.pageSize));
+      document.getElementById("pageInfo").textContent = 'Page '+state.page+' / '+maxPage;
+      document.getElementById("rowCount").textContent = data.length+' row(s), showing '+slice.length;
+    }
+
+    function exportCSV(){
+      const rows = state.filtered.length ? state.filtered : state.all;
+      const hdr = ["Tracking ID","Date & Time Raised","Tower","Flat","Issue","Description","Media","Status","Redressal Remark","User ID","Date & Time Resolved","Time Taken","Feedback"];
+      const csvRows = [hdr.join(",")];
+      rows.forEach(function(r){
+        const raised = fmtDate(r.__raised, state.tz);
+        const resolved = fmtDate(r.__resolved, state.tz);
+        const time = msToHuman(r.__computed_time);
+        const vals = [ r["Tracking ID"]||"", raised, r["Tower"]||"", r["Flat"]||"", r["Issue"]||"", String(r["Description"]||"").replace(/"/g,'""'),
+                       r["Media URL"]||"", r["Status"]||"", String(r["Redressal Remark"]||"").replace(/"/g,'""'),
+                       r["User ID"]||"", resolved, time, r["Feedback Rating"]||"" ]
+                       .map(function(v){ return '"'+String(v)+'"'; });
+        csvRows.push(vals.join(","));
+      });
+      const blob = new Blob([csvRows.join("\n")], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "helpdesk.csv"; a.click();
+    }
+
+    function debounce(fn,ms){ var t; return function(){ var args=arguments; clearTimeout(t); t=setTimeout(function(){ fn.apply(null,args); },ms); } }
+
+    async function init(){
+      if (!getTok()) { location.href = "/login"; return; }
+      await verifySession();
+      startHeartbeat();
+
+      document.getElementById("toggleDark").addEventListener("click", function(){ document.body.classList.toggle("dark"); });
+      document.getElementById("exportCsv").addEventListener("click", exportCSV);
+      document.getElementById("applyBtn").addEventListener("click", applyFilters);
+      document.getElementById("resetBtn").addEventListener("click", resetFilters);
+      document.getElementById("prevPage").addEventListener("click", function(){ if(state.page>1){ state.page--; render(); }});
+      document.getElementById("nextPage").addEventListener("click", function(){ const max=Math.max(1, Math.ceil(state.filtered.length/state.pageSize)); if(state.page<max){ state.page++; render(); }});
+      document.getElementById("pageSize").addEventListener("change", function(e){ state.pageSize=Math.max(5, Math.min(100, parseInt(e.target.value,10)||10)); state.page=1; render(); });
+      document.getElementById("tzSelect").addEventListener("change", function(e){ state.tz=e.target.value; render(); });
+      document.getElementById("search").addEventListener("input", debounce(applyFilters, 250));
+      document.getElementById("logoutBtn").addEventListener("click", logoutNow);
+      document.getElementById("adminBtn").addEventListener("click", function(){ location.href='/admin'; });
+
+      // NEW buttons
+      document.getElementById("directoryBtn").addEventListener("click", function(){ location.href='/directory.html'; });
+      document.getElementById("noticesBtn").addEventListener("click", function(){ location.href='/notices.html'; });
+      document.getElementById("docsBtn").addEventListener("click", function(){ location.href='/documents.html'; });
+
+      await fetchData();
+      state.timer = setInterval(async function(){
+        try { await verifySession(); } catch (e) { return; }
+        if(document.getElementById("autoRefresh").checked) fetchData();
+      }, 60000);
+
+      setStickyHeights();
+    }
+    window.onload = init;
+
+    document.addEventListener('DOMContentLoaded', function(){
+      Array.prototype.forEach.call(document.querySelectorAll("th.sortable"), function(th){
+        th.addEventListener("click", function(){
+          const key = th.dataset.key;
+          if(state.sort.key === key){ state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc"; }
+          else { state.sort.key = key; state.sort.dir = "asc"; }
+          render();
+        });
+      });
     });
-    const j = await res.json();
-    if(!j.ok) throw new Error(j.error||'Failed');
-    // refresh data to recompute time taken if resolved
-    await fetchIssues(true);
-    alert('Updated.');
-  }catch(e){ alert('Update failed: '+e.message); }
-}
-
-async function fetchIssues(silent=false){
-  if(!silent) document.getElementById('status').textContent='Loading…';
-  const r = await fetch(`${API}?action=issues&token=${encodeURIComponent(token())}`, {cache:'no-store'});
-  const j = await r.json().catch(()=>({}));
-  if(!j.ok) { alert(j.error||'Auth required'); logout(); return; }
-  // j.data is array of rows with sheet headers
-  all = (j.data||[]).map(x=>x);
-  document.getElementById('meta').textContent = `Timezone: IST • Dates shown as DD-MM-YYYY`;
-  apply();
-}
-
-function attachSort(){
-  document.querySelectorAll('#thead th.sort').forEach(th=>{
-    th.addEventListener('click', ()=>{
-      const k=th.dataset.k;
-      if(sortKey===k){ sortDir=(sortDir==='asc'?'desc':'asc'); }
-      else { sortKey=k; sortDir='asc'; }
-      document.querySelectorAll('#thead th.sort').forEach(x=>x.classList.remove('asc','desc'));
-      th.classList.add(sortDir);
-      apply();
-    });
-  });
-}
-
-function attachInputs(){
-  ['q','f_tracking','f_raised','f_tower','f_flat','f_issue','f_desc','f_media','f_status','f_remark','f_user','f_resolved','f_taken','f_feedback']
-    .forEach(id => { const el=document.getElementById(id); if(el) el.addEventListener('input', apply); });
-  document.getElementById('prevBtn').addEventListener('click', ()=>{ page=Math.max(1,page-1); render(); });
-  document.getElementById('nextBtn').addEventListener('click', ()=>{ page=page+1; render(); });
-}
-
-// boot
-(async function init(){
-  try{
-    if(!token()) throw new Error('no token');
-  }catch{ return logout(); }
-  attachInputs();
-  attachSort();
-  await fetchIssues();
-})();
-</script>
+  </script>
 </body>
 </html>
