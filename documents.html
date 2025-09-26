@@ -39,7 +39,7 @@
     .btn:hover{background:var(--hover)}
     .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
     .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
-    .btn.sm{padding:4px 8px;font-size:12px} /* Style for smaller buttons in the table */
+    .btn.sm{padding:4px 8px;font-size:12px}
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
     .wrap{padding:14px 20px}
@@ -72,7 +72,7 @@
     <div id="adminBar" class="card" style="display:none; margin-bottom:12px">
       <div class="row" style="align-items:center">
         <button id="btnPick" class="btn primary">Upload to Drive</button>
-        <span class="muted">Pick a file; it uploads to the shared Drive and its link is captured below.</span>
+        <span class="muted">Pick a file to upload and capture its link below.</span>
       </div>
       <div class="row" style="margin-top:8px">
         <input id="d_subject" placeholder="Subject" style="flex:2 1 260px">
@@ -81,6 +81,7 @@
       </div>
       <div class="row" style="margin-top:8px">
         <button id="d_add" class="btn">Add entry</button>
+        <button id="d_cancel_edit" class="btn" onclick="cancelEdit()" style="display:none;">Cancel Edit</button>
         <span id="d_status" class="muted"></span>
       </div>
     </div>
@@ -90,7 +91,6 @@
         <input id="q" type="search" placeholder="Search subject…" style="min-width:260px">
         <span id="status" class="muted" style="margin-left:auto"></span>
       </div>
-
       <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
         <table id="grid">
           <thead>
@@ -100,7 +100,8 @@
             <th>Subject</th>
             <th>Media</th>
             <th>Link</th>
-            <th style="width:120px">Actions</th> </tr>
+            <th style="width:120px">Actions</th>
+          </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -110,44 +111,24 @@
 
   <script>
     /* ----- CONFIG ----- */
-    const API = '/api';
-    const SHEET_ID  = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';
-    const SHEET_TAB = 'Documents';
+    const API = '/api'; // Keep your API endpoint
+    const SHEET_ID  = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk'; // Keep your Sheet ID
+    const SHEET_TAB = 'Documents'; // Keep your Sheet Tab Name
 
     /* ----- UTILS ----- */
-    const esc = (s) => String(s ?? '')
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     const getTok = () => { try { return localStorage.getItem('token'); } catch { return null; } };
     const isAdmin = () => (localStorage.getItem('role') === 'admin');
 
-    // UX bits
-    function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
-    function setUploadBusy(on){
-      const btn = document.getElementById('btnPick');
-      if (!btn) return;
-      if (on){
-        btn.disabled = true;
-        btn.dataset._w = btn.offsetWidth;
-        btn.style.minWidth = btn.dataset._w + 'px';
-        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Uploading…';
-      } else {
-        btn.disabled = false;
-        btn.style.minWidth = '';
-        btn.innerHTML = 'Upload to Drive';
-      }
-    }
-
-    // Header chrome
     (function chrome(){
       const name = localStorage.getItem('username')||'';
       const ub = document.getElementById('userBadge');
-      if (name && ub){ ub.style.display='inline-flex'; ub.innerHTML = userIcon()+`<span>${esc(name)}</span>`; }
+      if (name && ub){ ub.style.display='inline-flex'; ub.innerHTML = `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg><span>${esc(name)}</span>`; }
       document.getElementById('logoutBtn').addEventListener('click', ()=>{
         const btn = document.getElementById('logoutBtn');
         btn.disabled = true; btn.style.minWidth = btn.offsetWidth + 'px';
         btn.innerHTML = '<span class="spinner"></span> Logging out…';
-        try{ localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username'); }catch{}
+        try{ localStorage.clear(); }catch{}
         setTimeout(()=>location.replace('/login'), 600);
       });
       if (isAdmin()){
@@ -157,175 +138,108 @@
       }
     })();
 
-    /* ----- UPLOAD (Base64 → GAS) ----- */
+    /* ----- UPLOAD ----- */
     document.getElementById('btnPick')?.addEventListener('click', ()=>document.getElementById('pickFile').click());
     document.getElementById('pickFile')?.addEventListener('change', (e)=>{
-      const f = e.target.files && e.target.files[0];
-      if(!f) return;
+      const f = e.target.files && e.target.files[0]; if(!f) return;
       const r = new FileReader();
-      setUploadBusy(true);
+      const btn = document.getElementById('btnPick'); btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Uploading…';
       r.onload = async ()=>{
         try{
           const base64 = String(r.result).split(',')[1];
-          const res = await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(getTok())}`, {
-            method:'POST',
-            headers:{'content-type':'application/json'},
-            body: JSON.stringify({ name:f.name, mime:f.type||'application/octet-stream', data: base64 })
-          });
+          const res = await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(getTok())}`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ name:f.name, mime:f.type||'application/octet-stream', data: base64 }) });
           const j = await res.json();
           if(!j.ok) throw new Error(j.error||'Upload failed');
-          // Prefill subject and store the returned link in URL (we’ll save it as Media)
-          const subj = document.getElementById('d_subject');
-          const url  = document.getElementById('d_url');
+          const subj = document.getElementById('d_subject'), url = document.getElementById('d_url');
           if (subj && !subj.value) subj.value = j.data.name || f.name;
           if (url) url.value = j.data.url;
         }catch(err){ alert('Upload error: ' + err.message); }
-        finally{ setUploadBusy(false); e.target.value=''; }
+        finally{ btn.disabled = false; btn.innerHTML = 'Upload to Drive'; e.target.value=''; }
       };
       r.readAsDataURL(f);
     });
 
     /* ----- SHEET READ ----- */
     async function fetchDocs(){
-      const status = document.getElementById('status');
-      status.textContent = 'Loading…';
+      const status = document.getElementById('status'); status.textContent = 'Loading…';
       const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(SHEET_ID)}/gviz/tq?sheet=${encodeURIComponent(SHEET_TAB)}&tqx=out:json`;
       const res = await fetch(url, {cache:'no-store'});
       if(!res.ok) throw new Error('HTTP '+res.status);
       const text = await res.text();
-      const a = text.indexOf('{'), b = text.lastIndexOf('}');
-      const json = JSON.parse(text.slice(a,b+1));
+      const json = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
       const cols = json.table.cols.map(c => (c.label||c.id||'').trim());
-
-      // Expect: A Serial Number | B Subject | C Date | D Media | E URL
-      const idx = {
-        serial: cols.findIndex(x=>/^serial/i.test(x)),
-        subject: cols.findIndex(x=>/^subject$/i.test(x)),
-        date: cols.findIndex(x=>/^date$/i.test(x)),
-        media: cols.findIndex(x=>/^media$/i.test(x)),
-        url: cols.findIndex(x=>/^url|^link/i.test(x)),
-      };
-
-      const rows = (json.table.rows||[]).map(r => (r.c||[]).map(c => c ? c.v : ''));
-      const data = rows.map(r => ({
-        serial: r[idx.serial] ?? '',
-        subject: r[idx.subject] ?? '',
-        date: r[idx.date] ?? '',
-        media: r[idx.media] ?? '',
-        url: r[idx.url] ?? ''
-      })).filter(r => r.subject || r.media || r.url);
-
+      const idx = { serial: cols.findIndex(x=>/^serial/i.test(x)), subject: cols.findIndex(x=>/^subject$/i.test(x)), date: cols.findIndex(x=>/^date$/i.test(x)), media: cols.findIndex(x=>/^media$/i.test(x)), url: cols.findIndex(x=>/^url|^link/i.test(x)) };
+      const data = (json.table.rows||[]).map(r => (r.c||[]).map(c => c ? c.v : '')).map(r => ({ serial: r[idx.serial] ?? '', subject: r[idx.subject] ?? '', date: r[idx.date] ?? '', media: r[idx.media] ?? '', url: r[idx.url] ?? '' })).filter(r => r.subject || r.media || r.url);
       status.textContent = `Loaded ${data.length} document(s)`;
       return data;
     }
 
-    /* ----- MEDIA RENDERING (Drive aware) ----- */
-    const fileIcon = {
-      gdoc:   '📝 Google Doc',
-      gsheet: '📊 Google Sheet',
-      gslides:'📈 Google Slide',
-      pdf:    '📄 PDF',
-      word:   '📝 Word',
-      excel:  '📊 Excel',
-      ppt:    '📈 PPT',
-      other:  '📎 File'
-    };
-
-    function classifyByUrl(u){
-      if(!u) return null;
-      const s = String(u);
-      if (/docs\.google\.com\/document\//i.test(s))     return 'gdoc';
-      if (/docs\.google\.com\/spreadsheets\//i.test(s)) return 'gsheet';
-      if (/docs\.google\.com\/presentation\//i.test(s)) return 'gslides';
-      if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
-      if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))          return 'video';
-      if (/\.(pdf)(\?|#|$)/i.test(s))                   return 'pdf';
-      if (/\.(docx?|odt)(\?|#|$)/i.test(s))              return 'word';
-      if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))              return 'excel';
-      if (/\.(pptx?|odp)(\?|#|$)/i.test(s))              return 'ppt';
-      if (/drive\.google\.com\/file\/d\/([^/]+)/i.test(s)) return 'drive';
-      return 'other';
-    }
-
+    /* ----- MEDIA RENDERING ----- */
     function mediaCellHtml(url){
       if(!url) return '';
       const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
       if (m) {
-        const id    = m[1];
-        const thumb = `https://drive.google.com/thumbnail?id=${id}`;
-        const fallback = `<span class="file-fallback" style="display:none"><a href="${esc(url)}" target="_blank" rel="noopener">📎 File</a></span>`;
-        // MODIFIED: Wrapped img in an anchor tag to make it clickable
-        return `
-          <a href="${esc(url)}" target="_blank" rel="noopener">
-            <img class="thumb" src="${esc(thumb)}" alt="preview"
-                 onerror="this.parentElement.style.display='none'; this.parentElement.nextElementSibling.style.display='inline-block';">
-          </a>
-          ${fallback}`;
+        const thumb = `https://drive.google.com/thumbnail?id=${m[1]}`;
+        const fallback = `<span style="display:none"><a href="${esc(url)}" target="_blank" rel="noopener">📎 File</a></span>`;
+        return `<a href="${esc(url)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(thumb)}" alt="preview" onerror="this.parentElement.style.display='none';this.parentElement.nextElementSibling.style.display='inline-block';"></a>${fallback}`;
       }
-      const kind = classifyByUrl(url);
-      // MODIFIED: Wrapped img in an anchor tag
-      if (kind === 'image')  return `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" class="thumb" alt="image"></a>`;
-      if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
-      if (kind === 'pdf')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.pdf}</a>`;
-      if (kind === 'word')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.word}</a>`;
-      if (kind === 'excel')  return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.excel}</a>`;
-      if (kind === 'ppt')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.ppt}</a>`;
-      if (kind === 'gdoc')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gdoc}</a>`;
-      if (kind === 'gsheet') return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gsheet}</a>`;
-      if (kind === 'gslides')return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gslides}</a>`;
-      return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.other}</a>`;
+      if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(url)) return `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" class="thumb" alt="image"></a>`;
+      return `<a href="${esc(url)}" target="_blank" rel="noopener">🔗 Open Link</a>`;
     }
 
     /* ----- SHEET WRITE (Admin Actions) ----- */
-    // ADDED: Placeholder function for editing a row
+    let all = [];
+    let editModeSerial = null;
+
     function editRow(serial) {
-        // Find the row data from the global 'all' array
-        const rowData = all.find(r => String(r.serial) === String(serial));
-        if (!rowData) return alert('Row data not found.');
+      const rowData = all.find(r => String(r.serial) === String(serial));
+      if (!rowData) return alert('Row data not found.');
 
-        // For this example, we'll populate the top form with the row's data.
-        // A more advanced implementation might use a modal dialog.
-        document.getElementById('d_subject').value = rowData.subject;
-        document.getElementById('d_date').value = rowData.date; // Note: Date format might need parsing for some browsers
-        document.getElementById('d_url').value = rowData.media || rowData.url;
+      document.getElementById('d_subject').value = rowData.subject;
+      document.getElementById('d_date').value = rowData.date;
+      document.getElementById('d_url').value = rowData.media || rowData.url;
+      editModeSerial = serial;
 
-        alert(`Row #${serial} data has been loaded into the form above.\n\n(Note: Update/Save logic needs to be implemented in your backend API).`);
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top to see the form
+      const btn = document.getElementById('d_add');
+      btn.textContent = `Update Row #${serial}`;
+      btn.classList.add('primary');
+      document.getElementById('d_cancel_edit').style.display = 'inline-block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // ADDED: Placeholder function for deleting a row
+    function cancelEdit() {
+      editModeSerial = null;
+      document.getElementById('d_subject').value = '';
+      document.getElementById('d_url').value = '';
+      document.getElementById('d_date').valueAsDate = new Date();
+      const btn = document.getElementById('d_add');
+      btn.textContent = 'Add entry';
+      btn.classList.remove('primary');
+      document.getElementById('d_cancel_edit').style.display = 'none';
+    }
+
     async function deleteRow(serial) {
-        if (!confirm(`Are you sure you want to delete row #${serial}? This cannot be undone.`)) {
-            return;
-        }
-
-        alert(`You requested to delete row #${serial}.\n\n(Note: This requires a backend API call. For this demo, we will just log to the console and refresh.)`);
-        console.log(`Deletion requested for serial: ${serial}. Implement API call here.`);
-
-        // --- Example of a real API call ---
-        // You would need to create a `deletedoc` action in your backend API.
-        /*
-        try {
-            const res = await fetch(`${API}?action=deletedoc&token=${encodeURIComponent(getTok())}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ serial: serial })
-            });
-            const j = await res.json();
-            if (!j.ok) throw new Error(j.error || 'Failed on server.');
-            console.log('Successfully deleted');
-            // Refresh data from source
-            all = await fetchDocs();
-            render();
-        } catch (e) {
-            alert('Error deleting row: ' + e.message);
-        }
-        */
+      if (!confirm(`Are you sure you want to delete row #${serial}? This cannot be undone.`)) return;
+      const s = document.getElementById('status');
+      s.textContent = `Deleting row #${serial}...`;
+      try {
+        const res = await fetch(`${API}?action=deletedoc&token=${encodeURIComponent(getTok())}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serial: serial })
+        });
+        const j = await res.json();
+        if (!j.ok) throw new Error(j.error || 'Failed on server.');
+        s.textContent = `Successfully deleted row #${serial}.`;
+        all = await fetchDocs();
+        render();
+      } catch (e) {
+        s.textContent = 'Failed to delete row.';
+        alert('Error deleting row: ' + e.message);
+      }
     }
-
 
     /* ----- RENDER ----- */
-    let all = [];
     function render(){
       const q = (document.getElementById('q').value||'').toLowerCase().trim();
       const tbody = document.querySelector('#grid tbody');
@@ -334,61 +248,71 @@
       filtered.forEach(r=>{
         const tr = document.createElement('tr');
         const linkCell = (!r.media && r.url) ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">Open</a>` : '';
-
-        // ADDED: Generate HTML for action buttons only if user is an admin
         let actionsCell = '';
         if (isAdmin()) {
-            actionsCell = `
-            <div class="row" style="flex-wrap:nowrap; align-items:center;">
-                <button class="btn sm" onclick="editRow('${esc(r.serial)}')">Edit</button>
-                <button class="btn sm danger" onclick="deleteRow('${esc(r.serial)}')">Delete</button>
-            </div>`;
+            actionsCell = `<div class="row" style="flex-wrap:nowrap; align-items:center;"><button class="btn sm" onclick="editRow('${esc(r.serial)}')">Edit</button><button class="btn sm danger" onclick="deleteRow('${esc(r.serial)}')">Delete</button></div>`;
         }
-
-        // MODIFIED: Added the new actionsCell to the table row
-        tr.innerHTML = `
-          <td>${esc(r.serial)}</td>
-          <td>${esc(r.date)}</td>
-          <td>${esc(r.subject)}</td>
-          <td>${mediaCellHtml(r.media)}</td>
-          <td>${linkCell}</td>
-          <td>${actionsCell}</td>`;
+        tr.innerHTML = `<td>${esc(r.serial)}</td><td>${esc(r.date)}</td><td>${esc(r.subject)}</td><td>${mediaCellHtml(r.media)}</td><td>${linkCell}</td><td>${actionsCell}</td>`;
         tbody.appendChild(tr);
       });
     }
 
     document.getElementById('q').addEventListener('input', render);
 
-    // Add row to sheet (admin)
-    document.getElementById('d_add')?.addEventListener('click', async ()=>{
-      if(!isAdmin()) return;
+    document.getElementById('d_add')?.addEventListener('click', async () => {
       const subject = document.getElementById('d_subject').value.trim();
-      const date    = document.getElementById('d_date').value;
-      const media   = document.getElementById('d_url').value.trim(); // uploaded file link or any URL
-      const s       = document.getElementById('d_status');
-      if(!subject || !date || !media){
-        s.textContent = 'Fill subject, date and a media/link value.';
+      const date = document.getElementById('d_date').value;
+      const media = document.getElementById('d_url').value.trim();
+      const s = document.getElementById('d_status');
+      if (!subject || !date || !media) {
+        s.textContent = 'All fields are required.';
         return;
       }
-      s.textContent = 'Adding…';
-      try{
-        const res = await fetch(`${API}?action=adddoc&token=${encodeURIComponent(getTok())}`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ subject, date, media })
-        });
-        const j = await res.json().catch(()=>({}));
-        if(!j.ok) throw new Error(j.error || 'Failed');
-        s.textContent = 'Added.';
-        document.getElementById('d_subject').value='';
-        document.getElementById('d_url').value='';
-        all = await fetchDocs(); render();
-      }catch(e){ s.textContent = 'Failed to add.'; }
+
+      if (editModeSerial) {
+        // --- UPDATE LOGIC ---
+        s.textContent = `Updating row #${editModeSerial}...`;
+        try {
+          const res = await fetch(`${API}?action=updatedoc&token=${encodeURIComponent(getTok())}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serial: editModeSerial, subject, date, media })
+          });
+          const j = await res.json();
+          if (!j.ok) throw new Error(j.error || 'Failed to update.');
+          s.textContent = 'Updated successfully.';
+          cancelEdit();
+          all = await fetchDocs();
+          render();
+        } catch (e) {
+          s.textContent = 'Failed to update.';
+          alert('Update Error: ' + e.message);
+        }
+      } else {
+        // --- ADD LOGIC ---
+        s.textContent = 'Adding…';
+        try {
+          const res = await fetch(`${API}?action=adddoc&token=${encodeURIComponent(getTok())}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subject, date, media })
+          });
+          const j = await res.json();
+          if (!j.ok) throw new Error(j.error || 'Failed to add.');
+          s.textContent = 'Added successfully.';
+          cancelEdit(); // Clears the form
+          all = await fetchDocs();
+          render();
+        } catch (e) {
+          s.textContent = 'Failed to add.';
+          alert('Add Error: ' + e.message);
+        }
+      }
     });
 
-    // Init
     (async function init(){
       try{ all = await fetchDocs(); render(); }
-      catch(e){ document.getElementById('status').textContent = 'Failed to load (publish sheet or check ID)'; }
+      catch(e){ document.getElementById('status').textContent = 'Failed to load data.'; }
     })();
   </script>
 </body>
