@@ -119,7 +119,9 @@
     const SHEET_TAB = 'Documents';
 
     /* ----- UTILS ----- */
-    const esc = s => String(s ?? '');
+    const esc = (s) => String(s ?? '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     const getTok = () => { try { return localStorage.getItem('token'); } catch { return null; } };
     const isAdmin = () => (localStorage.getItem('role') === 'admin');
 
@@ -199,7 +201,7 @@
       const json = JSON.parse(text.slice(a,b+1));
       const cols = json.table.cols.map(c => (c.label||c.id||'').trim());
 
-      // We expect: A Serial Number | B Subject | C Date | D Media | E URL
+      // Expect: A Serial Number | B Subject | C Date | D Media | E URL
       const idx = {
         serial: cols.findIndex(x=>/^serial/i.test(x)),
         subject: cols.findIndex(x=>/^subject$/i.test(x)),
@@ -233,69 +235,63 @@
       other: '📎 File'
     };
 
-   <script>
-  // --- replace classifyByUrl + mediaCellHtml in documents.html ---
+    function classifyByUrl(u){
+      if(!u) return null;
+      const s = String(u);
 
-  function classifyByUrl(u){
-    if(!u) return null;
-    const s = String(u);
+      // Google-native docs
+      if (/docs\.google\.com\/document\//i.test(s))     return 'gdoc';
+      if (/docs\.google\.com\/spreadsheets\//i.test(s)) return 'gsheet';
+      if (/docs\.google\.com\/presentation\//i.test(s)) return 'gslides';
 
-    // Google-native docs
-    if (/docs\.google\.com\/document\//i.test(s))    return 'gdoc';
-    if (/docs\.google\.com\/spreadsheets\//i.test(s))return 'gsheet';
-    if (/docs\.google\.com\/presentation\//i.test(s))return 'gslides';
+      // Plain extensions (non-Drive direct links)
+      if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
+      if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))          return 'video';
+      if (/\.(pdf)(\?|#|$)/i.test(s))                   return 'pdf';
+      if (/\.(docx?|odt)(\?|#|$)/i.test(s))             return 'word';
+      if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))             return 'excel';
+      if (/\.(pptx?|odp)(\?|#|$)/i.test(s))             return 'ppt';
 
-    // Plain extensions (non-Drive direct links)
-    if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
-    if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))          return 'video';
-    if (/\.(pdf)(\?|#|$)/i.test(s))                  return 'pdf';
-    if (/\.(docx?|odt)(\?|#|$)/i.test(s))            return 'word';
-    if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))            return 'excel';
-    if (/\.(pptx?|odp)(\?|#|$)/i.test(s))            return 'ppt';
-
-    // Google Drive share link (no extension in URL) → we’ll try thumbnail
-    if (/drive\.google\.com\/file\/d\/([^/]+)/i.test(s)) return 'drive';
-    return 'other';
-  }
-
-  function mediaCellHtml(url){
-    if(!url) return '';
-
-    // If it's a Drive link, always try the thumbnail.
-    const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
-    if (m) {
-      const id   = m[1];
-      const thumb= `https://drive.google.com/thumbnail?id=${id}`;
-      const direct = `https://drive.google.com/uc?export=download&id=${id}`;
-
-      // We render an <img>. If it fails (not an image/video), we show an icon link instead.
-      // The <span> is initially hidden; onerror reveals it.
-      const fallback = `
-        <span class="file-fallback" style="display:none">
-          <a href="${url}" target="_blank" rel="noopener">📎 File</a>
-        </span>`;
-      return `
-        <span class="drive-media">
-          <img class="thumb" src="${thumb}" alt="preview"
-               onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
-          ${fallback}
-        </span>`;
+      // Google Drive share link (no extension)
+      if (/drive\.google\.com\/file\/d\/([^/]+)/i.test(s)) return 'drive';
+      return 'other';
     }
 
-    // Non-Drive links: use extension-based handling
-    const kind = classifyByUrl(url);
-    if (kind === 'image')  return `<img src="${esc(url)}" class="thumb" alt="image">`;
-    if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
-    if (kind === 'pdf')    return `<a href="${esc(url)}" target="_blank" rel="noopener">📄 PDF</a>`;
-    if (kind === 'word')   return `<a href="${esc(url)}" target="_blank" rel="noopener">📝 Word</a>`;
-    if (kind === 'excel')  return `<a href="${esc(url)}" target="_blank" rel="noopener">📊 Excel</a>`;
-    if (kind === 'ppt')    return `<a href="${esc(url)}" target="_blank" rel="noopener">📈 PPT</a>`;
-    if (kind === 'gdoc')   return `<a href="${esc(url)}" target="_blank" rel="noopener">📝 Google Doc</a>`;
-    if (kind === 'gsheet') return `<a href="${esc(url)}" target="_blank" rel="noopener">📊 Google Sheet</a>`;
-    if (kind === 'gslides')return `<a href="${esc(url)}" target="_blank" rel="noopener">📈 Google Slide</a>`;
-    return `<a href="${esc(url)}" target="_blank" rel="noopener">📎 File</a>`;
-  }
-</script>
+    function mediaCellHtml(url){
+      if(!url) return '';
+
+      // For Drive links, try the thumbnail first
+      const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
+      if (m) {
+        const id    = m[1];
+        const thumb = `https://drive.google.com/thumbnail?id=${id}`;
+
+        // If the thumb 404s (e.g., a non-previewable file), show a simple link instead
+        const fallback = `
+          <span class="file-fallback" style="display:none">
+            <a href="${esc(url)}" target="_blank" rel="noopener">📎 File</a>
+          </span>`;
+        return `
+          <span class="drive-media">
+            <img class="thumb" src="${esc(thumb)}" alt="preview"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+            ${fallback}
+          </span>`;
+      }
+
+      // Non-Drive: extension-based rendering
+      const kind = classifyByUrl(url);
+      if (kind === 'image')  return `<img src="${esc(url)}" class="thumb" alt="image">`;
+      if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
+      if (kind === 'pdf')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.pdf}</a>`;
+      if (kind === 'word')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.word}</a>`;
+      if (kind === 'excel')  return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.excel}</a>`;
+      if (kind === 'ppt')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.ppt}</a>`;
+      if (kind === 'gdoc')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gdoc}</a>`;
+      if (kind === 'gsheet') return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gsheet}</a>`;
+      if (kind === 'gslides')return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gslides}</a>`;
+      return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.other}</a>`;
+    }
 
     /* ----- RENDER ----- */
     let all = [];
@@ -306,7 +302,8 @@
       const filtered = all.filter(r => !q || String(r.subject||'').toLowerCase().includes(q));
       filtered.forEach(r=>{
         const tr = document.createElement('tr');
-        const linkCell = r.url && !r.media ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">Open</a>` : '';
+        // Link column shows ONLY when there is no media (per your rule)
+        const linkCell = (!r.media && r.url) ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">Open</a>` : '';
         tr.innerHTML = `
           <td>${esc(r.serial)}</td>
           <td>${esc(r.date)}</td>
@@ -326,15 +323,15 @@
       const date    = document.getElementById('d_date').value;
       const media   = document.getElementById('d_url').value.trim(); // uploaded file link or any URL
       const s       = document.getElementById('d_status');
-      if(!subject || !date || (!media && !document.getElementById('d_url').value.trim())){
-        s.textContent = 'Fill subject, date and at least one link.';
+      if(!subject || !date || !media){
+        s.textContent = 'Fill subject, date and a media/link value.';
         return;
       }
       s.textContent = 'Adding…';
       try{
         const res = await fetch(`${API}?action=adddoc&token=${encodeURIComponent(getTok())}`, {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ subject, date, media })   // our GAS expects media (and optional url)
+          body: JSON.stringify({ subject, date, media })   // GAS expects: subject/date/media (URL optional)
         });
         const j = await res.json().catch(()=>({}));
         if(!j.ok) throw new Error(j.error || 'Failed');
