@@ -1,123 +1,192 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Favicons -->
+  <link rel="alternate icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+
   <meta charset="UTF-8">
-  <title>Employee Directory</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Directory | Global Hillview</title>
+
+  <!-- No-paint guard if no token -->
+  <script>
+    (function () {
+      try {
+        const t = localStorage.getItem('token');
+        if (!t) { document.documentElement.style.display='none'; location.replace('/login'); }
+      } catch { document.documentElement.style.display='none'; location.replace('/login'); }
+    })();
+  </script>
+
   <style>
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;background:#f7f9fc;color:#0f172a}
-    header{padding:12px 16px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
-    header h1{margin:0;font-size:18px;font-weight:800}
-    .btn{padding:8px 14px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;font-size:14px;background:#fff}
-    .btn:hover{background:#f1f5f9}
-    .btn.primary{background:#0d6efd;color:#fff;border-color:transparent}
-    .btn.danger{background:#ef4444;color:#fff;border-color:transparent}
-    .wrap{padding:16px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;max-width:520px;margin:auto}
-    h2{margin-top:0}
-    form label{display:block;margin-top:12px;font-weight:600}
-    form input,form select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;font-size:14px}
-    .row{display:flex;gap:16px;align-items:center;margin-top:12px}
-    .row input[type="radio"]{width:auto;margin-right:6px}
-    .muted{font-size:12px;color:#6b7280}
-    .error{color:#ef4444;font-size:12px;margin-top:2px;display:none}
-    .actions{margin-top:16px;display:flex;gap:10px}
-    .imgBox{width:120px;height:120px;border:2px dashed #cbd5e1;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#f8fafc}
-    .imgBox img{max-width:100%;max-height:100%;border-radius:8px}
+    :root{ --bg:#f7f9fc; --card:#ffffff; --muted:#6b7280; --text:#0f172a; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; margin:0; background:var(--bg); color:var(--text)}
+    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--bg);border-bottom:1px solid var(--border)}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand img{height:28px;width:28px;border-radius:6px}
+    .title{font-size:18px;font-weight:800;margin:0}
+    .toolbar{display:flex;align-items:center;gap:8px}
+    .btn{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 10px;border-radius:10px;cursor:pointer}
+    .btn:hover{background:var(--hover)}
+    .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
+    .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
+    .wrap{padding:14px 20px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px}
+    .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+    input[type="search"], select{padding:8px 10px;border:1px solid var(--border);border-radius:10px}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700}
+    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
+    .muted{color:var(--muted)}
+    .userpill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-weight:600}
   </style>
 </head>
 <body>
-<header>
-  <h1>Employee Directory</h1>
-  <button class="btn" onclick="location.href='/'">Back</button>
-</header>
+  <header>
+    <div class="brand">
+      <img src="/android-chrome-512x512.png" alt="logo">
+      <h1 class="title">Directory</h1>
+    </div>
+    <div class="toolbar">
+      <span id="userBadge" class="userpill" style="display:none"></span>
+      <button class="btn" onclick="location.href='/'">Back to Dashboard</button>
+      <button class="btn danger" id="logoutBtn">Logout</button>
+    </div>
+  </header>
 
-<div class="wrap">
-  <div class="card">
-    <h2>Add Record</h2>
-    <form id="empForm">
-      <label>Name *
-        <input id="name" required>
-        <div class="error" id="errName">Name is required</div>
-      </label>
-
-      <label>Email
-        <input id="email" type="email" placeholder="Enter email…">
-      </label>
-
-      <label>Gender *</label>
-      <div class="row">
-        <label><input type="radio" name="gender" value="Male" checked> Male</label>
-        <label><input type="radio" name="gender" value="Female"> Female</label>
+  <div class="wrap">
+    <div class="card">
+      <div class="filters">
+        <input id="q" type="search" placeholder="Search name, designation, shift…" style="min-width:260px">
+        <select id="shift">
+          <option value="">All Shifts</option>
+          <option>Day</option>
+          <option>Night</option>
+        </select>
+        <button class="btn" id="reloadBtn">Reload</button>
+        <span id="status" class="muted" style="margin-left:auto"></span>
       </div>
 
-      <label>Joined On
-        <input id="joined" type="date">
-      </label>
-
-      <label>Salary
-        <input id="salary" type="number" step="0.01" min="0" value="0.00">
-      </label>
-
-      <label>Image</label>
-      <div class="imgBox" onclick="document.getElementById('image').click()">
-        <span id="imgHint">+</span>
-        <img id="imgPreview" style="display:none">
+      <div id="tableWrap" style="overflow:auto;border:1px solid var(--border);border-radius:12px;">
+        <table id="grid">
+          <thead><tr>
+            <th>Name</th>
+            <th>Mobile #</th>
+            <th>Designation</th>
+            <th>Shift type (Day/Night)</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <input id="image" type="file" accept="image/*" style="display:none">
-
-      <div class="actions">
-        <button type="submit" class="btn primary">Submit Form</button>
-        <button type="reset" class="btn">Reset</button>
-        <button type="button" class="btn danger" onclick="cancelForm()">Cancel</button>
-      </div>
-    </form>
+    </div>
   </div>
-</div>
 
-<script>
-const API = 'https://script.google.com/macros/s/AKfycbzAYAQiB9vzBZaExFNQUL_PMbs0NVJBG5WihWlmBO9TtTlFsxKdCz6p7mmHJLSZfk65/exec';
+  <script>
+    /* ===== Config =====
+       Put your Google Spreadsheet ID here (or pass ?id=... in the URL).
+       The sheet tab must be named exactly "Directory".
+    */
+    const GOOGLE_SHEET_ID = (new URL(location.href)).searchParams.get('id') || '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';
+    const SHEET_NAME = 'Directory';
 
-function cancelForm(){ location.href='/'; }
+    /* ===== Small helpers ===== */
+    const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
 
-const form=document.getElementById('empForm');
-form.addEventListener('submit',ev=>{
-  ev.preventDefault();
-  const name=document.getElementById('name').value.trim();
-  if(!name){
-    document.getElementById('errName').style.display='block';
-    return;
-  } else {
-    document.getElementById('errName').style.display='none';
-  }
+    /* ===== Logout with spinner ===== */
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      const btn = document.getElementById('logoutBtn');
+      btn.disabled = true; btn.style.minWidth = btn.offsetWidth + 'px';
+      btn.innerHTML = '<span class="spinner"></span> Logging out…';
+      try{ localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username'); }catch{}
+      setTimeout(()=>location.replace('/login'), 600);
+    });
 
-  const data={
-    name,
-    email:document.getElementById('email').value.trim(),
-    gender:form.gender.value,
-    joined:document.getElementById('joined').value,
-    salary:document.getElementById('salary').value,
-    image:document.getElementById('image').files[0]?.name||''
-  };
-  console.log('Submitting',data);
-  alert('Form submitted!\nCheck console for data.');
-  form.reset();
-  document.getElementById('imgPreview').style.display='none';
-  document.getElementById('imgHint').style.display='block';
-});
+    /* ===== Show username pill (re-use cached username) ===== */
+    (function showUser(){
+      const name = localStorage.getItem('username') || '';
+      const ub = document.getElementById('userBadge');
+      if (name && ub){ ub.style.display='inline-flex'; ub.innerHTML = userIcon()+`<span>${esc(name)}</span>`; }
+    })();
 
-document.getElementById('image').addEventListener('change',ev=>{
-  const file=ev.target.files[0];
-  if(file){
-    const reader=new FileReader();
-    reader.onload=e=>{
-      document.getElementById('imgPreview').src=e.target.result;
-      document.getElementById('imgPreview').style.display='block';
-      document.getElementById('imgHint').style.display='none';
-    };
-    reader.readAsDataURL(file);
-  }
-});
-</script>
+    /* ===== Fetch Google Sheet via gviz JSON ===== */
+    async function fetchDirectory(){
+      const status = document.getElementById('status');
+      status.textContent = 'Loading…';
+      const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(GOOGLE_SHEET_ID)}/gviz/tq?sheet=${encodeURIComponent(SHEET_NAME)}&tqx=out:json`;
+      const res = await fetch(url, {cache:'no-store'});
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      const text = await res.text();
+
+      // gviz returns: google.visualization.Query.setResponse({...});
+      const start = text.indexOf('{'); const end = text.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('Bad gviz response');
+      const json = JSON.parse(text.slice(start, end+1));
+      const cols = json.table.cols.map(c => (c.label||c.id||'').trim());
+      const rows = (json.table.rows||[]).map(r => (r.c||[]).map(c => c ? c.v : ''));
+
+      // map by label so column order doesn’t matter
+      const nameIdx  = cols.findIndex(x => /^name$/i.test(x));
+      const mobIdx   = cols.findIndex(x => /^mobile/i.test(x));
+      const desIdx   = cols.findIndex(x => /^designation$/i.test(x));
+      const shiftIdx = cols.findIndex(x => /^shift/i.test(x));
+
+      const data = rows.map(r => ({
+        name:  r[nameIdx]  ?? '',
+        mobile: String(r[mobIdx] ?? ''),
+        desig: r[desIdx]   ?? '',
+        shift: r[shiftIdx] ?? ''
+      }));
+      status.textContent = `Loaded ${data.length} contact(s)`;
+      return data;
+    }
+
+    let all = [];
+    function render(){
+      const q = (document.getElementById('q').value||'').toLowerCase().trim();
+      const sh = (document.getElementById('shift').value||'').toLowerCase().trim();
+      const tbody = document.querySelector('#grid tbody');
+      tbody.innerHTML = '';
+
+      const filtered = all.filter(x => {
+        if (sh && String(x.shift||'').toLowerCase() !== sh) return false;
+        if (!q) return true;
+        return [x.name,x.mobile,x.desig,x.shift].some(v => String(v||'').toLowerCase().includes(q));
+      });
+
+      filtered.forEach(r => {
+        const tr = document.createElement('tr');
+        const tel = r.mobile ? `<a href="tel:${esc(r.mobile.replace(/\\s+/g,''))}">${esc(r.mobile)}</a>` : '';
+        tr.innerHTML = `
+          <td>${esc(r.name)}</td>
+          <td>${tel}</td>
+          <td>${esc(r.desig)}</td>
+          <td>${esc(r.shift)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // wire UI
+    document.getElementById('q').addEventListener('input', render);
+    document.getElementById('shift').addEventListener('change', render);
+    document.getElementById('reloadBtn').addEventListener('click', async () => {
+      try { all = await fetchDirectory(); render(); }
+      catch(e){ document.getElementById('status').textContent = 'Failed to load (publish sheet or check ID)'; }
+    });
+
+    // first load
+    (async function init(){
+      try { all = await fetchDirectory(); render(); }
+      catch(e){ document.getElementById('status').textContent = 'Failed to load (publish sheet or check ID)'; }
+    })();
+  </script>
 </body>
 </html>
