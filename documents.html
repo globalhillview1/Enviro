@@ -233,67 +233,69 @@
       other: '📎 File'
     };
 
-    function classifyByUrl(u){
-      if(!u) return null;
-      const s = String(u);
+   <script>
+  // --- replace classifyByUrl + mediaCellHtml in documents.html ---
 
-      // Google Drive share link → has file ID
-      if (/drive\.google\.com\/file\/d\/([^/]+)/i.test(s)) {
-        // Try to infer type from query string part (sometimes contains filename) or fallback
-        if (/\.(jpg|jpeg|png|gif|webp)$/i.test(s)) return 'drive-image';
-        if (/\.(mp4|webm|mov)$/i.test(s))         return 'drive-video';
-        if (/\.(pdf)$/i.test(s))                  return 'pdf';
-        if (/\.(docx?|odt)$/i.test(s))            return 'word';
-        if (/\.(xlsx?|ods)$/i.test(s))            return 'excel';
-        if (/\.(pptx?|odp)$/i.test(s))            return 'ppt';
-        return 'drive-file';
-      }
+  function classifyByUrl(u){
+    if(!u) return null;
+    const s = String(u);
 
-      // Google-native docs (no extension)
-      if (/docs\.google\.com\/document\//i.test(s))    return 'gdoc';
-      if (/docs\.google\.com\/spreadsheets\//i.test(s))return 'gsheet';
-      if (/docs\.google\.com\/presentation\//i.test(s))return 'gslides';
+    // Google-native docs
+    if (/docs\.google\.com\/document\//i.test(s))    return 'gdoc';
+    if (/docs\.google\.com\/spreadsheets\//i.test(s))return 'gsheet';
+    if (/docs\.google\.com\/presentation\//i.test(s))return 'gslides';
 
-      // Plain extensions
-      if (/\.(jpg|jpeg|png|gif|webp)$/i.test(s)) return 'image';
-      if (/\.(mp4|webm|mov)$/i.test(s))         return 'video';
-      if (/\.(pdf)$/i.test(s))                  return 'pdf';
-      if (/\.(docx?|odt)$/i.test(s))            return 'word';
-      if (/\.(xlsx?|ods)$/i.test(s))            return 'excel';
-      if (/\.(pptx?|odp)$/i.test(s))            return 'ppt';
+    // Plain extensions (non-Drive direct links)
+    if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
+    if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))          return 'video';
+    if (/\.(pdf)(\?|#|$)/i.test(s))                  return 'pdf';
+    if (/\.(docx?|odt)(\?|#|$)/i.test(s))            return 'word';
+    if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))            return 'excel';
+    if (/\.(pptx?|odp)(\?|#|$)/i.test(s))            return 'ppt';
 
-      return 'other';
+    // Google Drive share link (no extension in URL) → we’ll try thumbnail
+    if (/drive\.google\.com\/file\/d\/([^/]+)/i.test(s)) return 'drive';
+    return 'other';
+  }
+
+  function mediaCellHtml(url){
+    if(!url) return '';
+
+    // If it's a Drive link, always try the thumbnail.
+    const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
+    if (m) {
+      const id   = m[1];
+      const thumb= `https://drive.google.com/thumbnail?id=${id}`;
+      const direct = `https://drive.google.com/uc?export=download&id=${id}`;
+
+      // We render an <img>. If it fails (not an image/video), we show an icon link instead.
+      // The <span> is initially hidden; onerror reveals it.
+      const fallback = `
+        <span class="file-fallback" style="display:none">
+          <a href="${url}" target="_blank" rel="noopener">📎 File</a>
+        </span>`;
+      return `
+        <span class="drive-media">
+          <img class="thumb" src="${thumb}" alt="preview"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+          ${fallback}
+        </span>`;
     }
 
-    function mediaCellHtml(url){
-      if(!url) return '';
-      const kind = classifyByUrl(url);
-
-      // Extract Drive ID if present
-      let driveId = null;
-      const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
-      if (m) driveId = m[1];
-
-      if (kind === 'image' || kind === 'drive-image') {
-        const src = driveId ? `https://drive.google.com/thumbnail?id=${driveId}` : url;
-        return `<img src="${esc(src)}" class="thumb" alt="image">`;
-      }
-      if (kind === 'video' || kind === 'drive-video') {
-        const src = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : url;
-        return `<video src="${esc(src)}" class="thumb" controls></video>`;
-      }
-
-      // Icons/labels
-      if (kind === 'pdf')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.pdf}</a>`;
-      if (kind === 'word')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.word}</a>`;
-      if (kind === 'excel')  return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.excel}</a>`;
-      if (kind === 'ppt')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.ppt}</a>`;
-      if (kind === 'gdoc')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gdoc}</a>`;
-      if (kind === 'gsheet') return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gsheet}</a>`;
-      if (kind === 'gslides')return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gslides}</a>`;
-
-      return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.other}</a>`;
-    }
+    // Non-Drive links: use extension-based handling
+    const kind = classifyByUrl(url);
+    if (kind === 'image')  return `<img src="${esc(url)}" class="thumb" alt="image">`;
+    if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
+    if (kind === 'pdf')    return `<a href="${esc(url)}" target="_blank" rel="noopener">📄 PDF</a>`;
+    if (kind === 'word')   return `<a href="${esc(url)}" target="_blank" rel="noopener">📝 Word</a>`;
+    if (kind === 'excel')  return `<a href="${esc(url)}" target="_blank" rel="noopener">📊 Excel</a>`;
+    if (kind === 'ppt')    return `<a href="${esc(url)}" target="_blank" rel="noopener">📈 PPT</a>`;
+    if (kind === 'gdoc')   return `<a href="${esc(url)}" target="_blank" rel="noopener">📝 Google Doc</a>`;
+    if (kind === 'gsheet') return `<a href="${esc(url)}" target="_blank" rel="noopener">📊 Google Sheet</a>`;
+    if (kind === 'gslides')return `<a href="${esc(url)}" target="_blank" rel="noopener">📈 Google Slide</a>`;
+    return `<a href="${esc(url)}" target="_blank" rel="noopener">📎 File</a>`;
+  }
+</script>
 
     /* ----- RENDER ----- */
     let all = [];
