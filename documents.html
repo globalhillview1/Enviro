@@ -1,179 +1,255 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Document Repository</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  body { font-family: Arial, sans-serif; background:#f7f9fc; margin:0; }
-  header { background:#fff; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; }
-  header img { height:40px; }
-  header h2 { margin:0; color:#123; }
-  .btn { padding:6px 12px; border:none; border-radius:5px; cursor:pointer; font-size:14px; }
-  .btn.primary { background:#007bff; color:#fff; }
-  .btn.danger { background:#dc3545; color:#fff; }
-  .btn.secondary { background:#6c757d; color:#fff; }
-  .container { padding:20px; }
-  .search { margin-bottom:15px; }
-  .search input { padding:8px; width:100%; max-width:300px; border:1px solid #ccc; border-radius:6px; }
-  table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; }
-  th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
-  th { background:#f1f3f6; font-weight:bold; }
-  tr:hover { background:#f9fafc; }
-  .thumb { width:80px; height:auto; border-radius:5px; }
-  /* Modal */
-  .modal { display:none; position:fixed; z-index:1000; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; }
-  .modal-content { background:#fff; padding:20px; border-radius:8px; max-width:500px; width:90%; }
-  .modal-content h3 { margin-top:0; }
-  .modal-content label { display:block; margin-top:10px; }
-  .modal-content input { width:100%; padding:8px; margin-top:5px; border:1px solid #ccc; border-radius:5px; }
-  .modal-actions { margin-top:15px; display:flex; gap:10px; justify-content:flex-end; }
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Document Repository</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f6f8fb; }
+    .container-xl { max-width: 1200px; }
+    .card { border-radius: 14px; }
+    .table td, .table th { vertical-align: middle; }
+    .cursor-pointer { cursor: pointer; }
+  </style>
 </head>
 <body>
-
-<header>
-  <div style="display:flex; align-items:center; gap:10px;">
-    <img src="logo.png" alt="Logo">
-    <h2>Document Repository</h2>
-  </div>
-  <div>
-    <button class="btn secondary" onclick="window.location.href='/dashboard'">Back to Dashboard</button>
-    <button class="btn danger" onclick="logout()">Logout</button>
-  </div>
-</header>
-
-<div class="container">
-  <div class="search">
-    <input type="text" id="searchBox" placeholder="Search subject...">
-    <button id="addDocBtn" class="btn primary" style="display:none; margin-left:10px;">+ Add Document</button>
-  </div>
-
-  <table id="docsTable">
-    <thead>
-      <tr>
-        <th>Serial #</th>
-        <th>Date</th>
-        <th>Subject</th>
-        <th>Media</th>
-        <th>Link</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-<!-- Add/Edit Modal -->
-<div class="modal" id="docModal">
-  <div class="modal-content">
-    <h3 id="modalTitle">Add Document</h3>
-    <form id="docForm">
-      <input type="hidden" id="docSerial">
-      <label>Date <input type="date" id="docDate" required></label>
-      <label>Subject <input type="text" id="docSubject" required></label>
-      <label>Media URL <input type="url" id="docMedia"></label>
-      <label>Link URL <input type="url" id="docLink"></label>
-      <div class="modal-actions">
-        <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn primary">Save</button>
+  <nav class="navbar bg-white border-bottom mb-3">
+    <div class="container-xl">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+        <img src="/logo.png" alt="Logo" height="28" onerror="this.style.display='none'"/>
+        <span class="fw-semibold">Document Repository</span>
+      </a>
+      <div class="d-flex align-items-center gap-2">
+        <a href="/dashboard" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
+        <button class="btn btn-danger btn-sm" id="logoutBtn">Logout</button>
       </div>
-    </form>
+    </div>
+  </nav>
+
+  <div class="container-xl pb-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <input id="docSearch" class="form-control" style="max-width:340px" placeholder="Search subject..."/>
+          <button class="btn btn-primary" id="openAddDocBtn">+ Add Document</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th style="width:90px">Serial #</th>
+                <th style="width:180px">Date</th>
+                <th style="width:280px">Subject</th>
+                <th style="width:160px">Media</th>
+                <th style="width:160px">Link</th>
+                <th style="width:160px">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="docsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
 
-<script>
-const API = "https://script.google.com/macros/s/AKfycbzAYAQiB9vzBZaExFNQUL_PMbs0NVJBG5WihWlmBO9TtTlFsxKdCz6p7mmHJLSZfk65/exec"; // replace with your Apps Script endpoint
-let docs = [];
-let admin = true; // toggle based on user role check
+  <!-- Add/Edit Document Modal -->
+  <div class="modal fade" id="docModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="docModalTitle">Add Document</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="docSerial">
+          <div class="mb-3">
+            <label class="form-label">Date</label>
+            <input id="docDate" class="form-control" placeholder="yyyy-mm-dd">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Subject</label>
+            <input id="docSubject" class="form-control">
+          </div>
 
-// --- Utility ---
-function logout(){ localStorage.clear(); window.location.href="/login"; }
-function esc(s){ return (s||'').toString().replace(/[&<>\"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+          <!-- Media (Browse… replaces Media URL input) -->
+          <div class="mb-3">
+            <label class="form-label">Media</label>
+            <div class="d-flex align-items-center gap-2">
+              <input type="file" id="docMediaFile" style="display:none" />
+              <button type="button" id="docBrowseBtn" class="btn btn-outline-secondary">Browse…</button>
+              <span id="docMediaName" class="text-muted small"></span>
+            </div>
+            <!-- Hidden/readonly field to carry uploaded URL -->
+            <input type="text" id="docMediaUrl" class="form-control mt-2" placeholder="(auto-filled after upload)" readonly />
+          </div>
 
-// --- Modal controls ---
-const modal = document.getElementById("docModal");
-function openModal(edit=false, data=null){
-  modal.style.display="flex";
-  document.getElementById("modalTitle").textContent = edit ? "Edit Document" : "Add Document";
-  if(edit && data){
-    document.getElementById("docSerial").value = data.serial;
-    document.getElementById("docDate").value = data.date;
-    document.getElementById("docSubject").value = data.subject;
-    document.getElementById("docMedia").value = data.media;
-    document.getElementById("docLink").value = data.link;
-  } else {
-    document.getElementById("docForm").reset();
-    document.getElementById("docSerial").value = "";
-  }
-}
-function closeModal(){ modal.style.display="none"; }
+          <div class="mb-3">
+            <label class="form-label">Link URL (optional)</label>
+            <input id="docLinkUrl" class="form-control" placeholder="https://...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" id="saveDocBtn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-// --- API Calls ---
-async function fetchDocs(){
-  try{
-    const res = await fetch(`${API}?action=list`);
-    const j = await res.json();
-    docs = j.docs || [];
-    render();
-  }catch(e){ console.error("Fetch failed", e); }
-}
-async function saveDoc(ev){
-  ev.preventDefault();
-  const payload = {
-    serial: document.getElementById("docSerial").value,
-    date: document.getElementById("docDate").value,
-    subject: document.getElementById("docSubject").value,
-    media: document.getElementById("docMedia").value,
-    link: document.getElementById("docLink").value
-  };
-  const action = payload.serial ? "update" : "add";
-  try{
-    await fetch(`${API}?action=${action}`, {method:"POST", body:JSON.stringify(payload)});
-    closeModal(); fetchDocs();
-  }catch(e){ alert("Save failed"); }
-}
-async function deleteDoc(serial){
-  if(!confirm("Delete document #"+serial+"?")) return;
-  try{
-    await fetch(`${API}?action=delete`, {method:"POST", body:JSON.stringify({serial})});
-    fetchDocs();
-  }catch(e){ alert("Delete failed"); }
-}
+  <script>
+    /* ===== CONFIG ===== */
+    const API_BASE = ''; // <-- set your Apps Script URL
+    const TOKEN = localStorage.getItem('enviro_token');
 
-// --- Rendering ---
-function mediaCell(url){
-  if(!url) return "";
-  return `<a href="${esc(url)}" target="_blank"><img src="${esc(url)}" class="thumb"></a>`;
-}
-function render(){
-  const q = document.getElementById("searchBox").value.toLowerCase();
-  const tbody = document.querySelector("#docsTable tbody");
-  tbody.innerHTML="";
-  docs.filter(d=>!q || d.subject.toLowerCase().includes(q)).forEach(d=>{
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${esc(d.serial)}</td>
-      <td>${esc(d.date)}</td>
-      <td>${esc(d.subject)}</td>
-      <td>${mediaCell(d.media)}</td>
-      <td>${d.link ? `<a href="${esc(d.link)}" target="_blank">Open</a>` : ""}</td>
-      <td>
-        ${admin? `
-          <button class="btn secondary" onclick='openModal(true, ${JSON.stringify(d)})'>Edit</button>
-          <button class="btn danger" onclick="deleteDoc('${d.serial}')">Delete</button>
-        `:""}
-      </td>`;
-    tbody.appendChild(tr);
-  });
-}
+    /* ===== Utilities ===== */
+    const qs  = (s, r=document)=>r.querySelector(s);
+    const qsa = (s, r=document)=>Array.from(r.querySelectorAll(s));
+    function escapeHtml(s) { return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function assertToken() { if(!TOKEN) { alert('Not logged in'); location.href='/'; } }
+    async function apiGet(action) {
+      const res = await fetch(`${API_BASE}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(TOKEN)}`);
+      const json = await res.json();
+      if(!json.ok) throw new Error(json.error||'Request failed');
+      return json.data;
+    }
+    async function apiPost(action, body) {
+      const res = await fetch(`${API_BASE}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(TOKEN)}`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})
+      });
+      const json = await res.json();
+      if(!json.ok) throw new Error(json.error||'Request failed');
+      return json.data;
+    }
+    function fileToBase64(file) {
+      return new Promise((resolve, reject)=>{
+        const r=new FileReader();
+        r.onload=()=>resolve(String(r.result).split(',')[1]);
+        r.onerror=reject;
+        r.readAsDataURL(file);
+      });
+    }
+    async function uploadB64ToDrive(file) {
+      const b64 = await fileToBase64(file);
+      return apiPost('uploaddocb64', { name:file.name, mime:file.type, data:b64 }); // {id,name,url,mimeType}
+    }
 
-// --- Init ---
-document.getElementById("docForm").addEventListener("submit", saveDoc);
-document.getElementById("searchBox").addEventListener("input", render);
-document.getElementById("addDocBtn").addEventListener("click", ()=>openModal(false));
-if(admin) document.getElementById("addDocBtn").style.display="inline-block";
-fetchDocs();
-</script>
+    /* ===== State ===== */
+    let ALL_DOCS = [];
+
+    /* ===== Load & render ===== */
+    async function loadDocs(){
+      assertToken();
+      const list = await apiGet('documents'); // [{serial,subject,date,media,url}]
+      ALL_DOCS = list.sort((a,b)=> Number(b.serial)-Number(a.serial));
+      renderDocs();
+    }
+    function renderDocs(){
+      const q = qs('#docSearch').value.trim().toLowerCase();
+      const rows = !q ? ALL_DOCS : ALL_DOCS.filter(d => (d.subject||'').toLowerCase().includes(q));
+      const tb = qs('#docsTableBody'); tb.innerHTML='';
+      rows.forEach(d=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${d.serial}</td>
+          <td>${escapeHtml(d.date||'')}</td>
+          <td>${escapeHtml(d.subject||'')}</td>
+          <td>${d.media?`<a href="${d.media}" target="_blank" rel="noopener">open</a>`:''}</td>
+          <td>${d.url?`<a href="${d.url}" target="_blank" rel="noopener">open</a>`:''}</td>
+          <td class="text-nowrap">
+            <button class="btn btn-sm btn-outline-primary me-1" data-action="edit" data-serial="${d.serial}">Edit</button>
+            <button class="btn btn-sm btn-outline-danger" data-action="delete" data-serial="${d.serial}">Delete</button>
+          </td>
+        `;
+        tb.appendChild(tr);
+      });
+    }
+    qs('#docSearch').addEventListener('input', renderDocs);
+
+    /* ===== Open Add Doc Modal ===== */
+    const docModalEl = qs('#docModal');
+    const docModal = ()=> bootstrap.Modal.getOrCreateInstance(docModalEl);
+
+    qs('#openAddDocBtn').addEventListener('click', ()=>{
+      qs('#docModalTitle').textContent = 'Add Document';
+      qs('#docSerial').value = '';
+      qs('#docDate').value = '';
+      qs('#docSubject').value = '';
+      qs('#docMediaName').textContent = '';
+      qs('#docMediaUrl').value = '';
+      qs('#docLinkUrl').value = '';
+      docModal().show();
+    });
+
+    /* ===== Media Browse wiring ===== */
+    const docBrowseBtn = qs('#docBrowseBtn');
+    const docMediaFile = qs('#docMediaFile');
+    const docMediaName = qs('#docMediaName');
+    const docMediaUrl  = qs('#docMediaUrl');
+
+    docBrowseBtn.addEventListener('click', ()=> docMediaFile.click());
+    docMediaFile.addEventListener('change', async (e)=>{
+      const f = e.target.files?.[0];
+      if(!f) return;
+      docBrowseBtn.disabled = true; docBrowseBtn.textContent='Uploading…';
+      try{
+        const up = await uploadB64ToDrive(f);
+        docMediaName.textContent = f.name;
+        docMediaUrl.value = up.url; // used in save
+      }catch(err){ alert('Upload failed: ' + err.message); }
+      finally{ docBrowseBtn.disabled=false; docBrowseBtn.textContent='Browse…'; }
+    });
+
+    /* ===== Save (Add or Update) ===== */
+    qs('#saveDocBtn').addEventListener('click', async ()=>{
+      const serial  = qs('#docSerial').value ? Number(qs('#docSerial').value) : null;
+      const subject = qs('#docSubject').value.trim();
+      const date    = qs('#docDate').value.trim() || undefined;
+      const media   = qs('#docMediaUrl').value.trim();
+      const url     = qs('#docLinkUrl').value.trim() || undefined;
+
+      if(!subject) return alert('Subject is required');
+      if(!serial && !media && !url) return alert('Provide a media upload or a link');
+
+      try{
+        if(serial){ // update
+          await apiPost('updatedoc', { serial, subject, date, media: media||undefined, url });
+        }else{      // create
+          await apiPost('adddoc', { subject, date, media: media||undefined, url });
+        }
+        docModal().hide();
+        loadDocs();
+      }catch(err){ alert('Save failed: ' + err.message); }
+    });
+
+    /* ===== Row Actions ===== */
+    qs('#docsTableBody').addEventListener('click', async (e)=>{
+      const btn = e.target.closest('button[data-action]');
+      if(!btn) return;
+      const serial = Number(btn.dataset.serial);
+      const row = ALL_DOCS.find(d=>Number(d.serial)===serial);
+      if(!row) return;
+
+      if(btn.dataset.action==='delete'){
+        if(!confirm('Delete this document?')) return;
+        try { await apiPost('deletedoc', { serial }); loadDocs(); }
+        catch(err){ alert('Delete failed: ' + err.message); }
+      } else if(btn.dataset.action==='edit'){
+        qs('#docModalTitle').textContent = 'Edit Document';
+        qs('#docSerial').value = serial;
+        qs('#docDate').value = row.date||'';
+        qs('#docSubject').value = row.subject||'';
+        qs('#docMediaName').textContent = row.media ? '(existing)' : '';
+        qs('#docMediaUrl').value = row.media||'';
+        qs('#docLinkUrl').value = row.url||'';
+        docModal().show();
+      }
+    });
+
+    qs('#logoutBtn').addEventListener('click', ()=>{ localStorage.removeItem('enviro_token'); location.href='/'; });
+
+    document.addEventListener('DOMContentLoaded', loadDocs);
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
