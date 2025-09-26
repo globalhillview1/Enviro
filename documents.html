@@ -1,32 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Document Repository</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   body { font-family: Arial, sans-serif; background:#f7f9fc; margin:0; }
   header { background:#fff; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; }
-  header img { height:40px; }
+  header img { height:28px; width:28px; border-radius:6px; }
   header h2 { margin:0; color:#123; }
-  .btn { padding:6px 12px; border:none; border-radius:5px; cursor:pointer; font-size:14px; }
-  .btn.primary { background:#007bff; color:#fff; }
+  .btn { padding:6px 12px; border:none; border-radius:8px; cursor:pointer; font-size:14px; }
+  .btn.primary { background:#0d6efd; color:#fff; }
   .btn.danger { background:#dc3545; color:#fff; }
   .btn.secondary { background:#6c757d; color:#fff; }
   .container { padding:20px; }
   .search { margin-bottom:15px; display:flex; gap:10px; align-items:center; }
-  .search input { padding:8px; width:100%; max-width:300px; border:1px solid #ccc; border-radius:6px; }
-  table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; }
-  th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
+  .search input { padding:8px; width:100%; max-width:300px; border:1px solid #ccc; border-radius:8px; }
+  table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
+  th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; vertical-align:middle; }
   th { background:#f1f3f6; font-weight:bold; }
   tr:hover { background:#f9fafc; }
-  .thumb { width:80px; height:auto; border-radius:5px; }
+  .thumb { width:70px; height:50px; object-fit:cover; border-radius:6px; display:block; }
+  .icon { width:26px; height:26px; vertical-align:middle; }
   /* Modal */
-  .modal { display:none; position:fixed; z-index:1000; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; }
-  .modal-content { background:#fff; padding:20px; border-radius:8px; max-width:500px; width:90%; }
+  .modal { display:none; position:fixed; z-index:1000; inset:0; background:rgba(0,0,0,.6); justify-content:center; align-items:center; }
+  .modal-content { background:#fff; padding:20px; border-radius:12px; max-width:520px; width:92%; }
   .modal-content h3 { margin-top:0; }
   .modal-content label { display:block; margin-top:10px; }
-  .modal-content input { width:100%; padding:8px; margin-top:5px; border:1px solid #ccc; border-radius:5px; }
+  .modal-content input { width:100%; padding:9px; margin-top:5px; border:1px solid #ccc; border-radius:8px; }
   .modal-actions { margin-top:15px; display:flex; gap:10px; justify-content:flex-end; }
   .row { display:flex; gap:8px; align-items:center; }
   .hint { color:#666; font-size:12px; }
@@ -36,18 +37,18 @@
 
 <header>
   <div style="display:flex; align-items:center; gap:10px;">
-    <img src="logo.png" alt="Logo">
+    <img src="/android-chrome-512x512.png" alt="Logo" />
     <h2>Document Repository</h2>
   </div>
   <div>
-    <button class="btn secondary" onclick="window.location.href='/dashboard'">Back to Dashboard</button>
+    <button class="btn secondary" onclick="window.location.href='/'">Back to Dashboard</button>
     <button class="btn danger" onclick="logout()">Logout</button>
   </div>
 </header>
 
 <div class="container">
   <div class="search">
-    <input type="text" id="searchBox" placeholder="Search subject...">
+    <input type="text" id="searchBox" placeholder="Search subject..." />
     <button id="addDocBtn" class="btn primary" style="display:none;">+ Add Document</button>
   </div>
 
@@ -71,21 +72,21 @@
   <div class="modal-content">
     <h3 id="modalTitle">Add Document</h3>
     <form id="docForm">
-      <input type="hidden" id="docSerial">
-      <label>Date <input type="date" id="docDate" required></label>
-      <label>Subject <input type="text" id="docSubject" required></label>
+      <input type="hidden" id="docSerial" />
+      <label>Date <input type="date" id="docDate" required /></label>
+      <label>Subject <input type="text" id="docSubject" required /></label>
 
-      <!-- Replaces Media URL with Browse… upload -->
+      <!-- Browse upload -->
       <label>Media
         <div class="row">
-          <input type="file" id="docMediaFile" style="display:none;">
+          <input type="file" id="docMediaFile" style="display:none;" />
           <button type="button" class="btn secondary" id="browseBtn">Browse…</button>
           <span id="mediaName" class="hint"></span>
         </div>
-        <input type="url" id="docMedia" placeholder="(auto-filled after upload)" readonly>
+        <input type="url" id="docMedia" placeholder="(auto-filled after upload)" readonly />
       </label>
 
-      <label>Link URL <input type="url" id="docLink" placeholder="https://..."></label>
+      <label>Link URL <input type="url" id="docLink" placeholder="https://..." /></label>
       <div class="modal-actions">
         <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
         <button type="submit" class="btn primary">Save</button>
@@ -95,51 +96,84 @@
 </div>
 
 <script>
-/** ===== Config ===== */
-const API = "https://script.google.com/macros/s/AKfycbzAYAQiB9vzBZaExFNQUL_PMbs0NVJBG5WihWlmBO9TtTlFsxKdCz6p7mmHJLSZfk65/exec"; // Apps Script URL
-const TOKEN = localStorage.getItem('token'); // same as notices.html guard
+/* ===== Config ===== */
+// Prefer your Cloudflare Pages proxy to avoid CORS:
+const API = "/api";                     // <- if you don't have a proxy, set to your Apps Script URL
+const TOKEN = localStorage.getItem("token");
 
 let docs = [];
 let admin = false;
 
-/** ===== Utils ===== */
-function logout(){ localStorage.clear(); window.location.href="/login"; }
-function esc(s){ return (s||'').toString().replace(/[&<>\"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+/* ===== Utils ===== */
+function logout(){ localStorage.clear(); location.replace("/login"); }
+function esc(s){ return (s||"").toString().replace(/[&<>\"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 async function apiGet(action){
-  const r = await fetch(`${API}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(TOKEN)}`, {cache:'no-store'});
-  const j = await r.json();
-  if(!j.ok) throw new Error(j.error||'Request failed');
-  return j.data;
+  const r = await fetch(`${API}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(TOKEN)}`, {cache:"no-store"});
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||"Request failed"); return j.data;
 }
 async function apiPost(action, body){
   const r = await fetch(`${API}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(TOKEN)}`, {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body||{})
   });
-  const j = await r.json();
-  if(!j.ok) throw new Error(j.error||'Request failed');
-  return j.data;
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||"Request failed"); return j.data;
 }
 function fileToBase64(file){
-  return new Promise((resolve,reject)=>{
-    const fr = new FileReader();
-    fr.onload = () => resolve(String(fr.result).split(',')[1]);
-    fr.onerror = reject;
-    fr.readAsDataURL(file);
-  });
+  return new Promise((resolve,reject)=>{ const fr=new FileReader(); fr.onload=()=>resolve(String(fr.result).split(",")[1]); fr.onerror=reject; fr.readAsDataURL(file); });
+}
+function extFromUrl(u){
+  try{ const s=new URL(u).pathname.toLowerCase(); const m=s.match(/\.([a-z0-9]+)$/i); return m?m[1]:""; }catch{return "";}
+}
+function driveId(u){
+  // supports https://drive.google.com/file/d/<ID>/view...
+  const m = /\/file\/d\/([A-Za-z0-9_-]+)/.exec(u||"");
+  return m ? m[1] : null;
+}
+function isImageUrl(u){
+  const e = extFromUrl(u);
+  return ["png","jpg","jpeg","gif","webp","bmp","svg"].includes(e);
+}
+function driveThumb(u){
+  const id = driveId(u);
+  if(!id) return null;
+  // thumbnail endpoint
+  return `https://drive.google.com/thumbnail?id=${id}`;
+}
+function fileIconSvg(kind){
+  const map = {
+    pdf:"#d32f2f", doc:"#1976d2", docx:"#1976d2",
+    xls:"#2e7d32", xlsx:"#2e7d32",
+    ppt:"#ef6c00", pptx:"#ef6c00",
+    zip:"#6d4c41", rar:"#6d4c41", "7z":"#6d4c41",
+    default:"#616161"
+  };
+  const color = map[kind] || map.default;
+  return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="${color}" d="M6 2h8l6 6v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/>
+    <path fill="#fff" d="M14 2v6h6"/>
+  </svg>`;
+}
+function iconForUrl(u){
+  const e = extFromUrl(u);
+  if(["pdf"].includes(e)) return fileIconSvg("pdf");
+  if(["doc","docx"].includes(e)) return fileIconSvg("doc");
+  if(["xls","xlsx","csv"].includes(e)) return fileIconSvg("xls");
+  if(["ppt","pptx"].includes(e)) return fileIconSvg("ppt");
+  if(["zip","rar","7z"].includes(e)) return fileIconSvg("zip");
+  return fileIconSvg("default");
 }
 
-/** ===== Modal controls ===== */
+/* ===== Modal controls ===== */
 const modal = document.getElementById("docModal");
 function openModal(edit=false, data=null){
   modal.style.display="flex";
   document.getElementById("modalTitle").textContent = edit ? "Edit Document" : "Add Document";
   if(edit && data){
     document.getElementById("docSerial").value = data.serial;
-    document.getElementById("docDate").value = (data.date||'').substring(0,10);
-    document.getElementById("docSubject").value = data.subject||'';
-    document.getElementById("docMedia").value = data.media||'';
+    document.getElementById("docDate").value = (data.date||"").substring(0,10);
+    document.getElementById("docSubject").value = data.subject||"";
+    document.getElementById("docMedia").value = data.media||"";
     document.getElementById("mediaName").textContent = data.media ? "(existing)" : "";
-    document.getElementById("docLink").value = data.url || data.link || '';
+    document.getElementById("docLink").value = data.url || data.link || "";
   } else {
     document.getElementById("docForm").reset();
     document.getElementById("docSerial").value = "";
@@ -148,38 +182,39 @@ function openModal(edit=false, data=null){
 }
 function closeModal(){ modal.style.display="none"; }
 
-/** ===== Fetch + render ===== */
+/* ===== Fetch + render ===== */
 async function fetchDocs(){
   try{
-    // role
-    const me = await apiGet('whoami');
-    admin = (me.user?.role === 'admin');
+    const me = await apiGet("whoami");
+    admin = (me.user && me.user.role === "admin");
     if(admin) document.getElementById("addDocBtn").style.display="inline-block";
 
-    // data
-    const list = await apiGet('documents'); // [{serial,subject,date,media,url}]
+    const list = await apiGet("documents"); // [{serial,subject,date,media,url}]
     docs = (list||[]).sort((a,b)=>Number(b.serial)-Number(a.serial));
     render();
-  }catch(e){ console.error("Fetch failed", e); alert("Failed to load documents"); }
+  }catch(e){ console.error(e); alert("Failed to load documents"); }
 }
-
 function mediaCell(url){
   if(!url) return "";
-  return `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" class="thumb" onerror="this.outerHTML='open'"></a>`;
+  const dthumb = driveThumb(url);
+  const isImg = isImageUrl(url) || !!dthumb;
+  const src = dthumb || url;
+  return isImg
+    ? `<a href="${esc(url)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(src)}" onerror="this.closest('a').innerHTML='open'"></a>`
+    : `<a href="${esc(url)}" target="_blank" rel="noopener">${iconForUrl(url)} open</a>`;
 }
-
 function render(){
   const q = document.getElementById("searchBox").value.toLowerCase();
   const tbody = document.querySelector("#docsTable tbody");
   tbody.innerHTML="";
-  docs.filter(d=>!q || (d.subject||'').toLowerCase().includes(q)).forEach(d=>{
+  docs.filter(d=>!q || (d.subject||"").toLowerCase().includes(q)).forEach(d=>{
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${esc(d.serial)}</td>
       <td>${esc(d.date)}</td>
       <td>${esc(d.subject)}</td>
       <td>${mediaCell(d.media)}</td>
-      <td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">Open</a>` : ""}</td>
+      <td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">open</a>` : ""}</td>
       <td>
         ${admin? `
           <button class="btn secondary" onclick='openModal(true, ${JSON.stringify(d)})'>Edit</button>
@@ -190,24 +225,24 @@ function render(){
   });
 }
 
-/** ===== Upload wiring (Browse…) ===== */
-const browseBtn = document.getElementById('browseBtn');
-const mediaFile = document.getElementById('docMediaFile');
-const mediaName = document.getElementById('mediaName');
-browseBtn.addEventListener('click', ()=> mediaFile.click());
-mediaFile.addEventListener('change', async (e)=>{
+/* ===== Upload (Browse…) ===== */
+const browseBtn = document.getElementById("browseBtn");
+const mediaFile = document.getElementById("docMediaFile");
+const mediaName = document.getElementById("mediaName");
+browseBtn.addEventListener("click", ()=> mediaFile.click());
+mediaFile.addEventListener("change", async (e)=>{
   const f = e.target.files?.[0]; if(!f) return;
   try{
-    browseBtn.disabled = true; browseBtn.textContent = 'Uploading…';
+    browseBtn.disabled = true; browseBtn.textContent = "Uploading…";
     const base64 = await fileToBase64(f);
-    const up = await apiPost('uploaddocb64', { name:f.name, mime:f.type, data:base64 }); // {url,...}
-    document.getElementById('docMedia').value = up.url;
+    const up = await apiPost("uploaddocb64", { name:f.name, mime:f.type, data:base64 }); // {url,...}
+    document.getElementById("docMedia").value = up.url;
     mediaName.textContent = f.name;
-  }catch(err){ alert('Upload failed: ' + err.message); }
-  finally{ browseBtn.disabled=false; browseBtn.textContent='Browse…'; }
+  }catch(err){ alert("Upload failed: " + err.message); }
+  finally{ browseBtn.disabled=false; browseBtn.textContent="Browse…"; }
 });
 
-/** ===== Save & Delete ===== */
+/* ===== Save & Delete ===== */
 async function saveDoc(ev){
   ev.preventDefault();
   const payload = {
@@ -219,12 +254,11 @@ async function saveDoc(ev){
   };
   if(!payload.subject) return alert("Subject is required");
   if(!payload.serial && !payload.media && !payload.url) return alert("Provide a media upload or a link");
-
   try{
     if(payload.serial){
-      await apiPost('updatedoc', payload);
+      await apiPost("updatedoc", payload);
     }else{
-      await apiPost('adddoc', { subject:payload.subject, date:payload.date, media:payload.media||undefined, url:payload.url||undefined });
+      await apiPost("adddoc", { subject:payload.subject, date:payload.date, media:payload.media||undefined, url:payload.url||undefined });
     }
     closeModal(); fetchDocs();
   }catch(e){ alert("Save failed: " + e.message); }
@@ -232,16 +266,16 @@ async function saveDoc(ev){
 async function deleteDoc(serial){
   if(!confirm("Delete document #"+serial+"?")) return;
   try{
-    await apiPost('deletedoc', {serial:Number(serial)});
+    await apiPost("deletedoc", {serial:Number(serial)});
     fetchDocs();
   }catch(e){ alert("Delete failed: " + e.message); }
 }
 
-/** ===== Init ===== */
+/* ===== Init ===== */
 document.getElementById("docForm").addEventListener("submit", saveDoc);
 document.getElementById("searchBox").addEventListener("input", render);
 document.getElementById("addDocBtn").addEventListener("click", ()=>openModal(false));
-window.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+window.addEventListener("click", (e)=>{ if(e.target===modal) closeModal(); });
 
 if(!TOKEN){ logout(); } else { fetchDocs(); }
 </script>
