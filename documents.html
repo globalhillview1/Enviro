@@ -5,14 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Document Repository | Global Hillview</title>
 
-  <!-- Favicons -->
   <link rel="alternate icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
 
-  <!-- No-paint guard if not logged in -->
   <script>
     (function () {
       try {
@@ -41,6 +39,7 @@
     .btn:hover{background:var(--hover)}
     .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
     .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+    .btn.sm{padding:4px 8px;font-size:12px} /* Style for smaller buttons in the table */
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
     .wrap{padding:14px 20px}
@@ -49,13 +48,12 @@
     input{padding:10px 12px;border:1px solid var(--border);border-radius:10px}
     table{width:100%;border-collapse:separate;border-spacing:0}
     thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700}
-    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
+    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:middle}
     .muted{color:var(--muted)}
-    .thumb{max-width:64px;max-height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)}
+    .thumb{max-width:64px;max-height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block}
   </style>
 </head>
 <body>
-  <!-- hidden file picker -->
   <input id="pickFile" type="file" style="display:none" />
 
   <header>
@@ -71,7 +69,6 @@
   </header>
 
   <div class="wrap">
-    <!-- Admin controls -->
     <div id="adminBar" class="card" style="display:none; margin-bottom:12px">
       <div class="row" style="align-items:center">
         <button id="btnPick" class="btn primary">Upload to Drive</button>
@@ -88,7 +85,6 @@
       </div>
     </div>
 
-    <!-- Grid -->
     <div class="card">
       <div class="row" style="margin-bottom:8px">
         <input id="q" type="search" placeholder="Search subject…" style="min-width:260px">
@@ -104,7 +100,7 @@
             <th>Subject</th>
             <th>Media</th>
             <th>Link</th>
-          </tr>
+            <th style="width:120px">Actions</th> </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -225,63 +221,50 @@
 
     /* ----- MEDIA RENDERING (Drive aware) ----- */
     const fileIcon = {
-      gdoc:  '📝 Google Doc',
-      gsheet:'📊 Google Sheet',
+      gdoc:   '📝 Google Doc',
+      gsheet: '📊 Google Sheet',
       gslides:'📈 Google Slide',
-      pdf:   '📄 PDF',
-      word:  '📝 Word',
-      excel: '📊 Excel',
-      ppt:   '📈 PPT',
-      other: '📎 File'
+      pdf:    '📄 PDF',
+      word:   '📝 Word',
+      excel:  '📊 Excel',
+      ppt:    '📈 PPT',
+      other:  '📎 File'
     };
 
     function classifyByUrl(u){
       if(!u) return null;
       const s = String(u);
-
-      // Google-native docs
       if (/docs\.google\.com\/document\//i.test(s))     return 'gdoc';
       if (/docs\.google\.com\/spreadsheets\//i.test(s)) return 'gsheet';
       if (/docs\.google\.com\/presentation\//i.test(s)) return 'gslides';
-
-      // Plain extensions (non-Drive direct links)
       if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
       if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))          return 'video';
       if (/\.(pdf)(\?|#|$)/i.test(s))                   return 'pdf';
-      if (/\.(docx?|odt)(\?|#|$)/i.test(s))             return 'word';
-      if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))             return 'excel';
-      if (/\.(pptx?|odp)(\?|#|$)/i.test(s))             return 'ppt';
-
-      // Google Drive share link (no extension)
+      if (/\.(docx?|odt)(\?|#|$)/i.test(s))              return 'word';
+      if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))              return 'excel';
+      if (/\.(pptx?|odp)(\?|#|$)/i.test(s))              return 'ppt';
       if (/drive\.google\.com\/file\/d\/([^/]+)/i.test(s)) return 'drive';
       return 'other';
     }
 
     function mediaCellHtml(url){
       if(!url) return '';
-
-      // For Drive links, try the thumbnail first
       const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
       if (m) {
         const id    = m[1];
         const thumb = `https://drive.google.com/thumbnail?id=${id}`;
-
-        // If the thumb 404s (e.g., a non-previewable file), show a simple link instead
-        const fallback = `
-          <span class="file-fallback" style="display:none">
-            <a href="${esc(url)}" target="_blank" rel="noopener">📎 File</a>
-          </span>`;
+        const fallback = `<span class="file-fallback" style="display:none"><a href="${esc(url)}" target="_blank" rel="noopener">📎 File</a></span>`;
+        // MODIFIED: Wrapped img in an anchor tag to make it clickable
         return `
-          <span class="drive-media">
+          <a href="${esc(url)}" target="_blank" rel="noopener">
             <img class="thumb" src="${esc(thumb)}" alt="preview"
-                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
-            ${fallback}
-          </span>`;
+                 onerror="this.parentElement.style.display='none'; this.parentElement.nextElementSibling.style.display='inline-block';">
+          </a>
+          ${fallback}`;
       }
-
-      // Non-Drive: extension-based rendering
       const kind = classifyByUrl(url);
-      if (kind === 'image')  return `<img src="${esc(url)}" class="thumb" alt="image">`;
+      // MODIFIED: Wrapped img in an anchor tag
+      if (kind === 'image')  return `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" class="thumb" alt="image"></a>`;
       if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
       if (kind === 'pdf')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.pdf}</a>`;
       if (kind === 'word')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.word}</a>`;
@@ -293,6 +276,54 @@
       return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.other}</a>`;
     }
 
+    /* ----- SHEET WRITE (Admin Actions) ----- */
+    // ADDED: Placeholder function for editing a row
+    function editRow(serial) {
+        // Find the row data from the global 'all' array
+        const rowData = all.find(r => String(r.serial) === String(serial));
+        if (!rowData) return alert('Row data not found.');
+
+        // For this example, we'll populate the top form with the row's data.
+        // A more advanced implementation might use a modal dialog.
+        document.getElementById('d_subject').value = rowData.subject;
+        document.getElementById('d_date').value = rowData.date; // Note: Date format might need parsing for some browsers
+        document.getElementById('d_url').value = rowData.media || rowData.url;
+
+        alert(`Row #${serial} data has been loaded into the form above.\n\n(Note: Update/Save logic needs to be implemented in your backend API).`);
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top to see the form
+    }
+
+    // ADDED: Placeholder function for deleting a row
+    async function deleteRow(serial) {
+        if (!confirm(`Are you sure you want to delete row #${serial}? This cannot be undone.`)) {
+            return;
+        }
+
+        alert(`You requested to delete row #${serial}.\n\n(Note: This requires a backend API call. For this demo, we will just log to the console and refresh.)`);
+        console.log(`Deletion requested for serial: ${serial}. Implement API call here.`);
+
+        // --- Example of a real API call ---
+        // You would need to create a `deletedoc` action in your backend API.
+        /*
+        try {
+            const res = await fetch(`${API}?action=deletedoc&token=${encodeURIComponent(getTok())}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ serial: serial })
+            });
+            const j = await res.json();
+            if (!j.ok) throw new Error(j.error || 'Failed on server.');
+            console.log('Successfully deleted');
+            // Refresh data from source
+            all = await fetchDocs();
+            render();
+        } catch (e) {
+            alert('Error deleting row: ' + e.message);
+        }
+        */
+    }
+
+
     /* ----- RENDER ----- */
     let all = [];
     function render(){
@@ -302,14 +333,26 @@
       const filtered = all.filter(r => !q || String(r.subject||'').toLowerCase().includes(q));
       filtered.forEach(r=>{
         const tr = document.createElement('tr');
-        // Link column shows ONLY when there is no media (per your rule)
         const linkCell = (!r.media && r.url) ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">Open</a>` : '';
+
+        // ADDED: Generate HTML for action buttons only if user is an admin
+        let actionsCell = '';
+        if (isAdmin()) {
+            actionsCell = `
+            <div class="row" style="flex-wrap:nowrap; align-items:center;">
+                <button class="btn sm" onclick="editRow('${esc(r.serial)}')">Edit</button>
+                <button class="btn sm danger" onclick="deleteRow('${esc(r.serial)}')">Delete</button>
+            </div>`;
+        }
+
+        // MODIFIED: Added the new actionsCell to the table row
         tr.innerHTML = `
           <td>${esc(r.serial)}</td>
           <td>${esc(r.date)}</td>
           <td>${esc(r.subject)}</td>
           <td>${mediaCellHtml(r.media)}</td>
-          <td>${linkCell}</td>`;
+          <td>${linkCell}</td>
+          <td>${actionsCell}</td>`;
         tbody.appendChild(tr);
       });
     }
@@ -331,7 +374,7 @@
       try{
         const res = await fetch(`${API}?action=adddoc&token=${encodeURIComponent(getTok())}`, {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ subject, date, media })   // GAS expects: subject/date/media (URL optional)
+          body: JSON.stringify({ subject, date, media })
         });
         const j = await res.json().catch(()=>({}));
         if(!j.ok) throw new Error(j.error || 'Failed');
