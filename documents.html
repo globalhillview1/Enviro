@@ -14,21 +14,22 @@
   .btn.danger { background:#dc3545; color:#fff; }
   .btn.secondary { background:#6c757d; color:#fff; }
   .container { padding:20px; }
-  .search { margin-bottom:15px; display:flex; gap:10px; align-items:center; }
-  .search input { padding:8px; width:100%; max-width:300px; border:1px solid #ccc; border-radius:8px; }
+  .tools { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .tools input { padding:8px; border:1px solid #ccc; border-radius:8px; }
   table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
   th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; vertical-align:middle; }
-  th { background:#f1f3f6; font-weight:bold; }
+  th { background:#f1f3f6; font-weight:bold; cursor:pointer; user-select:none; }
   tr:hover { background:#f9fafc; }
   .thumb { width:70px; height:50px; object-fit:cover; border-radius:6px; display:block; }
-  .icon { width:26px; height:26px; vertical-align:middle; }
+  .icon { width:24px; height:24px; vertical-align:middle; margin-right:6px; }
+  .filters th { background:#fff; border-bottom:1px solid #eee; }
+  .filters input, .filters select { width:100%; padding:6px; border:1px solid #ddd; border-radius:6px; font-size:13px; }
   /* Modal */
   .modal { display:none; position:fixed; z-index:1000; inset:0; background:rgba(0,0,0,.6); justify-content:center; align-items:center; }
-  .modal-content { background:#fff; padding:20px; border-radius:12px; max-width:520px; width:92%; }
+  .modal-content { background:#fff; padding:20px; border-radius:12px; max-width:560px; width:92%; }
   .modal-content h3 { margin-top:0; }
   .modal-content label { display:block; margin-top:10px; }
-  .modal-content input { width:100%; padding:9px; margin-top:5px; border:1px solid #ccc; border-radius:8px; }
-  .modal-actions { margin-top:15px; display:flex; gap:10px; justify-content:flex-end; }
+  .modal-content input, .modal-content select { width:100%; padding:9px; margin-top:5px; border:1px solid #ccc; border-radius:8px; }
   .row { display:flex; gap:8px; align-items:center; }
   .hint { color:#666; font-size:12px; }
 </style>
@@ -47,20 +48,31 @@
 </header>
 
 <div class="container">
-  <div class="search">
-    <input type="text" id="searchBox" placeholder="Search subject..." />
+  <div class="tools">
+    <input type="text" id="globalSearch" placeholder="Quick search…" />
     <button id="addDocBtn" class="btn primary" style="display:none;">+ Add Document</button>
+    <button id="manageCatsBtn" class="btn secondary" style="display:none;">Manage Categories</button>
   </div>
 
   <table id="docsTable">
     <thead>
-      <tr>
-        <th>Serial #</th>
-        <th>Date</th>
-        <th>Subject</th>
-        <th>Media</th>
-        <th>Link</th>
-        <th>Actions</th>
+      <tr id="hdr">
+        <th data-key="serial">Serial #</th>
+        <th data-key="date">Date</th>
+        <th data-key="subject">Subject</th>
+        <th data-key="category">Category</th>
+        <th data-key="media">Media</th>
+        <th data-key="url">Link</th>
+        <th style="cursor:default">Actions</th>
+      </tr>
+      <tr class="filters">
+        <th><input id="f_serial" placeholder="#" /></th>
+        <th><input id="f_date" placeholder="yyyy-mm-dd" /></th>
+        <th><input id="f_subject" placeholder="Subject…" /></th>
+        <th><select id="f_category"><option value="">All</option></select></th>
+        <th><input id="f_media" placeholder="contains…" /></th>
+        <th><input id="f_url" placeholder="contains…" /></th>
+        <th></th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -76,18 +88,24 @@
       <label>Date <input type="date" id="docDate" required /></label>
       <label>Subject <input type="text" id="docSubject" required /></label>
 
-      <!-- Browse upload -->
+      <label>Category
+        <div class="row">
+          <select id="docCategory"></select>
+          <button type="button" class="btn secondary" id="newCatBtn">New…</button>
+        </div>
+      </label>
+
       <label>Media
         <div class="row">
           <input type="file" id="docMediaFile" style="display:none;" />
           <button type="button" class="btn secondary" id="browseBtn">Browse…</button>
           <span id="mediaName" class="hint"></span>
         </div>
-        <input type="url" id="docMedia" placeholder="(auto-filled after upload)" readonly />
+        <input type="url" id="docMedia" placeholder="(auto-filled after upload or paste a media URL)" />
       </label>
 
       <label>Link URL <input type="url" id="docLink" placeholder="https://..." /></label>
-      <div class="modal-actions">
+      <div class="row" style="justify-content:flex-end; gap:10px; margin-top:12px">
         <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
         <button type="submit" class="btn primary">Save</button>
       </div>
@@ -95,16 +113,28 @@
   </div>
 </div>
 
+<!-- New Category Modal -->
+<div class="modal" id="catModal">
+  <div class="modal-content">
+    <h3>New Category</h3>
+    <label>Name <input type="text" id="catName" placeholder="e.g., Finance, HR, Technical…" /></label>
+    <div class="row" style="justify-content:flex-end; gap:10px; margin-top:12px">
+      <button type="button" class="btn secondary" onclick="closeCat()">Cancel</button>
+      <button type="button" class="btn primary" id="saveCatBtn">Add</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ===== Config ===== */
-// Prefer your Cloudflare Pages proxy to avoid CORS:
-const API = "/api";                     // <- if you don't have a proxy, set to your Apps Script URL
+const API = "/api";                          // if no proxy, change to your Apps Script URL
 const TOKEN = localStorage.getItem("token");
 
 let docs = [];
 let admin = false;
+let categories = new Set();
 
-/* ===== Utils ===== */
+/* ===== Utilities ===== */
 function logout(){ localStorage.clear(); location.replace("/login"); }
 function esc(s){ return (s||"").toString().replace(/[&<>\"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 async function apiGet(action){
@@ -120,46 +150,36 @@ async function apiPost(action, body){
 function fileToBase64(file){
   return new Promise((resolve,reject)=>{ const fr=new FileReader(); fr.onload=()=>resolve(String(fr.result).split(",")[1]); fr.onerror=reject; fr.readAsDataURL(file); });
 }
-function extFromUrl(u){
-  try{ const s=new URL(u).pathname.toLowerCase(); const m=s.match(/\.([a-z0-9]+)$/i); return m?m[1]:""; }catch{return "";}
-}
-function driveId(u){
-  // supports https://drive.google.com/file/d/<ID>/view...
-  const m = /\/file\/d\/([A-Za-z0-9_-]+)/.exec(u||"");
-  return m ? m[1] : null;
-}
+function extFromStr(s){ const m = (s||"").toLowerCase().match(/\.([a-z0-9]+)(?:\b|$)/); return m?m[1]:""; }
+function extFromUrl(u){ try{ return extFromStr(new URL(u).pathname); }catch{return ""; } }
+function driveId(u){ const m = /\/file\/d\/([A-Za-z0-9_-]+)/.exec(u||""); return m ? m[1] : null; }
+function driveThumb(u){ const id = driveId(u); return id ? `https://drive.google.com/thumbnail?id=${id}` : null; }
 function isImageUrl(u){
   const e = extFromUrl(u);
   return ["png","jpg","jpeg","gif","webp","bmp","svg"].includes(e);
 }
-function driveThumb(u){
-  const id = driveId(u);
-  if(!id) return null;
-  // thumbnail endpoint
-  return `https://drive.google.com/thumbnail?id=${id}`;
-}
 function fileIconSvg(kind){
-  const map = {
-    pdf:"#d32f2f", doc:"#1976d2", docx:"#1976d2",
-    xls:"#2e7d32", xlsx:"#2e7d32",
-    ppt:"#ef6c00", pptx:"#ef6c00",
-    zip:"#6d4c41", rar:"#6d4c41", "7z":"#6d4c41",
-    default:"#616161"
-  };
+  const map = { pdf:"#d32f2f", doc:"#1976d2", xls:"#2e7d32", ppt:"#ef6c00", zip:"#6d4c41", default:"#616161" };
   const color = map[kind] || map.default;
   return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
     <path fill="${color}" d="M6 2h8l6 6v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/>
     <path fill="#fff" d="M14 2v6h6"/>
   </svg>`;
 }
-function iconForUrl(u){
-  const e = extFromUrl(u);
-  if(["pdf"].includes(e)) return fileIconSvg("pdf");
-  if(["doc","docx"].includes(e)) return fileIconSvg("doc");
-  if(["xls","xlsx","csv"].includes(e)) return fileIconSvg("xls");
-  if(["ppt","pptx"].includes(e)) return fileIconSvg("ppt");
-  if(["zip","rar","7z"].includes(e)) return fileIconSvg("zip");
-  return fileIconSvg("default");
+function kindByExt(ext){
+  if(["pdf"].includes(ext)) return "pdf";
+  if(["doc","docx"].includes(ext)) return "doc";
+  if(["xls","xlsx","csv"].includes(ext)) return "xls";
+  if(["ppt","pptx"].includes(ext)) return "ppt";
+  if(["zip","rar","7z"].includes(ext)) return "zip";
+  return "default";
+}
+function iconFor(d){
+  // Prefer URL extension; if absent (e.g., Drive view links), fall back to Subject filename extension
+  const eUrl = extFromUrl(d.media) || extFromUrl(d.url);
+  const eSub = extFromStr(d.subject);
+  const kind = kindByExt(eUrl || eSub);
+  return fileIconSvg(kind);
 }
 
 /* ===== Modal controls ===== */
@@ -167,6 +187,7 @@ const modal = document.getElementById("docModal");
 function openModal(edit=false, data=null){
   modal.style.display="flex";
   document.getElementById("modalTitle").textContent = edit ? "Edit Document" : "Add Document";
+  populateCategorySelect();
   if(edit && data){
     document.getElementById("docSerial").value = data.serial;
     document.getElementById("docDate").value = (data.date||"").substring(0,10);
@@ -174,47 +195,119 @@ function openModal(edit=false, data=null){
     document.getElementById("docMedia").value = data.media||"";
     document.getElementById("mediaName").textContent = data.media ? "(existing)" : "";
     document.getElementById("docLink").value = data.url || data.link || "";
+    document.getElementById("docCategory").value = data.category || "";
   } else {
     document.getElementById("docForm").reset();
     document.getElementById("docSerial").value = "";
     document.getElementById("mediaName").textContent = "";
+    // preselect first category if any
+    const first = [...categories][0] || "";
+    document.getElementById("docCategory").value = first;
   }
 }
 function closeModal(){ modal.style.display="none"; }
+
+const catModal = document.getElementById("catModal");
+function openCat(){ catModal.style.display="flex"; document.getElementById("catName").value=""; setTimeout(()=>document.getElementById("catName").focus(),0); }
+function closeCat(){ catModal.style.display="none"; }
 
 /* ===== Fetch + render ===== */
 async function fetchDocs(){
   try{
     const me = await apiGet("whoami");
     admin = (me.user && me.user.role === "admin");
-    if(admin) document.getElementById("addDocBtn").style.display="inline-block";
+    if(admin){ document.getElementById("addDocBtn").style.display="inline-block"; document.getElementById("manageCatsBtn").style.display="inline-block"; }
 
-    const list = await apiGet("documents"); // [{serial,subject,date,media,url}]
-    docs = (list||[]).sort((a,b)=>Number(b.serial)-Number(a.serial));
+    const list = await apiGet("documents"); // [{serial,subject,date,media,url,category?}]
+    docs = (list||[]).map(d=>({ ...d, category: d.category || "" }))
+                     .sort((a,b)=>Number(b.serial)-Number(a.serial));
+
+    // build categories set from data
+    categories = new Set(docs.map(d=>d.category).filter(Boolean));
+    populateCategorySelect();
+    populateFilterCategories();
     render();
   }catch(e){ console.error(e); alert("Failed to load documents"); }
 }
-function mediaCell(url){
+
+function populateCategorySelect(){
+  const sel = document.getElementById("docCategory");
+  sel.innerHTML = "";
+  [...categories].sort((a,b)=>a.localeCompare(b)).forEach(c=>{
+    const opt = document.createElement("option"); opt.value=c; opt.textContent=c; sel.appendChild(opt);
+  });
+  // always allow blank option
+  const blank = document.createElement("option"); blank.value=""; blank.textContent="(None)";
+  sel.insertBefore(blank, sel.firstChild);
+}
+function populateFilterCategories(){
+  const fsel = document.getElementById("f_category");
+  const cur = fsel.value;
+  fsel.innerHTML = `<option value="">All</option>`;
+  [...categories].sort((a,b)=>a.localeCompare(b)).forEach(c=>{
+    const opt = document.createElement("option"); opt.value=c; opt.textContent=c; fsel.appendChild(opt);
+  });
+  if([...categories].includes(cur)) fsel.value = cur;
+}
+
+function mediaCell(d){
+  const url = d.media;
   if(!url) return "";
   const dthumb = driveThumb(url);
   const isImg = isImageUrl(url) || !!dthumb;
   const src = dthumb || url;
   return isImg
     ? `<a href="${esc(url)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(src)}" onerror="this.closest('a').innerHTML='open'"></a>`
-    : `<a href="${esc(url)}" target="_blank" rel="noopener">${iconForUrl(url)} open</a>`;
+    : `<a href="${esc(url)}" target="_blank" rel="noopener">${iconFor(d)} open</a>`;
+}
+
+let sortKey = "serial";
+let sortDir = "desc"; // "asc" | "desc"
+function applyFilters(rows){
+  const qs = {
+    serial: document.getElementById("f_serial").value.trim().toLowerCase(),
+    date:   document.getElementById("f_date").value.trim().toLowerCase(),
+    subject:document.getElementById("f_subject").value.trim().toLowerCase(),
+    category:document.getElementById("f_category").value.trim(),
+    media:  document.getElementById("f_media").value.trim().toLowerCase(),
+    url:    document.getElementById("f_url").value.trim().toLowerCase(),
+    global: document.getElementById("globalSearch").value.trim().toLowerCase()
+  };
+  return rows.filter(d=>{
+    const hay = [d.serial,d.date,d.subject,d.category,d.media,d.url].map(x=>String(x||"").toLowerCase()).join(" ");
+    if(qs.global && !hay.includes(qs.global)) return false;
+    if(qs.serial && !String(d.serial).toLowerCase().includes(qs.serial)) return false;
+    if(qs.date && !String(d.date||"").toLowerCase().includes(qs.date)) return false;
+    if(qs.subject && !String(d.subject||"").toLowerCase().includes(qs.subject)) return false;
+    if(qs.category && String(d.category||"") !== qs.category) return false;
+    if(qs.media && !String(d.media||"").toLowerCase().includes(qs.media)) return false;
+    if(qs.url && !String(d.url||"").toLowerCase().includes(qs.url)) return false;
+    return true;
+  });
 }
 function render(){
-  const q = document.getElementById("searchBox").value.toLowerCase();
   const tbody = document.querySelector("#docsTable tbody");
   tbody.innerHTML="";
-  docs.filter(d=>!q || (d.subject||"").toLowerCase().includes(q)).forEach(d=>{
+  let rows = applyFilters(docs.slice());
+
+  rows.sort((a,b)=>{
+    const A = (a[sortKey] ?? "").toString().toLowerCase();
+    const B = (b[sortKey] ?? "").toString().toLowerCase();
+    if(sortKey==="serial"){ return (sortDir==="asc" ? (a.serial-b.serial) : (b.serial-a.serial)); }
+    if(A<B) return sortDir==="asc" ? -1 : 1;
+    if(A>B) return sortDir==="asc" ? 1 : -1;
+    return 0;
+  });
+
+  rows.forEach(d=>{
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${esc(d.serial)}</td>
       <td>${esc(d.date)}</td>
       <td>${esc(d.subject)}</td>
-      <td>${mediaCell(d.media)}</td>
-      <td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">open</a>` : ""}</td>
+      <td>${esc(d.category||"")}</td>
+      <td>${mediaCell(d)}</td>
+      <td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${iconFor(d)} open</a>` : ""}</td>
       <td>
         ${admin? `
           <button class="btn secondary" onclick='openModal(true, ${JSON.stringify(d)})'>Edit</button>
@@ -223,6 +316,9 @@ function render(){
       </td>`;
     tbody.appendChild(tr);
   });
+  // update filter category list from visible rows
+  categories = new Set(docs.map(x=>x.category).filter(Boolean));
+  populateFilterCategories();
 }
 
 /* ===== Upload (Browse…) ===== */
@@ -249,6 +345,7 @@ async function saveDoc(ev){
     serial: document.getElementById("docSerial").value || null,
     date: document.getElementById("docDate").value,
     subject: document.getElementById("docSubject").value.trim(),
+    category: document.getElementById("docCategory").value.trim(),
     media: document.getElementById("docMedia").value.trim(),
     url: document.getElementById("docLink").value.trim()
   };
@@ -258,7 +355,7 @@ async function saveDoc(ev){
     if(payload.serial){
       await apiPost("updatedoc", payload);
     }else{
-      await apiPost("adddoc", { subject:payload.subject, date:payload.date, media:payload.media||undefined, url:payload.url||undefined });
+      await apiPost("adddoc", payload);
     }
     closeModal(); fetchDocs();
   }catch(e){ alert("Save failed: " + e.message); }
@@ -271,11 +368,35 @@ async function deleteDoc(serial){
   }catch(e){ alert("Delete failed: " + e.message); }
 }
 
+/* ===== Sorting + Filters ===== */
+document.getElementById("hdr").addEventListener("click", (e)=>{
+  const th = e.target.closest("th[data-key]"); if(!th) return;
+  const key = th.dataset.key;
+  if(sortKey===key){ sortDir = (sortDir==="asc" ? "desc" : "asc"); } else { sortKey=key; sortDir="asc"; }
+  render();
+});
+["f_serial","f_date","f_subject","f_media","f_url","globalSearch"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", render);
+});
+document.getElementById("f_category").addEventListener("change", render);
+
+/* ===== Category management ===== */
+document.getElementById("newCatBtn").addEventListener("click", openCat);
+document.getElementById("manageCatsBtn").addEventListener("click", openCat);
+document.getElementById("saveCatBtn").addEventListener("click", ()=>{
+  const name = document.getElementById("catName").value.trim();
+  if(!name) return;
+  categories.add(name);
+  populateCategorySelect();
+  populateFilterCategories();
+  document.getElementById("docCategory").value = name;
+  closeCat();
+});
+
 /* ===== Init ===== */
 document.getElementById("docForm").addEventListener("submit", saveDoc);
-document.getElementById("searchBox").addEventListener("input", render);
 document.getElementById("addDocBtn").addEventListener("click", ()=>openModal(false));
-window.addEventListener("click", (e)=>{ if(e.target===modal) closeModal(); });
+window.addEventListener("click", (e)=>{ if(e.target===modal) closeModal(); if(e.target===catModal) closeCat(); });
 
 if(!TOKEN){ logout(); } else { fetchDocs(); }
 </script>
