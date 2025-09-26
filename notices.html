@@ -10,9 +10,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Notice Board | Global Hillview</title>
 
-  <script>
-    (function(){ try{ if(!localStorage.getItem('token')){ document.documentElement.style.display='none'; location.replace('/login'); } }catch{ document.documentElement.style.display='none'; location.replace('/login'); }})();
-  </script>
+  <script>(function(){ try{ if(!localStorage.getItem('token')){ document.documentElement.style.display='none'; location.replace('/login'); } }catch{ document.documentElement.style.display='none'; location.replace('/login'); }})();</script>
 
   <style>
     :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
@@ -40,7 +38,8 @@
     thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700}
     tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
     .muted{color:var(--muted)}
-    .actions button{ margin-right:6px; }
+    .thumb{ width:70px; height:50px; object-fit:cover; border-radius:6px; display:block; }
+    .icon { width:24px; height:24px; vertical-align:middle; }
   </style>
 </head>
 <body>
@@ -64,7 +63,6 @@
         <input id="n_subject" placeholder="Subject" style="flex:2 1 260px">
         <div class="row" style="flex:1 1 260px">
           <input id="n_date" type="date" style="flex:1 1 160px">
-          <!-- 📎 Attach near date -->
           <input type="file" id="n_file" style="display:none">
           <button class="btn" id="attachBtn">📎 Attach</button>
           <span id="attachName" class="muted" style="font-size:12px"></span>
@@ -89,10 +87,11 @@
         <table id="grid">
           <thead><tr>
             <th style="width:90px">Serial #</th>
-            <th style="width:160px">Date</th>
+            <th style="width:150px">Date</th>
             <th style="width:260px">Subject</th>
             <th>Notice</th>
-            <th style="width:180px">Actions</th>
+            <th style="width:140px">Link</th>
+            <th style="width:160px">Actions</th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -116,34 +115,40 @@
   </div>
 
   <script>
-    const API = '/api'; // keep your proxy; otherwise set to your Apps Script URL
+    const API = '/api';
     const TOKEN = localStorage.getItem('token');
     const esc = s => String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     const getTok = () => TOKEN;
 
     function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
-    function setBusy(btn, on, txtIdle, txtBusy){
-      if(!btn) return;
-      if(on){ btn.disabled = true; btn.innerHTML = `<span class="spinner"></span> ${txtBusy}`; }
-      else { btn.disabled = false; btn.textContent = txtIdle; }
-    }
-    async function apiGet(action){
-      const r = await fetch(`${API}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(getTok())}`, {cache:'no-store'});
-      const j = await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j.data;
-    }
-    async function apiPost(action, body){
-      const r = await fetch(`${API}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(getTok())}`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})
-      });
-      const j = await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j.data;
-    }
-    function fileToBase64(file){
-      return new Promise((resolve,reject)=>{ const fr=new FileReader(); fr.onload=()=>resolve(String(fr.result).split(',')[1]); fr.onerror=reject; fr.readAsDataURL(file); });
-    }
+    function setBusy(btn, on, txtIdle, txtBusy){ if(!btn) return; if(on){ btn.disabled=true; btn.innerHTML=`<span class="spinner"></span> ${txtBusy}`; }else{ btn.disabled=false; btn.textContent=txtIdle; } }
+    async function apiGet(action){ const r=await fetch(`${API}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(getTok())}`); const j=await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j.data; }
+    async function apiPost(action, body){ const r=await fetch(`${API}?action=${encodeURIComponent(action)}&token=${encodeURIComponent(getTok())}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j.data; }
+    function fileToBase64(file){ return new Promise((resolve,reject)=>{ const fr=new FileReader(); fr.onload=()=>resolve(String(fr.result).split(',')[1]); fr.onerror=reject; fr.readAsDataURL(file); }); }
+
+    // icon/thumb helpers
+    function extFromUrl(u){ try{ const s=new URL(u).pathname.toLowerCase(); const m=s.match(/\.([a-z0-9]+)$/i); return m?m[1]:""; }catch{return "";} }
+    function driveId(u){ const m=/\/file\/d\/([A-Za-z0-9_-]+)/.exec(u||""); return m?m[1]:null; }
+    function driveThumb(u){ const id=driveId(u); return id?`https://drive.google.com/thumbnail?id=${id}`:null; }
+    function isImageUrl(u){ const e=extFromUrl(u); return ["png","jpg","jpeg","gif","webp","bmp","svg"].includes(e) || !!driveId(u); }
+    function fileIconSvg(kind){ const map={pdf:"#d32f2f",doc:"#1976d2",docx:"#1976d2",xls:"#2e7d32",xlsx:"#2e7d32",ppt:"#ef6c00",pptx:"#ef6c00",zip:"#6d4c41",default:"#616161"}; const c=map[kind]||map.default; return `<svg class="icon" viewBox="0 0 24 24"><path fill="${c}" d="M6 2h8l6 6v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path fill="#fff" d="M14 2v6h6"/></svg>`; }
+    function iconForUrl(u){ const e=extFromUrl(u); if(["pdf"].includes(e)) return fileIconSvg("pdf"); if(["doc","docx"].includes(e)) return fileIconSvg("doc"); if(["xls","xlsx","csv"].includes(e)) return fileIconSvg("xls"); if(["ppt","pptx"].includes(e)) return fileIconSvg("ppt"); if(["zip","rar","7z"].includes(e)) return fileIconSvg("zip"); return fileIconSvg("default"); }
 
     // state
     let all = [];
     let isAdmin = false;
+
+    // extract attachment link & clean body
+    function splitBodyAndLink(body){
+      const lines = String(body||'').split(/\r?\n/);
+      let link=null, kept=[];
+      for(const ln of lines){
+        const m = ln.match(/attachment:\s*(https?:\/\/\S+)/i) || ln.match(/(https?:\/\/\S+)/i);
+        if(!link && m){ link=m[1]; continue; } // capture first link; drop this line from body
+        kept.push(ln);
+      }
+      return { body: kept.join('\n').trim(), link };
+    }
 
     function render(){
       const q = (document.getElementById('q').value||'').toLowerCase().trim();
@@ -154,13 +159,24 @@
         return !q || hay.includes(q);
       });
       filtered.forEach(r=>{
+        const {body, link} = splitBodyAndLink(r.body);
+        let linkHtml = '';
+        if(link){
+          const thumb = driveThumb(link);
+          if(isImageUrl(link) && thumb){
+            linkHtml = `<a href="${esc(link)}" target="_blank" rel="noopener"><img class="thumb" src="${esc(thumb)}" onerror="this.closest('a').innerHTML='open'"></a>`;
+          }else{
+            linkHtml = `<a href="${esc(link)}" target="_blank" rel="noopener">${iconForUrl(link)} open</a>`;
+          }
+        }
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${esc(r.serial)}</td>
           <td>${esc(r.date)}</td>
           <td>${esc(r.subject)}</td>
-          <td style="white-space:pre-wrap">${esc(r.body)}</td>
-          <td class="actions">
+          <td style="white-space:pre-wrap">${esc(body)}</td>
+          <td>${linkHtml}</td>
+          <td>
             ${isAdmin ? `
               <button class="btn" data-act="edit" data-serial="${r.serial}">Edit</button>
               <button class="btn danger" data-act="del" data-serial="${r.serial}">Delete</button>` : ``}
@@ -171,8 +187,7 @@
     }
 
     async function fetchNotices(){
-      const status = document.getElementById('status');
-      status.textContent = 'Loading…';
+      document.getElementById('status').textContent = 'Loading…';
       const list = await apiGet('notices'); // [{serial,subject,date,body}]
       all = (list||[]).sort((a,b)=>{
         const ad = new Date(a.date||0).getTime(), bd = new Date(b.date||0).getTime();
@@ -199,7 +214,7 @@
       finally{ setBusy(btn, false, 'Post Notice', 'Posting…'); }
     }
 
-    // 📎 Attach near date -> upload via uploaddocb64 and append link to body
+    // 📎 Attach → upload then append “Attachment: <url>” to body
     document.getElementById('attachBtn').addEventListener('click', ()=> document.getElementById('n_file').click());
     document.getElementById('n_file').addEventListener('change', async (e)=>{
       const f = e.target.files?.[0]; if(!f) return;
