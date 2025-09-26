@@ -1,352 +1,288 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Document Repository | Global Hillview</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Document Repository | Global Hillview</title>
 
-  <!-- Favicons -->
-  <link rel="alternate icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="manifest" href="/site.webmanifest">
+  <!-- Favicons -->
+  <link rel="alternate icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
 
-  <!-- No-paint guard if not logged in -->
-  <script>
-    (function () {
-      try {
-        if (!localStorage.getItem('token')) {
-          document.documentElement.style.display = 'none';
-          location.replace('/login');
-        }
-      } catch {
-        document.documentElement.style.display = 'none';
-        location.replace('/login');
-      }
-    })();
-  </script>
+  <!-- No-paint guard if not logged in -->
+  <script>
+    (function () {
+      try {
+        if (!localStorage.getItem('token')) {
+          document.documentElement.style.display = 'none';
+          location.replace('/login');
+        }
+      } catch {
+        document.documentElement.style.display = 'none';
+        location.replace('/login');
+      }
+    })();
+  </script>
 
-  <style>
-    :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans";background:var(--bg);color:var(--text)}
-    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--bg);border-bottom:1px solid var(--border)}
-    .brand{display:flex;align-items:center;gap:10px}
-    .brand img{height:28px;width:28px;border-radius:6px}
-    .title{font-size:18px;font-weight:800;margin:0}
-    .toolbar{display:flex;align-items:center;gap:8px}
-    .userpill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-weight:600}
-    .btn{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 10px;border-radius:10px;cursor:pointer}
-    .btn:hover{background:var(--hover)}
-    .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
-    .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
-    .wrap{padding:14px 20px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    input{padding:10px 12px;border:1px solid var(--border);border-radius:10px}
-    table{width:100%;border-collapse:separate;border-spacing:0}
-    thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700}
-    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
-    .muted{color:var(--muted)}
-    .thumb{max-width:64px;max-height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)}
-  </style>
+  <style>
+    :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans";background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--bg);border-bottom:1px solid var(--border)}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand img{height:28px;width:28px;border-radius:6px}
+    .title{font-size:18px;font-weight:800;margin:0}
+    .toolbar{display:flex;align-items:center;gap:8px}
+    .userpill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-weight:600}
+    .btn{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+    .btn:hover{background:var(--hover)}
+    .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
+    .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
+    .wrap{padding:14px 20px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    input{padding:10px 12px;border:1px solid var(--border);border-radius:10px}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700}
+    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
+    .muted{color:var(--muted)}
+    .thumb{max-width:64px;max-height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--border)}
+    /* Modal styles */
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50}
+    .modal.active{display:flex}
+    .modal-card{background:var(--card);padding:20px;border-radius:12px;max-width:400px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+    .modal-card h2{margin-top:0;font-size:18px}
+    .modal-card .row{margin-top:10px}
+  </style>
 </head>
 <body>
-  <!-- hidden file picker -->
-  <input id="pickFile" type="file" style="display:none" />
+  <!-- hidden file picker -->
+  <input id="pickFile" type="file" style="display:none" />
 
-  <header>
-    <div class="brand">
-      <img src="/android-chrome-512x512.png" alt="logo">
-      <h1 class="title">Document Repository</h1>
-    </div>
-    <div class="toolbar">
-      <span id="userBadge" class="userpill" style="display:none"></span>
-      <button class="btn" onclick="location.href='/'">Back to Dashboard</button>
-      <button class="btn danger" id="logoutBtn">Logout</button>
-    </div>
-  </header>
+  <header>
+    <div class="brand">
+      <img src="/android-chrome-512x512.png" alt="logo">
+      <h1 class="title">Document Repository</h1>
+    </div>
+    <div class="toolbar">
+      <span id="userBadge" class="userpill" style="display:none"></span>
+      <button class="btn" onclick="location.href='/'">Back to Dashboard</button>
+      <button class="btn danger" id="logoutBtn">Logout</button>
+    </div>
+  </header>
 
-  <div class="wrap">
-    <!-- Admin controls -->
-    <div id="adminBar" class="card" style="display:none; margin-bottom:12px">
-      <div class="row" style="align-items:center">
-        <button id="btnPick" class="btn primary">Upload to Drive</button>
-        <span class="muted">Pick a file; it uploads to the shared Drive and its link is captured below.</span>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <input id="d_subject" placeholder="Subject" style="flex:2 1 260px">
-        <input id="d_date" type="date" style="flex:1 1 160px">
-        <input id="d_url" placeholder="Document URL (share link or uploaded file URL)" style="flex:2 1 260px">
-      </div>
-      <div class="row" style="margin-top:8px">
-        <button id="d_add" class="btn">Add entry</button>
-        <span id="d_status" class="muted"></span>
-      </div>
-    </div>
+  <div class="wrap">
+    <!-- Admin controls -->
+    <div id="adminBar" class="card" style="display:none; margin-bottom:12px">
+      <div class="row" style="align-items:center">
+        <button id="btnPick" class="btn primary">Upload to Drive</button>
+        <span class="muted">Pick a file; it uploads to the shared Drive and its link is captured below.</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="d_subject" placeholder="Subject" style="flex:2 1 260px">
+        <input id="d_date" type="date" style="flex:1 1 160px">
+        <input id="d_url" placeholder="Document URL (share link or uploaded file URL)" style="flex:2 1 260px">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="d_add" class="btn">Add entry</button>
+        <span id="d_status" class="muted"></span>
+      </div>
+    </div>
 
-    <!-- Grid -->
-    <div class="card">
-      <div class="row" style="margin-bottom:8px">
-        <input id="q" type="search" placeholder="Search subject…" style="min-width:260px">
-        <span id="status" class="muted" style="margin-left:auto"></span>
-      </div>
+    <!-- Grid -->
+    <div class="card">
+      <div class="row" style="margin-bottom:8px">
+        <input id="q" type="search" placeholder="Search subject…" style="min-width:260px">
+        <span id="status" class="muted" style="margin-left:auto"></span>
+      </div>
 
-      <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
-        <table id="grid">
-          <thead>
-          <tr>
-            <th style="width:80px">Serial #</th>
-            <th style="width:160px">Date</th>
-            <th>Subject</th>
-            <th>Media</th>
-            <th>Link</th>
-          </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+      <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
+        <table id="grid">
+          <thead>
+          <tr>
+            <th style="width:80px">Serial #</th>
+            <th style="width:160px">Date</th>
+            <th>Subject</th>
+            <th>Media</th>
+            <th>Link</th>
+            <th style="width:120px">Actions</th>
+          </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-  <script>
-    /* ----- CONFIG ----- */
-    const API = '/api';
-    const SHEET_ID  = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';
-    const SHEET_TAB = 'Documents';
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal">
+    <div class="modal-card">
+      <h2>Edit Document</h2>
+      <input id="e_serial" type="hidden">
+      <div class="row"><input id="e_subject" placeholder="Subject" style="flex:1"></div>
+      <div class="row"><input id="e_date" type="date" style="flex:1"></div>
+      <div class="row"><input id="e_url" placeholder="Document URL" style="flex:1"></div>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px">
+        <button class="btn" onclick="closeEditModal()">Cancel</button>
+        <button class="btn primary" onclick="saveEdit()">Save</button>
+      </div>
+      <span id="e_status" class="muted"></span>
+    </div>
+  </div>
 
-    /* ----- UTILS ----- */
-    const esc = (s) => String(s ?? '')
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    const getTok = () => { try { return localStorage.getItem('token'); } catch { return null; } };
-    const isAdmin = () => (localStorage.getItem('role') === 'admin');
+  <script>
+    /* ----- CONFIG ----- */
+    const API = '/api';
+    const SHEET_ID  = '1mTEgG-bjumtytA3oHFyF0U1Mh5XjYoJx2BolcIuSuBk';
+    const SHEET_TAB = 'Documents';
 
-    // UX bits
-    function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
-    function setUploadBusy(on){
-      const btn = document.getElementById('btnPick');
-      if (!btn) return;
-      if (on){
-        btn.disabled = true;
-        btn.dataset._w = btn.offsetWidth;
-        btn.style.minWidth = btn.dataset._w + 'px';
-        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Uploading…';
-      } else {
-        btn.disabled = false;
-        btn.style.minWidth = '';
-        btn.innerHTML = 'Upload to Drive';
-      }
-    }
+    /* ----- UTILS ----- */
+    const esc = (s) => String(s ?? '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    const getTok = () => { try { return localStorage.getItem('token'); } catch { return null; } };
+    const isAdmin = () => (localStorage.getItem('role') === 'admin');
 
-    // Header chrome
-    (function chrome(){
-      const name = localStorage.getItem('username')||'';
-      const ub = document.getElementById('userBadge');
-      if (name && ub){ ub.style.display='inline-flex'; ub.innerHTML = userIcon()+`<span>${esc(name)}</span>`; }
-      document.getElementById('logoutBtn').addEventListener('click', ()=>{
-        const btn = document.getElementById('logoutBtn');
-        btn.disabled = true; btn.style.minWidth = btn.offsetWidth + 'px';
-        btn.innerHTML = '<span class="spinner"></span> Logging out…';
-        try{ localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username'); }catch{}
-        setTimeout(()=>location.replace('/login'), 600);
-      });
-      if (isAdmin()){
-        document.getElementById('adminBar').style.display = 'block';
-        const d = document.getElementById('d_date');
-        if (d && !d.value) d.valueAsDate = new Date();
-      }
-    })();
+    // UX bits
+    function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
 
-    /* ----- UPLOAD (Base64 → GAS) ----- */
-    document.getElementById('btnPick')?.addEventListener('click', ()=>document.getElementById('pickFile').click());
-    document.getElementById('pickFile')?.addEventListener('change', (e)=>{
-      const f = e.target.files && e.target.files[0];
-      if(!f) return;
-      const r = new FileReader();
-      setUploadBusy(true);
-      r.onload = async ()=>{
-        try{
-          const base64 = String(r.result).split(',')[1];
-          const res = await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(getTok())}`, {
-            method:'POST',
-            headers:{'content-type':'application/json'},
-            body: JSON.stringify({ name:f.name, mime:f.type||'application/octet-stream', data: base64 })
-          });
-          const j = await res.json();
-          if(!j.ok) throw new Error(j.error||'Upload failed');
-          // Prefill subject and store the returned link in URL (we’ll save it as Media)
-          const subj = document.getElementById('d_subject');
-          const url  = document.getElementById('d_url');
-          if (subj && !subj.value) subj.value = j.data.name || f.name;
-          if (url) url.value = j.data.url;
-        }catch(err){ alert('Upload error: ' + err.message); }
-        finally{ setUploadBusy(false); e.target.value=''; }
-      };
-      r.readAsDataURL(f);
-    });
+    // Header chrome
+    (function chrome(){
+      const name = localStorage.getItem('username')||'';
+      const ub = document.getElementById('userBadge');
+      if (name && ub){ ub.style.display='inline-flex'; ub.innerHTML = userIcon()+`<span>${esc(name)}</span>`; }
+      document.getElementById('logoutBtn').addEventListener('click', ()=>{
+        const btn = document.getElementById('logoutBtn');
+        btn.disabled = true; btn.style.minWidth = btn.offsetWidth + 'px';
+        btn.innerHTML = '<span class="spinner"></span> Logging out…';
+        try{ localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username'); }catch{}
+        setTimeout(()=>location.replace('/login'), 600);
+      });
+      if (isAdmin()){
+        document.getElementById('adminBar').style.display = 'block';
+        const d = document.getElementById('d_date');
+        if (d && !d.value) d.valueAsDate = new Date();
+      }
+    })();
 
-    /* ----- SHEET READ ----- */
-    async function fetchDocs(){
-      const status = document.getElementById('status');
-      status.textContent = 'Loading…';
-      const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(SHEET_ID)}/gviz/tq?sheet=${encodeURIComponent(SHEET_TAB)}&tqx=out:json`;
-      const res = await fetch(url, {cache:'no-store'});
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const text = await res.text();
-      const a = text.indexOf('{'), b = text.lastIndexOf('}');
-      const json = JSON.parse(text.slice(a,b+1));
-      const cols = json.table.cols.map(c => (c.label||c.id||'').trim());
+    /* ----- SHEET READ ----- */
+    async function fetchDocs(){
+      const status = document.getElementById('status');
+      status.textContent = 'Loading…';
+      const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(SHEET_ID)}/gviz/tq?sheet=${encodeURIComponent(SHEET_TAB)}&tqx=out:json`;
+      const res = await fetch(url, {cache:'no-store'});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const text = await res.text();
+      const a = text.indexOf('{'), b = text.lastIndexOf('}');
+      const json = JSON.parse(text.slice(a,b+1));
+      const cols = json.table.cols.map(c => (c.label||c.id||'').trim());
 
-      // Expect: A Serial Number | B Subject | C Date | D Media | E URL
-      const idx = {
-        serial: cols.findIndex(x=>/^serial/i.test(x)),
-        subject: cols.findIndex(x=>/^subject$/i.test(x)),
-        date: cols.findIndex(x=>/^date$/i.test(x)),
-        media: cols.findIndex(x=>/^media$/i.test(x)),
-        url: cols.findIndex(x=>/^url|^link/i.test(x)),
-      };
+      const idx = {
+        serial: cols.findIndex(x=>/^serial/i.test(x)),
+        subject: cols.findIndex(x=>/^subject$/i.test(x)),
+        date: cols.findIndex(x=>/^date$/i.test(x)),
+        media: cols.findIndex(x=>/^media$/i.test(x)),
+        url: cols.findIndex(x=>/^url|^link/i.test(x)),
+      };
 
-      const rows = (json.table.rows||[]).map(r => (r.c||[]).map(c => c ? c.v : ''));
-      const data = rows.map(r => ({
-        serial: r[idx.serial] ?? '',
-        subject: r[idx.subject] ?? '',
-        date: r[idx.date] ?? '',
-        media: r[idx.media] ?? '',
-        url: r[idx.url] ?? ''
-      })).filter(r => r.subject || r.media || r.url);
+      const rows = (json.table.rows||[]).map(r => (r.c||[]).map(c => c ? c.v : ''));
+      const data = rows.map(r => ({
+        serial: r[idx.serial] ?? '',
+        subject: r[idx.subject] ?? '',
+        date: r[idx.date] ?? '',
+        media: r[idx.media] ?? '',
+        url: r[idx.url] ?? ''
+      })).filter(r => r.subject || r.media || r.url);
 
-      status.textContent = `Loaded ${data.length} document(s)`;
-      return data;
-    }
+      status.textContent = `Loaded ${data.length} document(s)`;
+      return data;
+    }
 
-    /* ----- MEDIA RENDERING (Drive aware) ----- */
-    const fileIcon = {
-      gdoc:  '📝 Google Doc',
-      gsheet:'📊 Google Sheet',
-      gslides:'📈 Google Slide',
-      pdf:   '📄 PDF',
-      word:  '📝 Word',
-      excel: '📊 Excel',
-      ppt:   '📈 PPT',
-      other: '📎 File'
-    };
+    /* ----- MEDIA RENDERING ----- */
+    const fileIcon = { gdoc:'📝 Google Doc', gsheet:'📊 Google Sheet', gslides:'📈 Google Slide', pdf:'📄 PDF', word:'📝 Word', excel:'📊 Excel', ppt:'📈 PPT', other:'📎 File' };
 
-    function classifyByUrl(u){
-      if(!u) return null;
-      const s = String(u);
+    function classifyByUrl(u){
+      if(!u) return null;
+      const s = String(u);
+      if (/docs\.google\.com\/document\//i.test(s)) return 'gdoc';
+      if (/docs\.google\.com\/spreadsheets\//i.test(s)) return 'gsheet';
+      if (/docs\.google\.com\/presentation\//i.test(s)) return 'gslides';
+      if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
+      if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s)) return 'video';
+      if (/\.(pdf)(\?|#|$)/i.test(s)) return 'pdf';
+      if (/\.(docx?|odt)(\?|#|$)/i.test(s)) return 'word';
+      if (/\.(xlsx?|ods)(\?|#|$)/i.test(s)) return 'excel';
+      if (/\.(pptx?|odp)(\?|#|$)/i.test(s)) return 'ppt';
+      if (/drive\.google\.com\/file\/d\/([^/]+)/i.test(s)) return 'drive';
+      return 'other';
+    }
 
-      // Google-native docs
-      if (/docs\.google\.com\/document\//i.test(s))     return 'gdoc';
-      if (/docs\.google\.com\/spreadsheets\//i.test(s)) return 'gsheet';
-      if (/docs\.google\.com\/presentation\//i.test(s)) return 'gslides';
+    function mediaCellHtml(url){
+      if(!url) return '';
+      const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
+      if (m) {
+        const id = m[1];
+        const thumb = `https://drive.google.com/thumbnail?id=${id}`;
+        return `<a href="${esc(url)}" target="_blank"><img class="thumb" src="${esc(thumb)}" alt="preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';"></a>
+                <span class="file-fallback" style="display:none"><a href="${esc(url)}" target="_blank">📎 File</a></span>`;
+      }
+      const kind = classifyByUrl(url);
+      if (kind === 'image')  return `<a href="${esc(url)}" target="_blank"><img src="${esc(url)}" class="thumb" alt="image"></a>`;
+      if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
+      if (kind === 'pdf')    return `<a href="${esc(url)}" target="_blank">${fileIcon.pdf}</a>`;
+      if (kind === 'word')   return `<a href="${esc(url)}" target="_blank">${fileIcon.word}</a>`;
+      if (kind === 'excel')  return `<a href="${esc(url)}" target="_blank">${fileIcon.excel}</a>`;
+      if (kind === 'ppt')    return `<a href="${esc(url)}" target="_blank">${fileIcon.ppt}</a>`;
+      if (kind === 'gdoc')   return `<a href="${esc(url)}" target="_blank">${fileIcon.gdoc}</a>`;
+      if (kind === 'gsheet') return `<a href="${esc(url)}" target="_blank">${fileIcon.gsheet}</a>`;
+      if (kind === 'gslides')return `<a href="${esc(url)}" target="_blank">${fileIcon.gslides}</a>`;
+      return `<a href="${esc(url)}" target="_blank">${fileIcon.other}</a>`;
+    }
 
-      // Plain extensions (non-Drive direct links)
-      if (/\.(jpg|jpeg|png|gif|webp)(\?|#|$)/i.test(s)) return 'image';
-      if (/\.(mp4|webm|mov)(\?|#|$)/i.test(s))          return 'video';
-      if (/\.(pdf)(\?|#|$)/i.test(s))                   return 'pdf';
-      if (/\.(docx?|odt)(\?|#|$)/i.test(s))             return 'word';
-      if (/\.(xlsx?|ods)(\?|#|$)/i.test(s))             return 'excel';
-      if (/\.(pptx?|odp)(\?|#|$)/i.test(s))             return 'ppt';
+    /* ----- RENDER ----- */
+    let all = [];
+    function render(){
+      const q = (document.getElementById('q').value||'').toLowerCase().trim();
+      const tbody = document.querySelector('#grid tbody');
+      tbody.innerHTML = '';
+      const filtered = all.filter(r => !q || String(r.subject||'').toLowerCase().includes(q));
+      filtered.forEach(r=>{
+        const tr = document.createElement('tr');
+        const linkCell = (!r.media && r.url) ? `<a href="${esc(r.url)}" target="_blank">Open</a>` : '';
+        tr.innerHTML = `
+          <td>${esc(r.serial)}</td>
+          <td>${esc(r.date)}</td>
+          <td>${esc(r.subject)}</td>
+          <td>${mediaCellHtml(r.media)}</td>
+          <td>${linkCell}</td>
+          <td>
+            ${isAdmin() ? `
+              <button class="btn" onclick="openEditModal('${esc(r.serial)}')">Edit</button>
+              <button class="btn danger" onclick="deleteRow('${esc(r.serial)}')">Delete</button>
+            ` : ''}
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    document.getElementById('q').addEventListener('input', render);
 
-      // Google Drive share link (no extension)
-      if (/drive\.google\.com\/file\/d\/([^/]+)/i.test(s)) return 'drive';
-      return 'other';
-    }
-
-    function mediaCellHtml(url){
-      if(!url) return '';
-
-      // For Drive links, try the thumbnail first
-      const m = url.match(/drive\.google\.com\/file\/d\/([^/]+)/i);
-      if (m) {
-        const id    = m[1];
-        const thumb = `https://drive.google.com/thumbnail?id=${id}`;
-
-        // If the thumb 404s (e.g., a non-previewable file), show a simple link instead
-        const fallback = `
-          <span class="file-fallback" style="display:none">
-            <a href="${esc(url)}" target="_blank" rel="noopener">📎 File</a>
-          </span>`;
-        return `
-          <span class="drive-media">
-            <img class="thumb" src="${esc(thumb)}" alt="preview"
-                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
-            ${fallback}
-          </span>`;
-      }
-
-      // Non-Drive: extension-based rendering
-      const kind = classifyByUrl(url);
-      if (kind === 'image')  return `<img src="${esc(url)}" class="thumb" alt="image">`;
-      if (kind === 'video')  return `<video src="${esc(url)}" class="thumb" controls></video>`;
-      if (kind === 'pdf')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.pdf}</a>`;
-      if (kind === 'word')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.word}</a>`;
-      if (kind === 'excel')  return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.excel}</a>`;
-      if (kind === 'ppt')    return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.ppt}</a>`;
-      if (kind === 'gdoc')   return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gdoc}</a>`;
-      if (kind === 'gsheet') return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gsheet}</a>`;
-      if (kind === 'gslides')return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.gslides}</a>`;
-      return `<a href="${esc(url)}" target="_blank" rel="noopener">${fileIcon.other}</a>`;
-    }
-
-    /* ----- RENDER ----- */
-    let all = [];
-    function render(){
-      const q = (document.getElementById('q').value||'').toLowerCase().trim();
-      const tbody = document.querySelector('#grid tbody');
-      tbody.innerHTML = '';
-      const filtered = all.filter(r => !q || String(r.subject||'').toLowerCase().includes(q));
-      filtered.forEach(r=>{
-        const tr = document.createElement('tr');
-        // Link column shows ONLY when there is no media (per your rule)
-        const linkCell = (!r.media && r.url) ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">Open</a>` : '';
-        tr.innerHTML = `
-          <td>${esc(r.serial)}</td>
-          <td>${esc(r.date)}</td>
-          <td>${esc(r.subject)}</td>
-          <td>${mediaCellHtml(r.media)}</td>
-          <td>${linkCell}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    document.getElementById('q').addEventListener('input', render);
-
-    // Add row to sheet (admin)
-    document.getElementById('d_add')?.addEventListener('click', async ()=>{
-      if(!isAdmin()) return;
-      const subject = document.getElementById('d_subject').value.trim();
-      const date    = document.getElementById('d_date').value;
-      const media   = document.getElementById('d_url').value.trim(); // uploaded file link or any URL
-      const s       = document.getElementById('d_status');
-      if(!subject || !date || !media){
-        s.textContent = 'Fill subject, date and a media/link value.';
-        return;
-      }
-      s.textContent = 'Adding…';
-      try{
-        const res = await fetch(`${API}?action=adddoc&token=${encodeURIComponent(getTok())}`, {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ subject, date, media })   // GAS expects: subject/date/media (URL optional)
-        });
-        const j = await res.json().catch(()=>({}));
-        if(!j.ok) throw new Error(j.error || 'Failed');
-        s.textContent = 'Added.';
-        document.getElementById('d_subject').value='';
-        document.getElementById('d_url').value='';
-        all = await fetchDocs(); render();
-      }catch(e){ s.textContent = 'Failed to add.'; }
-    });
-
-    // Init
-    (async function init(){
-      try{ all = await fetchDocs(); render(); }
-      catch(e){ document.getElementById('status').textContent = 'Failed to load (publish sheet or check ID)'; }
-    })();
-  </script>
-</body>
-</html>
+    /* ----- EDIT MODAL ----- */
+    function openEditModal(serial){
+      const row = all.find(x=>String(x.serial)===String(serial));
+      if(!row) return;
+      document.getElementById('e_serial').value = row.serial;
+      document.getElementById('e_subject').value = row.subject;
+      document.getElementById('e_date').value = row.date;
+      document.getElementById('e_url').value = row.media || row.url;
+      document.getElementById('e_status').textContent = '';
+      document.getElementById('editModal').classList.add('active');
+    }
+    function closeEditModal(){ document.getElementById('editModal').classList.remove('active'); }
+    async function saveEdit(){
+      const serial = document.getElementById('e_serial').value;
+      const subject
