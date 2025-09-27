@@ -18,31 +18,24 @@
     .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
     input,select{padding:8px 10px;border:1px solid var(--border);border-radius:8px}
     table{width:100%;border-collapse:separate;border-spacing:0}
-/* REPLACE these rules in <style> */
-
-/* ❌ old (remove) */
-/* thead th{ position:sticky; top:142px; ... }
-   thead tr.filters th{ position:sticky; top:174px; ... } */
-
-/* ✅ new */
-thead th{
-  position: sticky;
-  top: 0;                 /* pin header row to top of the table scroller */
-  background: var(--card);
-  z-index: 2;
-  border-bottom: 1px solid var(--border);
-  padding: 10px;
-  text-align: left;
-  font-weight: 700;
-  white-space: nowrap;
-}
-thead tr.filters th{
-  position: sticky;
-  top: 42px;             /* height of the header row (~42px) */
-  background: #f8fafc;
-  z-index: 1;
-}
-
+    /* ✅ fixed sticky headers */
+    thead th{
+      position:sticky;
+      top:0;
+      background:var(--card);
+      border-bottom:1px solid var(--border);
+      padding:10px;
+      text-align:left;
+      font-weight:700;
+      white-space:nowrap;
+      z-index:2;
+    }
+    thead tr.filters th{
+      position:sticky;
+      top:42px; /* height of header row */
+      background:#f8fafc;
+      z-index:1;
+    }
     thead tr.filters input, thead tr.filters select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:8px}
     tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
     th.sort{cursor:pointer;user-select:none}
@@ -61,6 +54,14 @@ thead tr.filters th{
     .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center}
     .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(720px,94vw)}
     .box h3{margin:6px 0 12px}
+    /* wrapper so sticky works inside scroll */
+    .tablewrap{
+      overflow:auto;
+      border:1px solid var(--border);
+      border-radius:12px;
+      position:relative;
+      max-height:70vh; /* optional: keeps header visible during scroll */
+    }
   </style>
 </head>
 <body>
@@ -85,10 +86,9 @@ thead tr.filters th{
       <span id="status" class="muted" style="margin-left:auto"></span>
     </div>
 
-    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
-<div class="tablewrap">
-  <table id="grid"> ... </table>
-</div>
+    <!-- ✅ wrapped table -->
+    <div class="tablewrap">
+      <table id="grid">
         <thead id="thead">
           <tr>
             <th class="sort" data-k="serial">Serial #</th>
@@ -121,326 +121,7 @@ thead tr.filters th{
   </div>
 </div>
 
-<!-- Add/Edit Modal -->
-<div id="docModal" class="modal">
-  <div class="box">
-    <h3 id="modalTitle">Add Document</h3>
-    <input type="hidden" id="m_serial">
-    <div class="row">
-      <label>Date <input type="date" id="m_date"></label>
-      <label style="flex:1 1 auto">Subject <input id="m_subject" style="width:100%"></label>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <label style="flex:1 1 auto">Category
-        <div class="row">
-          <select id="m_category" style="width:100%"></select>
-          <button id="m_newcat" class="btn">New…</button>
-        </div>
-      </label>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button id="m_browse" class="btn">Browse…</button><span class="muted">(existing)</span>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <label style="flex:1 1 auto">Media URL <input id="m_media" style="width:100%" placeholder="(filled after upload, or paste a link)"></label>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <label style="flex:1 1 auto">Link URL <input id="m_url" style="width:100%" placeholder="https://... (optional)"></label>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn" onclick="closeModal()">Cancel</button>
-      <button id="m_save" class="btn primary">Save</button>
-      <span id="m_status" class="muted" style="margin-left:auto"></span>
-    </div>
-    <input id="m_file" type="file" style="display:none">
-  </div>
-</div>
+<!-- … keep your modal & script here, unchanged … -->
 
-<!-- Manage Categories Modal -->
-<div id="catModal" class="modal">
-  <div class="box">
-    <h3>Manage Categories</h3>
-    <div id="catList" class="row" style="flex-wrap:wrap"></div>
-    <div class="row" style="margin-top:10px">
-      <input id="catNew" placeholder="New category">
-      <button class="btn" onclick="addCategory()">Add</button>
-      <span class="muted" style="margin-left:auto">Stored per-sheet (in cells) – this UI helps you reuse values.</span>
-    </div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn" onclick="closeCat()">Close</button>
-    </div>
-  </div>
-</div>
-
-<script>
-const API='/api';
-const IST='Asia/Kolkata';
-const PAGE=12;
-
-function logout(){ try{localStorage.clear()}catch{} location.replace('/login'); }
-function token(){ try{return localStorage.getItem('token')}catch{ return null; } }
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-
-function fmtDateIST(d){
-  if(!d) return '';
-  const dt = new Date(d);
-  if(isNaN(dt)) return esc(d);
-  const p = new Intl.DateTimeFormat('en-GB',{timeZone:IST,day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(dt);
-  const g=k=>p.find(x=>x.type===k)?.value||''; return `${g('day')}-${g('month')}-${g('year')}`;
-}
-function toDateInputValueIST(d){
-  const dt = d? new Date(d) : new Date();
-  return new Intl.DateTimeFormat('en-CA',{timeZone:IST,year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
-}
-function gdriveId(url){
-  if(!url) return null;
-  const m=/\/d\/([a-zA-Z0-9_-]{10,})\//.exec(url)||/id=([a-zA-Z0-9_-]{10,})/.exec(url);
-  return m?m[1]:null;
-}
-function driveThumb(url){
-  const id=gdriveId(url);
-  return id?`https://drive.google.com/thumbnail?authuser=0&sz=w200&id=${id}`:null;
-}
-function icon(kind,label){
-  const svg={
-    pdf:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">PDF</text></svg>',
-    doc:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">DOC</text></svg>',
-    xls:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">XLS</text></svg>',
-    ppt:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">PPT</text></svg>',
-    csv:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">CSV</text></svg>',
-    zip:'<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor"/><path d="M12 4v14" stroke="currentColor" /><path d="M10 6h4M10 8h4M10 10h4" stroke="currentColor"/></svg>'
-  }[kind]||'';
-  return `<span class="fileicon">${svg}<span>${esc(label||kind)}</span></span>`;
-}
-function mediaCell(url){
-  if(!url) return '';
-  const l=url.toLowerCase(); const th=driveThumb(url);
-  if(/\.(png|jpg|jpeg|gif|webp)$/i.test(l) || th){
-    const src = /\.(png|jpg|jpeg|gif|webp)$/i.test(l)?url:th;
-    return `<a href="${esc(url)}" target="_blank"><img class="thumb" src="${esc(src)}" alt=""></a>`;
-  }
-  if(/\.pdf($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('pdf','PDF')}</a>`;
-  if(/\.(doc|docx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('doc','DOC')}</a>`;
-  if(/\.(xls|xlsx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('xls','XLS')}</a>`;
-  if(/\.(ppt|pptx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('ppt','PPT')}</a>`;
-  if(/\.csv($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('csv','CSV')}</a>`;
-  if(/\.zip($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('zip','ZIP')}</a>`;
-  return `<a href="${esc(url)}" target="_blank">open</a>`;
-}
-
-let isAdmin=false, all=[], rows=[], sortKey='date', sortDir='desc', page=1;
-let categories=[];
-
-function unique(arr){ return [...new Set(arr.filter(Boolean).map(x=>String(x)))].sort((a,b)=>a.localeCompare(b)); }
-
-function readFilters(){
-  return {
-    quick:(document.getElementById('q').value||'').toLowerCase(),
-    serial:(document.getElementById('f_serial').value||'').toLowerCase(),
-    date:(document.getElementById('f_date').value||'').toLowerCase(),
-    subject:(document.getElementById('f_subject').value||'').toLowerCase(),
-    category:(document.getElementById('f_category').value||'').toLowerCase(),
-    media:(document.getElementById('f_media').value||'').toLowerCase(),
-    url:(document.getElementById('f_url').value||'').toLowerCase(),
-  };
-}
-
-function apply(){
-  const f=readFilters();
-  rows = all.filter(r=>{
-    const hay=(r.serial+' '+fmtDateIST(r.date)+' '+r.subject+' '+r.category+' '+r.media+' '+r.url).toLowerCase();
-    if(f.quick && !hay.includes(f.quick)) return false;
-    if(f.serial && !String(r.serial).toLowerCase().includes(f.serial)) return false;
-    if(f.date && !fmtDateIST(r.date).includes(f.date)) return false;
-    if(f.subject && !String(r.subject||'').toLowerCase().includes(f.subject)) return false;
-    if(f.category && !String(r.category||'').toLowerCase().includes(f.category)) return false;
-    if(f.media && !String(r.media||'').toLowerCase().includes(f.media)) return false;
-    if(f.url && !String(r.url||'').toLowerCase().includes(f.url)) return false;
-    return true;
-  }).sort((a,b)=>{
-    let A,B;
-    if(sortKey==='date'){ A=new Date(a.date||0); B=new Date(b.date||0); }
-    else { A=(a[sortKey]??'').toString().toLowerCase(); B=(b[sortKey]??'').toString().toLowerCase(); }
-    const s=(A<B?-1:A>B?1:0); return sortDir==='asc'?s:-s;
-  });
-  page=1; render();
-}
-
-function render(){
-  const tbody=document.querySelector('#grid tbody'); tbody.innerHTML='';
-  const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
-  page=Math.min(Math.max(1,page),pages);
-  const part=rows.slice((page-1)*PAGE,(page-1)*PAGE+PAGE);
-  part.forEach(r=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `
-      <td>${esc(r.serial)}</td>
-      <td>${fmtDateIST(r.date)}</td>
-      <td>${esc(r.subject)}</td>
-      <td>${esc(r.category||'')}</td>
-      <td>${mediaCell(r.media)}</td>
-      <td>${r.url? `<a target="_blank" href="${esc(r.url)}">open</a>`:''}</td>
-      <td>${isAdmin? `<button class="btn" onclick="openModal(true, ${r.serial})">Edit</button>
-                      <button class="btn danger" onclick="delDoc(${r.serial})">Delete</button>`:''}</td>`;
-    tbody.appendChild(tr);
-  });
-  document.getElementById('pageInfo').textContent=`Page ${page} / ${pages}`;
-  document.getElementById('status').textContent=`${total} document(s), showing ${part.length}`;
-}
-
-async function whoami(){
-  const r=await fetch(`${API}?action=whoami&token=${encodeURIComponent(token())}`,{cache:'no-store'});
-  const j=await r.json(); if(!j.ok) throw new Error('unauthorized');
-  return j.data.user;
-}
-async function fetchDocs(){
-  document.getElementById('status').textContent='Loading…';
-  const r=await fetch(`${API}?action=documents&token=${encodeURIComponent(token())}`,{cache:'no-store'});
-  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-  all=(j.data||[]).map(x=>x);
-  categories = unique(all.map(x=>x.category||''));
-  fillCategorySelect();
-  apply();
-}
-
-function fillCategorySelect(){
-  const sel=document.getElementById('m_category');
-  sel.innerHTML = categories.map(c=>`<option>${esc(c)}</option>`).join('') + `<option value="">(none)</option>`;
-  // cat list UI
-  const list=document.getElementById('catList');
-  list.innerHTML = categories.map(c=>`<span class="fileicon" style="margin:4px 6px 0 0">${esc(c)}</span>`).join('')||'<span class="muted">No categories yet</span>';
-}
-
-// ---- Modal / CRUD ----
-function openModal(edit=false, serial=null){
-  document.getElementById('m_status').textContent='';
-  document.getElementById('modalTitle').textContent = edit?'Edit Document':'Add Document';
-  document.getElementById('docModal').style.display='flex';
-  if(edit){
-    const rec=all.find(x=>x.serial==serial);
-    document.getElementById('m_serial').value = rec.serial;
-    document.getElementById('m_date').value = toDateInputValueIST(rec.date);
-    document.getElementById('m_subject').value = rec.subject||'';
-    document.getElementById('m_media').value = rec.media||'';
-    document.getElementById('m_url').value = rec.url||'';
-    fillCategorySelect();
-    document.getElementById('m_category').value = rec.category||'';
-  }else{
-    document.getElementById('m_serial').value = '';
-    document.getElementById('m_date').value = toDateInputValueIST();
-    document.getElementById('m_subject').value = '';
-    document.getElementById('m_media').value = '';
-    document.getElementById('m_url').value = '';
-    fillCategorySelect();
-    document.getElementById('m_category').value = '';
-  }
-}
-function closeModal(){ document.getElementById('docModal').style.display='none'; }
-
-async function saveModal(){
-  const s=document.getElementById('m_status');
-  const payload = {
-    serial: document.getElementById('m_serial').value || undefined,
-    date: document.getElementById('m_date').value,
-    subject: document.getElementById('m_subject').value.trim(),
-    media: document.getElementById('m_media').value.trim(),
-    url: document.getElementById('m_url').value.trim(),
-    category: document.getElementById('m_category').value.trim()
-  };
-  if(!payload.subject){ s.textContent='Subject required'; return; }
-  if(!payload.media && !payload.url){ s.textContent='Provide a media upload or URL'; return; }
-  s.textContent='Saving…';
-  try{
-    const action = payload.serial? 'updatedoc':'adddoc';
-    const r=await fetch(`${API}?action=${action}&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
-    });
-    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    s.textContent='Saved.'; closeModal(); await fetchDocs();
-  }catch(e){ s.textContent='Save failed: '+e.message; }
-}
-
-async function delDoc(serial){
-  if(!confirm('Delete document #'+serial+'?')) return;
-  try{
-    const r=await fetch(`${API}?action=deletedoc&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({serial})
-    });
-    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    await fetchDocs();
-  }catch(e){ alert('Delete failed: '+e.message); }
-}
-
-// upload
-async function uploadFile(file, statusEl, targetInput){
-  if(!file) return;
-  statusEl.textContent='Uploading…';
-  const b64=await file.arrayBuffer().then(b=>btoa(String.fromCharCode(...new Uint8Array(b))));
-  try{
-    const r=await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:file.name,mime:file.type||'application/octet-stream',data:b64})
-    });
-    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    targetInput.value = j.data.url;
-    statusEl.textContent='Uploaded.';
-  }catch(e){ statusEl.textContent='Upload failed: '+e.message; }
-}
-
-// categories
-function openCat(){ document.getElementById('catModal').style.display='flex'; }
-function closeCat(){ document.getElementById('catModal').style.display='none'; }
-function addCategory(){
-  const v=document.getElementById('catNew').value.trim(); if(!v) return;
-  if(!categories.includes(v)) categories.push(v);
-  categories = unique(categories);
-  document.getElementById('catNew').value='';
-  fillCategorySelect();
-}
-
-function attachSort(){
-  document.querySelectorAll('#thead th.sort').forEach(th=>{
-    th.addEventListener('click',()=>{
-      const k=th.dataset.k;
-      if(sortKey===k) sortDir=(sortDir==='asc'?'desc':'asc');
-      else { sortKey=k; sortDir='asc'; }
-      document.querySelectorAll('#thead th.sort').forEach(x=>x.classList.remove('asc','desc'));
-      th.classList.add(sortDir);
-      apply();
-    });
-  });
-}
-function attachInputs(){
-  ['q','f_serial','f_date','f_subject','f_category','f_media','f_url'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.addEventListener('input', apply);
-  });
-  document.getElementById('prevBtn').onclick=()=>{ page=Math.max(1,page-1); render(); };
-  document.getElementById('nextBtn').onclick=()=>{ page=page+1; render(); };
-
-  document.getElementById('addBtn').onclick=()=>openModal(false);
-  document.getElementById('m_browse').onclick=()=>document.getElementById('m_file').click();
-  document.getElementById('m_file').addEventListener('change',(ev)=>uploadFile(ev.target.files[0], document.getElementById('m_status'), document.getElementById('m_media')));
-  document.getElementById('m_newcat').onclick=openCat;
-  document.getElementById('catBtn').onclick=openCat;
-  document.getElementById('m_save').onclick=saveModal;
-}
-
-(async function init(){
-  try{
-    const me=await whoami();
-    isAdmin = (me.role==='admin');
-    if(isAdmin){
-      document.getElementById('addBtn').classList.remove('hidden');
-      document.getElementById('catBtn').classList.remove('hidden');
-    }
-  }catch{ return logout(); }
-
-  document.getElementById('meta').textContent='Timezone: IST • Dates: DD-MM-YYYY';
-  attachInputs(); attachSort();
-  await fetchDocs();
-})();
-</script>
 </body>
 </html>
