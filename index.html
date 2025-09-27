@@ -101,6 +101,7 @@
       <button class="btn" id="directoryBtn">Directory</button>
       <button class="btn" id="noticesBtn">Notices</button>
       <button class="btn" id="docsBtn">Documents</button>
+      <button class="btn" id="docsBtn">Finances</button>
 
       <button class="btn" id="exportCsv">Export CSV</button>
       <button class="btn" id="adminBtn" style="display:none">Admin</button>
@@ -458,6 +459,7 @@
       document.getElementById("directoryBtn").addEventListener("click", function(){ location.href='/directory.html'; });
       document.getElementById("noticesBtn").addEventListener("click", function(){ location.href='/notices.html'; });
       document.getElementById("docsBtn").addEventListener("click", function(){ location.href='/documents.html'; });
+      document.getElementById("docsBtn").addEventListener("click", function(){ location.href='/finances.html'; });
 
       await fetchData();
       state.timer = setInterval(async function(){
