@@ -8,8 +8,7 @@
     :root{
       --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb; --hover:#f1f5f9;
       --blue:#0d6efd; --danger:#ef4444;
-      --headH:42px; /* header row height */
-      --filtH:40px; /* filter row height */
+      --headH:42px; --filtH:40px;
     }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;color:var(--text)}
@@ -24,7 +23,7 @@
     .btn{appearance:none;border:1px solid var(--border);background:var(--card);padding:8px 10px;border-radius:10px;cursor:pointer}
     .btn:hover{background:var(--hover)}
     .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
-    .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+    .btn.danger{background:#ef4444;color:#fff;border-color:transparent}
     input,textarea,select{padding:8px 10px;border:1px solid var(--border);border-radius:10px;font-family:inherit}
     textarea{resize:vertical;min-height:120px}
 
@@ -34,21 +33,22 @@
     .muted{color:var(--muted)}
     .hidden{display:none}
 
-    /* table area */
+    .chips{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:4px 8px;background:#f8fafc}
+    .chip .x{cursor:pointer;border:0;background:transparent;color:#334155;font-size:14px}
+
     .tablewrap{
       position:relative; overflow:auto;
       border:1px solid var(--border); border-radius:12px; max-height:70vh; background:var(--card);
     }
     table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
-    /* fixed column widths */
     col.c-serial{width:90px}
     col.c-date{width:160px}
     col.c-subject{width:260px}
     col.c-body{width:auto}
-    col.c-link{width:160px}
+    col.c-link{width:220px}
     col.c-actions{width:140px}
 
-    /* sticky header */
     thead tr.head th{
       position:sticky; top:0;
       background:var(--card);
@@ -69,12 +69,12 @@
     th.sort.asc:after{content:" ↑";} th.sort.desc:after{content:" ↓";}
 
     .thumb{width:58px;height:44px;object-fit:cover;border-radius:5px;border:1px solid #e5e7eb;background:#f8fafc}
-    .fileicon{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:6px;color:#334155;background:#f8fafc;font-size:12px}
+    .fileicon{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:6px;color:#334155;background:#f8fafc;font-size:12px;white-space:nowrap}
     .fileicon svg{width:14px;height:14px}
+    .linkbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
-    /* modal */
     .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center}
-    .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(720px,94vw)}
+    .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(820px,94vw)}
     .box h3{margin:6px 0 12px}
   </style>
 </head>
@@ -99,16 +99,19 @@
       <input id="n_subject" placeholder="Subject" style="flex:2 1 260px">
       <input id="n_date" type="date" style="flex:1 1 160px">
       <button id="n_attach" class="btn">Attach</button>
-      <span id="n_attach_name" class="muted"></span>
+      <input id="n_file" type="file" class="hidden" multiple>
+      <span id="n_status" class="muted"></span>
     </div>
-    <div class="row" style="margin-top:8px">
-      <textarea id="n_body" placeholder="Write the notice..."></textarea>
+    <div class="row" style="margin-top:8px; align-items:flex-start">
+      <textarea id="n_body" placeholder="Write the notice..." style="flex:1 1 520px"></textarea>
+      <div style="flex:1 1 260px">
+        <div class="muted" style="margin-bottom:6px">Attachments</div>
+        <div id="n_attach_list" class="chips"></div>
+      </div>
     </div>
     <div class="row" style="margin-top:8px">
       <button id="n_post" class="btn primary">Post Notice</button>
-      <span id="n_status" class="muted"></span>
     </div>
-    <input id="n_file" type="file" style="display:none">
   </div>
 
   <!-- Grid -->
@@ -135,7 +138,7 @@
             <th class="sort" data-k="date">Date</th>
             <th class="sort" data-k="subject">Subject</th>
             <th class="sort" data-k="body">Notice</th>
-            <th class="sort" data-k="link">Link</th>
+            <th class="sort" data-k="link">Link(s)</th>
             <th>Actions</th>
           </tr>
           <tr class="filters">
@@ -162,19 +165,22 @@
       <label style="flex:2 1 260px">Subject <input id="m_subject" style="width:100%"></label>
       <label>Date <input id="m_date" type="date"></label>
       <button id="m_attach" class="btn">Attach</button>
-      <span id="m_attach_name" class="muted"></span>
+      <input id="m_file" type="file" class="hidden" multiple>
+      <span id="m_status" class="muted"></span>
     </div>
-    <div class="row" style="margin-top:8px">
-      <label style="flex:1 1 auto; width:100%">Notice
+    <div class="row" style="margin-top:8px; align-items:flex-start">
+      <label style="flex:1 1 520px">Notice
         <textarea id="m_body" style="width:100%"></textarea>
       </label>
+      <div style="flex:1 1 260px">
+        <div class="muted" style="margin-bottom:6px">Attachments</div>
+        <div id="m_attach_list" class="chips"></div>
+      </div>
     </div>
     <div class="row" style="margin-top:10px">
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button id="m_save" class="btn primary">Save</button>
-      <span id="m_status" class="muted" style="margin-left:auto"></span>
     </div>
-    <input id="m_file" type="file" style="display:none">
   </div>
 </div>
 
@@ -182,7 +188,6 @@
 /* ===== CONFIG ===== */
 const API = '/api';            // ← replace with your full Apps Script URL if desired
 const IST = 'Asia/Kolkata';
-const PAGE = 12;
 
 /* ===== Session / Utils ===== */
 function logout(){ try{localStorage.clear()}catch{} location.replace('/login'); }
@@ -202,18 +207,24 @@ function toDateInputValueIST(d){
   return new Intl.DateTimeFormat('en-CA',{timeZone:IST,year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
 }
 
-/* Links, thumbs & icons */
-function firstUrl(s){
-  if(!s) return null;
-  const m = String(s).match(/https?:\/\/\S+/i);
-  return m? m[0].replace(/[),.;]+$/,'') : null; // trim trailing punctuation
+/* URL helpers (multi) */
+function extractUrls(s){
+  if(!s) return [];
+  const urls = [];
+  const re = /https?:\/\/[^\s)>\]]+/ig;
+  let m; while((m=re.exec(s))!==null){ urls.push(m[0].replace(/[),.;]+$/,'')); }
+  return urls;
 }
-function stripFirstUrl(s){
-  if(!s) return '';
-  const url = firstUrl(s);
-  if(!url) return s;
-  return s.replace(url,'').replace(/Attachment:\s*/i,'').trim();
+function removeUrlFromText(s,url){
+  if(!s || !url) return s||'';
+  // remove both raw URLs and "Attachment: <url>" variants
+  return s.replace(new RegExp(`\\s*(?:Attachment:\\s*)?${url.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}`,'ig'), '').trim();
 }
+function stripAttachmentLabels(s){
+  return String(s||'').replace(/Attachment:\s*/ig,'').trim();
+}
+
+/* Drive thumbs + icons */
 function gdriveId(url){
   if(!url) return null;
   const m=/\/d\/([a-zA-Z0-9_-]{10,})\//.exec(url)||/id=([a-zA-Z0-9_-]{10,})/.exec(url);
@@ -235,19 +246,18 @@ function icon(kind,label){
   return `<span class="fileicon">${svg}<span>${esc(label||kind)}</span></span>`;
 }
 function mediaIconOrThumb(url){
-  if(!url) return '';
-  const l=url.toLowerCase(); const th=driveThumb(url);
+  const l=(url||'').toLowerCase(); const th=driveThumb(url);
   if(/\.(png|jpg|jpeg|gif|webp)$/i.test(l) || th){
     const src = /\.(png|jpg|jpeg|gif|webp)$/i.test(l)?url:th;
-    return `<a href="${esc(url)}" target="_blank"><img class="thumb" src="${esc(src)}" alt=""></a>`;
+    return `<a href="${esc(url)}" target="_blank" title="${esc(url)}"><img class="thumb" src="${esc(src)}" alt=""></a>`;
   }
-  if(/\.pdf($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('pdf','PDF')}</a>`;
-  if(/\.(doc|docx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('doc','DOC')}</a>`;
-  if(/\.(xls|xlsx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('xls','XLS')}</a>`;
-  if(/\.(ppt|pptx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('ppt','PPT')}</a>`;
-  if(/\.csv($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('csv','CSV')}</a>`;
-  if(/\.zip($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('zip','ZIP')}</a>`;
-  return `<a href="${esc(url)}" target="_blank">open</a>`;
+  if(/\.pdf($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank" title="${esc(url)}">${icon('pdf','PDF')}</a>`;
+  if(/\.(doc|docx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank" title="${esc(url)}">${icon('doc','DOC')}</a>`;
+  if(/\.(xls|xlsx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank" title="${esc(url)}">${icon('xls','XLS')}</a>`;
+  if(/\.(ppt|pptx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank" title="${esc(url)}">${icon('ppt','PPT')}</a>`;
+  if(/\.csv($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank" title="${esc(url)}">${icon('csv','CSV')}</a>`;
+  if(/\.zip($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank" title="${esc(url)}">${icon('zip','ZIP')}</a>`;
+  return `<a href="${esc(url)}" target="_blank" class="fileicon" title="${esc(url)}">link</a>`;
 }
 
 /* ===== State ===== */
@@ -267,37 +277,42 @@ function readFilters(){
 function apply(){
   const f=readFilters();
   rows = all.filter(r=>{
-    const link = firstUrl(r.body)||'';
-    const bodyClean = stripFirstUrl(r.body);
-    const hay=(r.serial+' '+fmtDateIST(r.date)+' '+r.subject+' '+bodyClean+' '+link).toLowerCase();
+    const urls = extractUrls(r.body);
+    const bodyClean = stripAttachmentLabels(removeUrls(r.body, urls));
+    const linkHay = urls.join(' ');
+    const hay=(r.serial+' '+fmtDateIST(r.date)+' '+r.subject+' '+bodyClean+' '+linkHay).toLowerCase();
     if(f.quick && !hay.includes(f.quick)) return false;
     if(f.serial && !String(r.serial).toLowerCase().includes(f.serial)) return false;
     if(f.date && !fmtDateIST(r.date).includes(f.date)) return false;
     if(f.subject && !String(r.subject||'').toLowerCase().includes(f.subject)) return false;
     if(f.body && !String(bodyClean||'').toLowerCase().includes(f.body)) return false;
-    if(f.link && !String(link||'').toLowerCase().includes(f.link)) return false;
+    if(f.link && !String(linkHay||'').toLowerCase().includes(f.link)) return false;
     return true;
   }).sort((a,b)=>{
     let A,B;
     if(sortKey==='date'){ A=new Date(a.date||0); B=new Date(b.date||0); }
-    else if(sortKey==='link'){ A=(firstUrl(a.body)||'').toLowerCase(); B=(firstUrl(b.body)||'').toLowerCase(); }
+    else if(sortKey==='link'){ A=(extractUrls(a.body).join(' ')||'').toLowerCase(); B=(extractUrls(b.body).join(' ')||'').toLowerCase(); }
     else { A=(a[sortKey]??'').toString().toLowerCase(); B=(b[sortKey]??'').toString().toLowerCase(); }
     const s=(A<B?-1:A>B?1:0); return sortDir==='asc'?s:-s;
   });
   render();
 }
+function removeUrls(text, urls){
+  return urls.reduce((acc,u)=>removeUrlFromText(acc,u), text||'');
+}
 function render(){
   const tbody=document.querySelector('#grid tbody'); tbody.innerHTML='';
   rows.forEach(r=>{
-    const link = firstUrl(r.body)||'';
-    const bodyClean = stripFirstUrl(r.body);
+    const urls = extractUrls(r.body);
+    const bodyClean = stripAttachmentLabels(removeUrls(r.body, urls));
     const tr=document.createElement('tr');
+    const linksHtml = urls.map(u=>mediaIconOrThumb(u)).join('');
     tr.innerHTML = `
       <td>${esc(r.serial)}</td>
       <td>${fmtDateIST(r.date)}</td>
       <td title="${esc(r.subject)}">${esc(r.subject)}</td>
       <td title="${esc(bodyClean)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(bodyClean)}</td>
-      <td>${link ? mediaIconOrThumb(link) : ''}</td>
+      <td><div class="linkbar">${linksHtml}</div></td>
       <td>
         ${isAdmin? `
           <button class="btn" onclick="openModal(${r.serial})">Edit</button>
@@ -319,7 +334,6 @@ async function fetchNotices(){
   document.getElementById('status').textContent='Loading…';
   const r=await fetch(`${API}?action=notices&token=${encodeURIComponent(token())}`,{cache:'no-store'});
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-  // expected fields: serial, subject, date, body
   all=(j.data||[]).slice().sort((a,b)=>{
     const ad=new Date(a.date||0).getTime(), bd=new Date(b.date||0).getTime();
     if(ad!==bd) return bd-ad;
@@ -328,20 +342,44 @@ async function fetchNotices(){
   apply();
 }
 
-/* ===== Upload to Drive (reuse docs endpoint) ===== */
-async function uploadFile(file, statusEl, onDone){
-  if(!file) return;
+/* ===== Upload to Drive (multi) ===== */
+async function uploadMany(files, statusEl, appendToTextarea){
+  if(!files || !files.length) return;
   statusEl.textContent='Uploading…';
-  const b64=await file.arrayBuffer().then(b=>btoa(String.fromCharCode(...new Uint8Array(b))));
-  try{
-    const r=await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:file.name,mime:file.type||'application/octet-stream',data:b64})
-    });
-    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    statusEl.textContent='Uploaded.';
-    onDone && onDone(j.data.url);
-  }catch(e){ statusEl.textContent='Upload failed: '+e.message; }
+  for(const file of files){
+    const b64=await file.arrayBuffer().then(b=>btoa(String.fromCharCode(...new Uint8Array(b))));
+    try{
+      const r=await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(token())}`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:file.name,mime:file.type||'application/octet-stream',data:b64})
+      });
+      const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+      const url=j.data.url;
+      // append line "Attachment: URL"
+      appendToTextarea.value = (appendToTextarea.value? (appendToTextarea.value.replace(/\s+$/,'')+'\n') : '') + `Attachment: ${url}`;
+      // reflect in chips
+      refreshAttachChips(appendToTextarea);
+      statusEl.textContent='Uploaded.';
+    }catch(e){ statusEl.textContent='Upload failed: '+e.message; break; }
+  }
+}
+
+/* ===== Compose / Edit helpers ===== */
+function refreshAttachChips(textarea){
+  const urls = extractUrls(textarea.value);
+  const targetId = (textarea.id==='n_body') ? 'n_attach_list' : 'm_attach_list';
+  const listEl = document.getElementById(targetId);
+  listEl.innerHTML = urls.map(u=>{
+    return `<span class="chip">${mediaIconOrThumb(u)}<button class="x" data-url="${esc(u)}" title="Remove">✕</button></span>`;
+  }).join('') || '<span class="muted">No attachments</span>';
+
+  // Hook up remove buttons
+  listEl.querySelectorAll('.x').forEach(btn=>{
+    btn.onclick=()=>{
+      textarea.value = removeUrlFromText(textarea.value, btn.dataset.url);
+      refreshAttachChips(textarea);
+    };
+  });
 }
 
 /* ===== Create ===== */
@@ -360,7 +398,7 @@ async function postNotice(){
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
     document.getElementById('n_subject').value='';
     document.getElementById('n_body').value='';
-    document.getElementById('n_attach_name').textContent='';
+    refreshAttachChips(document.getElementById('n_body'));
     s.textContent='Posted.';
     await fetchNotices();
   }catch(e){ s.textContent='Failed: '+e.message; }
@@ -374,8 +412,7 @@ function openModal(serial){
   document.getElementById('m_subject').value=rec.subject||'';
   document.getElementById('m_date').value=toDateInputValueIST(rec.date);
   document.getElementById('m_body').value=rec.body||'';
-  document.getElementById('m_attach_name').textContent='';
-  document.getElementById('m_status').textContent='';
+  refreshAttachChips(document.getElementById('m_body'));
   document.getElementById('editModal').style.display='flex';
 }
 function closeModal(){ document.getElementById('editModal').style.display='none'; }
@@ -412,7 +449,7 @@ async function delNotice(serial){
   }catch(e){ alert('Delete failed: '+e.message); }
 }
 
-/* ===== Wire up ===== */
+/* ===== Sorting + Filters ===== */
 function attachSort(){
   document.querySelectorAll('#thead th.sort').forEach(th=>{
     th.addEventListener('click',()=>{
@@ -430,34 +467,20 @@ function attachInputs(){
     const el=document.getElementById(id); if(el) el.addEventListener('input', apply);
   });
 
-  // compose
+  // compose attach
   document.getElementById('n_attach').onclick=()=>document.getElementById('n_file').click();
   document.getElementById('n_file').addEventListener('change',ev=>{
-    const file=ev.target.files[0]; if(!file) return;
-    uploadFile(file, document.getElementById('n_status'), (url)=>{
-      const bodyEl=document.getElementById('n_body');
-      if(bodyEl.value) bodyEl.value += `\nAttachment: ${url}`;
-      else bodyEl.value = `Attachment: ${url}`;
-      document.getElementById('n_attach_name').textContent=file.name;
-    });
+    uploadMany(ev.target.files, document.getElementById('n_status'), document.getElementById('n_body'));
   });
+  document.getElementById('n_body').addEventListener('input', e=>refreshAttachChips(e.target));
   document.getElementById('n_post').onclick=postNotice;
 
-  // edit modal attach
+  // edit attach
   document.getElementById('m_attach').onclick=()=>document.getElementById('m_file').click();
   document.getElementById('m_file').addEventListener('change',ev=>{
-    const file=ev.target.files[0]; if(!file) return;
-    uploadFile(file, document.getElementById('m_status'), (url)=>{
-      const bodyEl=document.getElementById('m_body');
-      if(bodyEl.value.includes('Attachment:')){
-        // replace first attachment url
-        bodyEl.value = bodyEl.value.replace(/Attachment:\s*https?:\/\/\S+/i, `Attachment: ${url}`);
-      }else{
-        bodyEl.value += (bodyEl.value?'\n':'') + `Attachment: ${url}`;
-      }
-      document.getElementById('m_attach_name').textContent=file.name;
-    });
+    uploadMany(ev.target.files, document.getElementById('m_status'), document.getElementById('m_body'));
   });
+  document.getElementById('m_body').addEventListener('input', e=>refreshAttachChips(e.target));
   document.getElementById('m_save').onclick=saveModal;
 }
 
@@ -471,8 +494,9 @@ function attachInputs(){
     if(isAdmin) document.getElementById('adminBar').classList.remove('hidden');
   }catch{ return logout(); }
 
-  attachInputs();
-  attachSort();
+  document.getElementById('meta').textContent='Timezone: IST • Dates: DD-MM-YYYY';
+  attachInputs(); attachSort();
+  refreshAttachChips(document.getElementById('n_body'));
   await fetchNotices();
 })();
 </script>
