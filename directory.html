@@ -5,194 +5,345 @@
   <title>Employee Directory</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;background:#f7f9fc;color:#0f172a}
-    header{padding:12px 16px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between}
-    header h1{margin:0;font-size:18px;font-weight:800}
-    .btn{padding:8px 14px;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;font-size:14px;background:#fff}
-    .btn:hover{background:#f1f5f9}
-    .btn.primary{background:#0d6efd;color:#fff;border-color:transparent}
-    .btn.danger{background:#ef4444;color:#fff;border-color:transparent}
-    .wrap{padding:16px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;max-width:520px;margin:auto}
-    h2{margin-top:0}
-    form label{display:block;margin-top:12px;font-weight:600}
-    form input,form select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;font-size:14px}
-    .row{display:flex;gap:16px;align-items:center;margin-top:12px}
-    .row input[type="radio"]{width:auto;margin-right:6px}
-    .muted{font-size:12px;color:#6b7280}
-    .error{color:#ef4444;font-size:12px;margin-top:2px;display:none}
-    .actions{margin-top:16px;display:flex;gap:10px}
-    .imgBox{width:120px;height:120px;border:2px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#f8fafc}
-    .imgBox img{max-width:100%;max-height:100%;border-radius:8px}
-    .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;color:var(--text)}
+    header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand img{height:28px;width:28px;border-radius:6px;object-fit:cover}
+    .title{margin:0;font-weight:800}
+    .btn{appearance:none;border:1px solid var(--border);background:var(--card);padding:8px 10px;border-radius:10px;cursor:pointer}
+    .btn:hover{background:var(--hover)}
+    .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
+    .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+    input,select,textarea{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font:inherit}
+    .wrap{padding:14px 16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;max-width:980px;margin:auto}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .muted{color:var(--muted)}
+    .field{flex:1 1 280px;min-width:240px}
+    .field label{display:block;font-weight:600;margin-bottom:6px}
+    .imgBox{width:140px;height:140px;border:2px dashed #cbd5e1;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#f8fafc}
+    .imgBox img{max-width:100%;max-height:100%;border-radius:8px;display:none}
+    .actions{display:flex;gap:8px;margin-top:10px}
+
+    /* table area */
+    .list-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;margin-top:18px}
+    .topbar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    .filters{display:grid;grid-template-columns: 60px 1.2fr 1fr 1fr 1fr 1.6fr 0.8fr 1fr 0.8fr 120px;gap:8px;margin:8px 0 10px 0}
+    .filters input,.filters select{width:100%}
+
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead.sticky{position:sticky;top:calc(56px + 12px);z-index:2;background:var(--card)}
+    thead th{border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700;white-space:nowrap}
+    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
+    th.sort{cursor:pointer;user-select:none}
+    th.sort:after{content:" ⇵";color:#94a3b8;font-weight:400}
+    th.sort.asc:after{content:" ↑"} th.sort.desc:after{content:" ↓"}
+    .thumb{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;background:#f8fafc}
+
+    .pager{display:flex;gap:8px;align-items:center;margin-top:10px}
   </style>
 </head>
 <body>
 <header>
-  <h1>Employee Directory</h1>
-  <button class="btn" onclick="location.href='/'">Back</button>
+  <div class="brand">
+    <img src="/android-chrome-512x512.png" onerror="this.src='logo.png'" alt="logo">
+    <h1 class="title">Employee Directory</h1>
+  </div>
+  <button class="btn" onclick="history.back()">Back</button>
 </header>
 
 <div class="wrap">
   <div class="card">
-    <h2>Add Record</h2>
-    <form id="empForm" novalidate>
-      <label>Name *
-        <input id="name" required />
-        <div class="error" id="errName">Name is required</div>
-      </label>
+    <h2 style="margin:0 0 10px 0">Add Record</h2>
 
-      <label>Email
-        <input id="email" type="email" placeholder="Enter email…" />
-      </label>
-
-      <label>Gender *</label>
+    <form id="empForm" autocomplete="off">
       <div class="row">
-        <label><input type="radio" name="gender" value="Male" checked /> Male</label>
-        <label><input type="radio" name="gender" value="Female" /> Female</label>
+        <div class="field">
+          <label>Name *</label>
+          <input id="name" required>
+        </div>
+        <div class="field">
+          <label>Mobile Number</label>
+          <input id="mobile" inputmode="numeric" placeholder="10 digits">
+        </div>
+        <div class="field">
+          <label>Department</label>
+          <input id="dept" placeholder="e.g., Finance">
+        </div>
+        <div class="field">
+          <label>Designation</label>
+          <input id="desig" placeholder="e.g., Manager">
+        </div>
+        <div class="field" style="flex:1 1 320px;min-width:260px">
+          <label>Email</label>
+          <input id="email" type="email" placeholder="name@domain.com">
+        </div>
       </div>
 
-      <label>Joined On
-        <input id="joined" type="date" />
-        <div class="muted">Saved as DD-MM-YYYY (Asia/Kolkata)</div>
-      </label>
-
-      <label>Salary
-        <input id="salary" type="number" step="0.01" min="0" value="0.00" />
-      </label>
-
-      <label>Image (optional)</label>
-      <div class="imgBox" onclick="document.getElementById('image').click()">
-        <span id="imgHint">+</span>
-        <img id="imgPreview" style="display:none" alt="preview" />
+      <div class="row" style="margin-top:10px">
+        <div class="field">
+          <label>Gender *</label>
+          <div class="row" style="gap:18px">
+            <label><input type="radio" name="gender" value="Male" checked> Male</label>
+            <label><input type="radio" name="gender" value="Female"> Female</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Joined On</label>
+          <input id="joined" type="date">
+          <div class="muted" style="font-size:12px;margin-top:4px">Saved as <strong>DD-MM-YYYY</strong> (Asia/Kolkata)</div>
+        </div>
+        <div class="field">
+          <label>Salary</label>
+          <input id="salary" type="number" step="0.01" min="0" value="0.00">
+        </div>
+        <div class="field">
+          <label>Image (optional)</label>
+          <div class="imgBox" onclick="document.getElementById('image').click()">
+            <span id="imgPlus">+</span>
+            <img id="imgPreview" alt="">
+          </div>
+          <input id="image" type="file" accept="image/*" style="display:none">
+        </div>
       </div>
-      <input id="image" type="file" accept="image/*" style="display:none" />
 
       <div class="actions">
-        <button type="submit" id="submitBtn" class="btn primary">Submit Form</button>
-        <button type="reset" class="btn">Reset</button>
-        <button type="button" class="btn danger" onclick="cancelForm()">Cancel</button>
+        <button type="submit" class="btn primary">Submit Form</button>
+        <button type="reset"  class="btn">Reset</button>
+        <button type="button" class="btn danger" onclick="clearPreview()">Cancel</button>
       </div>
-      <div class="muted" id="statusMsg"></div>
     </form>
+  </div>
+
+  <!-- Listing -->
+  <div class="list-card">
+    <div class="topbar">
+      <input id="q" placeholder="Quick search…" style="min-width:260px">
+      <span id="meta" class="muted">Timezone: IST • Dates: DD-MM-YYYY</span>
+      <span id="status" class="muted" style="margin-left:auto"></span>
+    </div>
+
+    <!-- Column filters (separate bar, like other pages) -->
+    <div class="filters">
+      <input id="f_serial"   placeholder="#" />
+      <input id="f_name"     placeholder="name…" />
+      <input id="f_mobile"   placeholder="mobile…" />
+      <input id="f_dept"     placeholder="department…" />
+      <input id="f_desig"    placeholder="designation…" />
+      <input id="f_email"    placeholder="email…" />
+      <select id="f_gender">
+        <option value="">gender</option>
+        <option>Male</option>
+        <option>Female</option>
+      </select>
+      <input id="f_joined"   placeholder="dd-mm-yyyy" />
+      <input id="f_salary"   placeholder="≥ salary" />
+      <span></span>
+    </div>
+
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
+      <table id="grid">
+        <thead class="sticky">
+          <tr>
+            <th class="sort" data-k="serial"   style="width:60px">#</th>
+            <th class="sort" data-k="name">Name</th>
+            <th class="sort" data-k="mobile">Mobile</th>
+            <th class="sort" data-k="dept">Department</th>
+            <th class="sort" data-k="desig">Designation</th>
+            <th class="sort" data-k="email">Email</th>
+            <th class="sort" data-k="gender">Gender</th>
+            <th class="sort" data-k="joined">Joined On</th>
+            <th class="sort" data-k="salary">Salary</th>
+            <th>Photo</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="pager">
+      <button id="prevBtn" class="btn">Prev</button>
+      <span id="pageInfo" class="muted">Page 1 / 1</span>
+      <button id="nextBtn" class="btn">Next</button>
+    </div>
   </div>
 </div>
 
 <script>
-/* ---------- CONFIG: HARD-CODE YOUR GAS URL HERE ---------- */
-const API = 'https://script.google.com/macros/s/AKfycbXXXXXXXXXXXXXXXXXXXXXXXXXXXX/exec'; // <-- replace with your Web App URL
-/* --------------------------------------------------------- */
+/* ================= CONFIG ================= */
+const API = '/api';      // set your Apps Script URL here if you add endpoints
+const USE_API = false;   // set true when your backend is ready
+const IST = 'Asia/Kolkata';
+const PAGE = 12;
 
-const TZ = 'Asia/Kolkata';
-
-function cancelForm(){ location.href='/'; }
-function token(){ try{ return localStorage.getItem('token'); }catch{ return null; } }
-function setBusy(btn,on,txtIdle,txtBusy){
-  if(!btn) return;
-  if(on){ btn.disabled=true; btn.dataset._w=btn.offsetWidth; btn.style.minWidth=btn.dataset._w+'px'; btn.innerHTML=`<span class="spinner"></span> ${txtBusy}`; }
-  else  { btn.disabled=false; btn.style.minWidth=''; btn.innerHTML=txtIdle; }
+/* ================= Helpers ================= */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'}[m]));
+function fmtDateIST(d){
+  if(!d) return '';
+  const dt = new Date(d);
+  if(isNaN(dt)) return esc(d);
+  const p = new Intl.DateTimeFormat('en-GB',{timeZone:IST,day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(dt);
+  const g=k=>p.find(x=>x.type===k)?.value||''; return `${g('day')}-${g('month')}-${g('year')}`;
 }
-function toDDMMYYYYFromDateInput(ymd){
-  if(!ymd) return '';
-  const [y,m,d] = ymd.split('-');
-  return `${d}-${m}-${y}`;
-}
-function todayYMD_IST(){
-  const now = new Date();
-  const opts = { timeZone: TZ, year:'numeric', month:'2-digit', day:'2-digit' };
-  const [mm,dd,yyyy] = now.toLocaleDateString('en-IN', opts).split('/');
-  return `${yyyy}-${mm}-${dd}`;
-}
-function fileToBase64_(file){
-  return new Promise((resolve,reject)=>{
-    const r=new FileReader();
-    r.onload=()=>resolve(r.result);
-    r.onerror=reject;
-    r.readAsDataURL(file);
-  });
+function toDateInputValueIST(d){
+  const dt = d? new Date(d) : new Date();
+  return new Intl.DateTimeFormat('en-CA',{timeZone:IST,year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
 }
 
-/* Preview image */
+/* ================= State ================= */
+let all=[], rows=[], sortKey='serial', sortDir='asc', page=1;
+
+/* ================= Storage (offline demo) ================= */
+const LS_KEY='emp_dir_v1';
+function loadLocal(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||'[]'); }catch{ return []; } }
+function saveLocal(list){ try{ localStorage.setItem(LS_KEY, JSON.stringify(list)); }catch{} }
+
+/* ================= Form ================= */
+function clearPreview(){
+  document.getElementById('imgPreview').style.display='none';
+  document.getElementById('imgPlus').style.display='block';
+  document.getElementById('image').value='';
+}
 document.getElementById('image').addEventListener('change',ev=>{
-  const file=ev.target.files[0];
-  if(file){
-    const reader=new FileReader();
-    reader.onload=e=>{
-      document.getElementById('imgPreview').src=e.target.result;
-      document.getElementById('imgPreview').style.display='block';
-      document.getElementById('imgHint').style.display='none';
-    };
-    reader.readAsDataURL(file);
-  }else{
-    document.getElementById('imgPreview').style.display='none';
-    document.getElementById('imgHint').style.display='block';
-  }
+  const f=ev.target.files[0]; if(!f) return clearPreview();
+  const rd=new FileReader();
+  rd.onload=e=>{
+    document.getElementById('imgPreview').src=e.target.result;
+    document.getElementById('imgPreview').style.display='block';
+    document.getElementById('imgPlus').style.display='none';
+  };
+  rd.readAsDataURL(f);
 });
 
-/* Submit */
-const form=document.getElementById('empForm');
-form.addEventListener('submit', async (ev)=>{
+document.getElementById('empForm').addEventListener('submit', async (ev)=>{
   ev.preventDefault();
-  const btn = document.getElementById('submitBtn');
-  const status = document.getElementById('statusMsg');
+  const name = document.getElementById('name').value.trim();
+  if(!name){ alert('Name is required'); return; }
 
-  const name=document.getElementById('name').value.trim();
-  if(!name){ document.getElementById('errName').style.display='block'; return; }
-  document.getElementById('errName').style.display='none';
-
-  const payload={
+  const rec = {
+    serial: Date.now(),
     name,
-    email:document.getElementById('email').value.trim(),
-    gender:form.gender.value,
-    joined:toDDMMYYYYFromDateInput(document.getElementById('joined').value), // DD-MM-YYYY
-    salary:document.getElementById('salary').value || '0'
+    mobile: document.getElementById('mobile').value.trim(),
+    dept: document.getElementById('dept').value.trim(),
+    desig: document.getElementById('desig').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    gender: document.querySelector('input[name="gender"]:checked').value,
+    joined: document.getElementById('joined').value || '',
+    salary: parseFloat(document.getElementById('salary').value || '0'),
+    photo: document.getElementById('imgPreview').style.display==='block' ? document.getElementById('imgPreview').src : ''
   };
 
-  let imageUrl = '';
-  const f = document.getElementById('image').files[0];
-
-  try{
-    setBusy(btn,true,'Submit Form','Submitting…'); status.textContent='';
-
-    // Optional image upload to Drive
-    if(f){
-      const b64 = await fileToBase64_(f); // data:<mime>;base64,XXXX
-      const upRes = await fetch(`${API}?action=uploaddocb64${token()?`&token=${encodeURIComponent(token())}`:''}`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name: f.name, mime: f.type, data: b64.split(',')[1] })
-      });
-      const upJ = await upRes.json();
-      if(!upJ.ok) throw new Error(upJ.error||'Upload failed');
-      imageUrl = upJ.data.url;
-    }
-
-    // Add employee
-    const res = await fetch(`${API}?action=addemployee${token()?`&token=${encodeURIComponent(token())}`:''}`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ ...payload, imageUrl })
-    });
-    const j = await res.json();
-    if(!j.ok) throw new Error(j.error || 'Save failed');
-
-    alert('Employee saved.');
-    form.reset();
-    document.getElementById('imgPreview').style.display='none';
-    document.getElementById('imgHint').style.display='block';
-    document.getElementById('joined').value = todayYMD_IST();
-    status.textContent = 'Saved.';
-  }catch(err){
-    alert('Save failed: ' + err.message);
-    status.textContent = 'Failed: ' + err.message;
-  }finally{
-    setBusy(btn,false,'Submit Form','Submitting…');
+  if(USE_API){
+    // Example: await fetch(`${API}?action=addemployee`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rec)});
+    // Adjust to your final Apps Script routes.
+  }else{
+    const list = loadLocal(); list.unshift(rec); saveLocal(list);
   }
+
+  ev.target.reset(); clearPreview();
+  await fetchEmployees(); // refresh list
 });
 
-/* Default date = today (IST) */
-document.getElementById('joined').value = todayYMD_IST();
+/* ================= Listing ================= */
+function readFilters(){
+  return {
+    quick:(document.getElementById('q').value||'').toLowerCase(),
+    serial:(document.getElementById('f_serial').value||'').toLowerCase(),
+    name:(document.getElementById('f_name').value||'').toLowerCase(),
+    mobile:(document.getElementById('f_mobile').value||'').toLowerCase(),
+    dept:(document.getElementById('f_dept').value||'').toLowerCase(),
+    desig:(document.getElementById('f_desig').value||'').toLowerCase(),
+    email:(document.getElementById('f_email').value||'').toLowerCase(),
+    gender:(document.getElementById('f_gender').value||'').toLowerCase(),
+    joined:(document.getElementById('f_joined').value||'').toLowerCase(),
+    salary:(document.getElementById('f_salary').value||'').toLowerCase()
+  };
+}
+function apply(){
+  const f=readFilters();
+  rows = all.filter(r=>{
+    const hay = (r.serial+' '+r.name+' '+r.mobile+' '+r.dept+' '+r.desig+' '+r.email+' '+r.gender+' '+fmtDateIST(r.joined)+' '+r.salary).toLowerCase();
+    if(f.quick && !hay.includes(f.quick)) return false;
+    if(f.serial && !String(r.serial).toLowerCase().includes(f.serial)) return false;
+    if(f.name && !String(r.name||'').toLowerCase().includes(f.name)) return false;
+    if(f.mobile && !String(r.mobile||'').toLowerCase().includes(f.mobile)) return false;
+    if(f.dept && !String(r.dept||'').toLowerCase().includes(f.dept)) return false;
+    if(f.desig && !String(r.desig||'').toLowerCase().includes(f.desig)) return false;
+    if(f.email && !String(r.email||'').toLowerCase().includes(f.email)) return false;
+    if(f.gender && String(r.gender||'').toLowerCase()!==f.gender) return false;
+    if(f.joined && !fmtDateIST(r.joined).includes(f.joined)) return false;
+    if(f.salary){
+      const thr=parseFloat(f.salary); if(!isNaN(thr) && !(Number(r.salary)||0)>=thr) return false;
+    }
+    return true;
+  }).sort((a,b)=>{
+    let A,B;
+    if(sortKey==='salary'){ A=Number(a.salary)||0; B=Number(b.salary)||0; }
+    else if(sortKey==='joined'){ A=new Date(a.joined||0); B=new Date(b.joined||0); }
+    else { A=(a[sortKey]??'').toString().toLowerCase(); B=(b[sortKey]??'').toString().toLowerCase(); }
+    const s=(A<B?-1:A>B?1:0); return sortDir==='asc'?s:-s;
+  });
+  page=1; render();
+}
+function render(){
+  const tbody=document.querySelector('#grid tbody'); tbody.innerHTML='';
+  const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
+  page=Math.min(Math.max(1,page),pages);
+  const part=rows.slice((page-1)*PAGE,(page-1)*PAGE+PAGE);
+  for(const r of part){
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${esc(r.serial)}</td>
+      <td>${esc(r.name)}</td>
+      <td>${esc(r.mobile)}</td>
+      <td>${esc(r.dept)}</td>
+      <td>${esc(r.desig)}</td>
+      <td>${esc(r.email)}</td>
+      <td>${esc(r.gender)}</td>
+      <td>${fmtDateIST(r.joined)}</td>
+      <td>${(Number(r.salary)||0).toLocaleString('en-IN',{maximumFractionDigits:2})}</td>
+      <td>${r.photo? `<img class="thumb" src="${esc(r.photo)}" alt="">` : ''}</td>`;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('pageInfo').textContent=`Page ${page} / ${pages}`;
+  document.getElementById('status').textContent=`${total} employee(s), showing ${part.length}`;
+}
+
+/* Fetch (offline demo uses localStorage) */
+async function fetchEmployees(){
+  if(USE_API){
+    // const r=await fetch(`${API}?action=employees`); const j=await r.json();
+    // all = j.ok ? (j.data||[]) : [];
+    // Map your backend fields to {serial,name,mobile,dept,desig,email,gender,joined,salary,photo}
+  }else{
+    all = loadLocal();
+  }
+  apply();
+}
+
+/* ================= Wire-up ================= */
+document.getElementById('joined').value = toDateInputValueIST();
+
+['q','f_serial','f_name','f_mobile','f_dept','f_desig','f_email','f_gender','f_joined','f_salary'].forEach(id=>{
+  const el=document.getElementById(id); if(el) el.addEventListener('input', apply);
+});
+
+document.querySelectorAll('thead.sticky th.sort').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const k=th.dataset.k;
+    if(sortKey===k) sortDir=(sortDir==='asc'?'desc':'asc'); else { sortKey=k; sortDir='asc'; }
+    document.querySelectorAll('thead.sticky th.sort').forEach(x=>x.classList.remove('asc','desc'));
+    th.classList.add(sortDir); apply();
+  });
+});
+
+document.getElementById('prevBtn').onclick=()=>{ page=Math.max(1,page-1); render(); };
+document.getElementById('nextBtn').onclick=()=>{ page=page+1; render(); };
+
+/* Init */
+fetchEmployees();
 </script>
 </body>
 </html>
