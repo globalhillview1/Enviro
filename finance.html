@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Finance – P/L & Balance Sheet</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --blue:#0d6efd }
+  *{ box-sizing:border-box } body{ margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial }
+  header{ position:sticky; top:0; z-index:5; display:flex; justify-content:space-between; padding:12px 16px; background:#fff; border-bottom:1px solid var(--border) }
+  h1{ margin:0; font-size:18px; font-weight:800 }
+  .btn{ border:1px solid var(--border); background:#fff; padding:8px 12px; border-radius:10px; cursor:pointer }
+  .btn.primary{ background:var(--blue); color:#fff; border-color:transparent }
+  .wrap{ padding:16px } .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px }
+  table{ width:100%; border-collapse:separate; border-spacing:0 }
+  th,td{ padding:10px; border-top:1px solid var(--border); text-align:left } th{ border-top:none }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px } @media(max-width:900px){ .grid{ grid-template-columns:1fr } }
+  .muted{ color:var(--muted) }
+</style>
+</head>
+<body>
+<header>
+  <h1>Finance</h1>
+  <button class="btn" onclick="location.href='/'">Back</button>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label>From <input id="from" type="date"></label>
+        <label style="margin-left:8px">To <input id="to" type="date"></label>
+        <button id="run" class="btn primary" style="margin-left:8px">Run</button>
+        <span class="muted" id="status"></span>
+      </div>
+      <div>
+        <label>As of (Balance Sheet) <input id="asof" type="date"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Profit & Loss</h3>
+      <table id="plTable">
+        <thead><tr><th>Group</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr><th>Total Income</th><th id="tInc" style="text-align:right">–</th></tr>
+          <tr><th>Total Expense</th><th id="tExp" style="text-align:right">–</th></tr>
+          <tr><th>Surplus / (Deficit)</th><th id="tSur" style="text-align:right">–</th></tr>
+        </tfoot>
+      </table>
+      <canvas id="plChart" height="120"></canvas>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Balance Sheet</h3>
+      <div class="grid">
+        <div>
+          <h4>Assets</h4>
+          <table id="bsA"><tbody></tbody></table>
+        </div>
+        <div>
+          <h4>Liabilities & Equity</h4>
+          <table id="bsL"><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API='/api';
+const token=()=>{ try{return localStorage.getItem('token')}catch{return null} };
+
+function asCurrency(n){ return Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0}); }
+
+async function loadPL(from,to){
+  const r=await fetch(`${API}?action=pl&token=${encodeURIComponent(token()||'')}&from=${encodeURIComponent(from||'')}&to=${encodeURIComponent(to||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+  return j.data;
+}
+async function loadBS(asof){
+  const r=await fetch(`${API}?action=balancesheet&token=${encodeURIComponent(token()||'')}&asof=${encodeURIComponent(asof||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+  return j.data;
+}
+
+function fillPL(data){
+  const tb=document.querySelector('#plTable tbody'); tb.innerHTML='';
+  Object.entries(data.income||{}).forEach(([k,v])=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${k}</td><td style="text-align:right">${asCurrency(v)}</td>`; tb.appendChild(tr);
+  });
+  Object.entries(data.expense||{}).forEach(([k,v])=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${k}</td><td style="text-align:right">-${asCurrency(v)}</td>`; tb.appendChild(tr);
+  });
+  document.getElementById('tInc').textContent=asCurrency(data.totalIncome||0);
+  document.getElementById('tExp').textContent=asCurrency(data.totalExpense||0);
+  document.getElementById('tSur').textContent=asCurrency(data.surplus||0);
+}
+
+function fillBS(data){
+  const a=document.querySelector('#bsA tbody'); a.innerHTML='';
+  const l=document.querySelector('#bsL tbody'); l.innerHTML='';
+  Object.entries(data.assets||{}).forEach(([k,v])=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${k}</td><td style="text-align:right">${asCurrency(v)}</td>`; a.appendChild(tr);
+  });
+  const le = {...(data.liabilities||{}), ...(data.equity||{})};
+  Object.entries(le).forEach(([k,v])=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${k}</td><td style="text-align:right">${asCurrency(v)}</td>`; l.appendChild(tr);
+  });
+}
+
+document.getElementById('run').onclick = async ()=>{
+  const from=document.getElementById('from').value;
+  const to=document.getElementById('to').value;
+  const asof=document.getElementById('asof').value || to || from;
+  document.getElementById('status').textContent='Loading…';
+  try{
+    const [pl, bs] = await Promise.all([loadPL(from,to), loadBS(asof)]);
+    fillPL(pl); fillBS(bs);
+    document.getElementById('status').textContent='Done';
+  }catch(e){
+    document.getElementById('status').textContent='Error: '+e.message;
+  }
+};
+
+// defaults: current month
+(function initDates(){
+  const now=new Date();
+  const start=new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+  const end=new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+  document.getElementById('from').value=start;
+  document.getElementById('to').value=end;
+  document.getElementById('asof').value=end;
+})();
+</script>
+</body>
+</html>
