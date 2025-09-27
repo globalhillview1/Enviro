@@ -17,13 +17,19 @@
     .wrap{ padding:16px }
     .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px }
     .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
-
     input, select{ padding:8px 10px; border:1px solid var(--border); border-radius:10px; font:inherit }
     .muted{ color:var(--muted) }
 
-    /* table */
+    /* table + sticky header inside its own scroller */
+    .tableWrap{ overflow:auto; border:1px solid var(--border); border-radius:12px; max-height:60vh; }
     table{ width:100%; border-collapse:separate; border-spacing:0 }
-    thead th{ position:sticky; top:144px; background:#fff; border-bottom:1px solid var(--border); padding:10px; text-align:left; font-weight:700; white-space:nowrap }
+    thead th{
+      position:sticky; top:0;
+      z-index:2;
+      background:#fff;
+      border-bottom:1px solid var(--border);
+      padding:10px; text-align:left; font-weight:700; white-space:nowrap;
+    }
     tbody td{ border-top:1px solid var(--border); padding:10px; vertical-align:top }
     th.sort{ cursor:pointer; user-select:none }
     th.sort:after{ content:" ⇵"; color:#94a3b8; font-weight:400 }
@@ -44,7 +50,7 @@
     .imgDrop{ width:140px; height:140px; border:2px dashed #cbd5e1; border-radius:12px; display:flex; align-items:center; justify-content:center; background:#f8fafc; cursor:pointer }
     .imgDrop img{ max-width:100%; max-height:100%; border-radius:10px }
     @media (max-width:900px){ .grid{ grid-template-columns:1fr 1fr } }
-    @media (max-width:640px){ .grid{ grid-template-columns:1fr } thead th{ top:188px } }
+    @media (max-width:640px){ .grid{ grid-template-columns:1fr } }
   </style>
 </head>
 <body>
@@ -69,7 +75,7 @@
   </div>
 
   <div class="card">
-    <div style="overflow:auto; border:1px solid var(--border); border-radius:12px">
+    <div class="tableWrap">
       <table id="grid">
         <thead id="thead">
           <tr>
@@ -161,14 +167,13 @@
 </div>
 
 <script>
-/* ===== Adjust this to your endpoint if needed ===== */
-const API = '/api';               // or hard-code your Apps Script URL
+const API = '/api';
 const IST = 'Asia/Kolkata';
 const PAGE = 12;
 
-/* ===== Helpers ===== */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const token = () => { try{ return localStorage.getItem('token'); }catch{ return null; } };
+
 function fmtDateIST(d){
   if(!d) return '';
   const dt = new Date(d);
@@ -182,22 +187,16 @@ function toDateInputValueIST(d){
   return new Intl.DateTimeFormat('en-CA',{ timeZone: IST, year:'numeric', month:'2-digit', day:'2-digit' }).format(dt);
 }
 
-/* ===== Minimal data store (localStorage for now) ===== */
-function loadEmployees(){
-  try{ return JSON.parse(localStorage.getItem('employees') || '[]'); }catch{ return []; }
-}
-function saveEmployees(list){
-  try{ localStorage.setItem('employees', JSON.stringify(list)); }catch{}
-}
+/* local store so you can test immediately */
+function loadEmployees(){ try{ return JSON.parse(localStorage.getItem('employees') || '[]'); }catch{ return []; } }
+function saveEmployees(list){ try{ localStorage.setItem('employees', JSON.stringify(list)); }catch{} }
 
-/* ===== UI State ===== */
-let all = loadEmployees();           // [{...}]
+let all = loadEmployees();
 let rows = [];
 let sortKey = 'serial';
 let sortDir = 'asc';
 let page = 1;
 
-/* ===== Rendering ===== */
 function apply(){
   const q = (document.getElementById('q').value || '').toLowerCase();
   rows = all.filter(r => {
@@ -216,6 +215,7 @@ function apply(){
   });
   render();
 }
+
 function render(){
   const tbody = document.querySelector('#grid tbody'); tbody.innerHTML = '';
   const total = rows.length, pages = Math.max(1, Math.ceil(total / PAGE));
@@ -241,7 +241,7 @@ function render(){
   document.getElementById('status').textContent = `${total} employee(s), showing ${part.length}`;
 }
 
-/* ===== Modal controls ===== */
+/* modal */
 function openModal(edit=false, serial=null){
   const box = document.getElementById('empModal');
   document.getElementById('modalTitle').textContent = edit ? 'Edit Record' : 'Add Record';
@@ -259,7 +259,6 @@ function openModal(edit=false, serial=null){
     document.getElementById('m_joined').value = toDateInputValueIST(r.joined);
     document.getElementById('m_salary').value = r.salary || 0;
     document.getElementById('m_photoUrl').value = r.photo || '';
-    // preview
     const img = document.getElementById('imgPreview'); const hint = document.getElementById('imgHint');
     if(r.photo){ img.src = r.photo; img.style.display='block'; hint.style.display='none'; } else { img.style.display='none'; hint.style.display='block'; }
   }else{
@@ -280,7 +279,7 @@ function openModal(edit=false, serial=null){
 }
 function closeModal(){ document.getElementById('empModal').style.display='none'; }
 
-/* ===== Upload (Drive via /uploaddocb64) ===== */
+/* upload */
 async function uploadFile(file, statusEl, targetInput){
   if(!file) return;
   statusEl.textContent = 'Uploading…';
@@ -300,7 +299,7 @@ async function uploadFile(file, statusEl, targetInput){
   }
 }
 
-/* ===== Save ===== */
+/* save */
 function ensureSerial(){
   const used = new Set(all.map(x => Number(x.serial)||0));
   let s = 1; while(used.has(s)) s++;
@@ -322,7 +321,6 @@ function saveFromModal(){
     salary: document.getElementById('m_salary').value,
     photo: document.getElementById('m_photoUrl').value.trim()
   };
-  // upsert
   const idx = all.findIndex(x => String(x.serial) === String(payload.serial));
   if(idx >= 0) all[idx] = payload; else all.push(payload);
   saveEmployees(all);
@@ -330,7 +328,7 @@ function saveFromModal(){
   apply();
 }
 
-/* ===== Wire-up ===== */
+/* sort + events */
 function attachSort(){
   document.querySelectorAll('#thead th.sort').forEach(th=>{
     th.addEventListener('click', ()=>{
@@ -349,7 +347,6 @@ function attachEvents(){
   document.getElementById('nextBtn').onclick = () => { page = page+1; render(); };
   document.getElementById('addBtn').onclick = () => openModal(false);
 
-  // image preview + upload
   document.getElementById('m_file').addEventListener('change', ev=>{
     const f = ev.target.files[0]; if(!f) return;
     const img = document.getElementById('imgPreview'); const hint = document.getElementById('imgHint');
@@ -362,7 +359,7 @@ function attachEvents(){
   document.getElementById('m_save').onclick = saveFromModal;
 }
 
-/* ===== Init ===== */
+/* init */
 (function init(){
   document.getElementById('meta').textContent = '';
   attachEvents();
