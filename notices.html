@@ -8,7 +8,6 @@
     :root{
       --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb; --hover:#f1f5f9;
       --blue:#0d6efd; --danger:#ef4444;
-      --headH:42px; --filtH:40px;
     }
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;color:var(--text)}
@@ -38,8 +37,8 @@
     .chip .x{cursor:pointer;border:0;background:transparent;color:#334155;font-size:14px}
 
     .tablewrap{
-      position:relative; overflow:auto;
-      border:1px solid var(--border); border-radius:12px; max-height:70vh; background:var(--card);
+      overflow:auto; border:1px solid var(--border); border-radius:12px; background:var(--card);
+      max-height:70vh;
     }
     table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
     col.c-serial{width:90px}
@@ -49,19 +48,12 @@
     col.c-link{width:220px}
     col.c-actions{width:140px}
 
-    thead tr.head th{
-      position:sticky; top:0;
+    thead th{
+      position:sticky; top:0; z-index:2;
       background:var(--card);
       border-bottom:1px solid var(--border);
       padding:10px; text-align:left; font-weight:700; white-space:nowrap;
-      z-index:2; height:var(--headH);
     }
-    thead tr.filters th{
-      position:sticky; top:var(--headH);
-      background:#f8fafc; z-index:1; padding:6px 10px; height:var(--filtH);
-      border-bottom:1px solid var(--border);
-    }
-    thead tr.filters input{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:8px}
     tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
     th.sort{cursor:pointer;user-select:none}
@@ -133,21 +125,13 @@
           <col class="c-actions" />
         </colgroup>
         <thead id="thead">
-          <tr class="head">
+          <tr>
             <th class="sort" data-k="serial">Serial #</th>
             <th class="sort" data-k="date">Date</th>
             <th class="sort" data-k="subject">Subject</th>
             <th class="sort" data-k="body">Notice</th>
             <th class="sort" data-k="link">Link(s)</th>
             <th>Actions</th>
-          </tr>
-          <tr class="filters">
-            <th><input id="f_serial" placeholder="#"></th>
-            <th><input id="f_date" placeholder="dd-mm-yyyy"></th>
-            <th><input id="f_subject" placeholder="contains…"></th>
-            <th><input id="f_body" placeholder="contains…"></th>
-            <th><input id="f_link" placeholder="contains…"></th>
-            <th></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -185,16 +169,16 @@
 </div>
 
 <script>
-/* ===== CONFIG ===== */
-const API = '/api';            // ← replace with your full Apps Script URL if desired
+/* ==== CONFIG ==== */
+const API = '/api';  // set to your script URL to hard-code
 const IST = 'Asia/Kolkata';
 
-/* ===== Session / Utils ===== */
+/* ==== session/utils ==== */
 function logout(){ try{localStorage.clear()}catch{} location.replace('/login'); }
 function token(){ try{return localStorage.getItem('token')}catch{ return null; } }
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
-/* Dates */
+/* dates */
 function fmtDateIST(d){
   if(!d) return '';
   const dt = new Date(d);
@@ -207,7 +191,7 @@ function toDateInputValueIST(d){
   return new Intl.DateTimeFormat('en-CA',{timeZone:IST,year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
 }
 
-/* URL helpers (multi) */
+/* urls */
 function extractUrls(s){
   if(!s) return [];
   const urls = [];
@@ -217,23 +201,14 @@ function extractUrls(s){
 }
 function removeUrlFromText(s,url){
   if(!s || !url) return s||'';
-  // remove both raw URLs and "Attachment: <url>" variants
   return s.replace(new RegExp(`\\s*(?:Attachment:\\s*)?${url.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}`,'ig'), '').trim();
 }
-function stripAttachmentLabels(s){
-  return String(s||'').replace(/Attachment:\s*/ig,'').trim();
-}
+function removeUrls(text, urls){ return urls.reduce((acc,u)=>removeUrlFromText(acc,u), text||''); }
+function stripAttachmentLabels(s){ return String(s||'').replace(/Attachment:\s*/ig,'').trim(); }
 
-/* Drive thumbs + icons */
-function gdriveId(url){
-  if(!url) return null;
-  const m=/\/d\/([a-zA-Z0-9_-]{10,})\//.exec(url)||/id=([a-zA-Z0-9_-]{10,})/.exec(url);
-  return m?m[1]:null;
-}
-function driveThumb(url){
-  const id=gdriveId(url);
-  return id?`https://drive.google.com/thumbnail?authuser=0&sz=w200&id=${id}`:null;
-}
+/* thumbs + icons */
+function gdriveId(url){ const m=/\/d\/([a-zA-Z0-9_-]{10,})\//.exec(url)||/id=([a-zA-Z0-9_-]{10,})/.exec(url); return m?m[1]:null; }
+function driveThumb(url){ const id=gdriveId(url); return id?`https://drive.google.com/thumbnail?authuser=0&sz=w200&id=${id}`:null; }
 function icon(kind,label){
   const svg={
     pdf:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">PDF</text></svg>',
@@ -260,34 +235,17 @@ function mediaIconOrThumb(url){
   return `<a href="${esc(url)}" target="_blank" class="fileicon" title="${esc(url)}">link</a>`;
 }
 
-/* ===== State ===== */
+/* state */
 let isAdmin=false, all=[], rows=[], sortKey='date', sortDir='desc';
 
-/* ===== Render ===== */
-function readFilters(){
-  return {
-    quick:(document.getElementById('q').value||'').toLowerCase(),
-    serial:(document.getElementById('f_serial').value||'').toLowerCase(),
-    date:(document.getElementById('f_date').value||'').toLowerCase(),
-    subject:(document.getElementById('f_subject').value||'').toLowerCase(),
-    body:(document.getElementById('f_body').value||'').toLowerCase(),
-    link:(document.getElementById('f_link').value||'').toLowerCase(),
-  };
-}
+/* render + filtering (only quick search retained) */
 function apply(){
-  const f=readFilters();
+  const q=(document.getElementById('q').value||'').toLowerCase();
   rows = all.filter(r=>{
     const urls = extractUrls(r.body);
     const bodyClean = stripAttachmentLabels(removeUrls(r.body, urls));
-    const linkHay = urls.join(' ');
-    const hay=(r.serial+' '+fmtDateIST(r.date)+' '+r.subject+' '+bodyClean+' '+linkHay).toLowerCase();
-    if(f.quick && !hay.includes(f.quick)) return false;
-    if(f.serial && !String(r.serial).toLowerCase().includes(f.serial)) return false;
-    if(f.date && !fmtDateIST(r.date).includes(f.date)) return false;
-    if(f.subject && !String(r.subject||'').toLowerCase().includes(f.subject)) return false;
-    if(f.body && !String(bodyClean||'').toLowerCase().includes(f.body)) return false;
-    if(f.link && !String(linkHay||'').toLowerCase().includes(f.link)) return false;
-    return true;
+    const hay=(r.serial+' '+fmtDateIST(r.date)+' '+r.subject+' '+bodyClean+' '+urls.join(' ')).toLowerCase();
+    return !q || hay.includes(q);
   }).sort((a,b)=>{
     let A,B;
     if(sortKey==='date'){ A=new Date(a.date||0); B=new Date(b.date||0); }
@@ -297,22 +255,18 @@ function apply(){
   });
   render();
 }
-function removeUrls(text, urls){
-  return urls.reduce((acc,u)=>removeUrlFromText(acc,u), text||'');
-}
 function render(){
   const tbody=document.querySelector('#grid tbody'); tbody.innerHTML='';
   rows.forEach(r=>{
     const urls = extractUrls(r.body);
     const bodyClean = stripAttachmentLabels(removeUrls(r.body, urls));
     const tr=document.createElement('tr');
-    const linksHtml = urls.map(u=>mediaIconOrThumb(u)).join('');
     tr.innerHTML = `
       <td>${esc(r.serial)}</td>
       <td>${fmtDateIST(r.date)}</td>
       <td title="${esc(r.subject)}">${esc(r.subject)}</td>
       <td title="${esc(bodyClean)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(bodyClean)}</td>
-      <td><div class="linkbar">${linksHtml}</div></td>
+      <td><div class="linkbar">${urls.map(u=>mediaIconOrThumb(u)).join('')}</div></td>
       <td>
         ${isAdmin? `
           <button class="btn" onclick="openModal(${r.serial})">Edit</button>
@@ -324,7 +278,7 @@ function render(){
   document.getElementById('status').textContent = `Loaded ${rows.length} notice(s)`;
 }
 
-/* ===== API ===== */
+/* api */
 async function whoami(){
   const r=await fetch(`${API}?action=whoami&token=${encodeURIComponent(token())}`,{cache:'no-store'});
   const j=await r.json(); if(!j.ok) throw new Error('unauthorized');
@@ -342,7 +296,7 @@ async function fetchNotices(){
   apply();
 }
 
-/* ===== Upload to Drive (multi) ===== */
+/* upload (multi) */
 async function uploadMany(files, statusEl, appendToTextarea){
   if(!files || !files.length) return;
   statusEl.textContent='Uploading…';
@@ -355,25 +309,19 @@ async function uploadMany(files, statusEl, appendToTextarea){
       });
       const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
       const url=j.data.url;
-      // append line "Attachment: URL"
       appendToTextarea.value = (appendToTextarea.value? (appendToTextarea.value.replace(/\s+$/,'')+'\n') : '') + `Attachment: ${url}`;
-      // reflect in chips
       refreshAttachChips(appendToTextarea);
       statusEl.textContent='Uploaded.';
     }catch(e){ statusEl.textContent='Upload failed: '+e.message; break; }
   }
 }
 
-/* ===== Compose / Edit helpers ===== */
+/* chips + compose/edit */
 function refreshAttachChips(textarea){
   const urls = extractUrls(textarea.value);
   const targetId = (textarea.id==='n_body') ? 'n_attach_list' : 'm_attach_list';
   const listEl = document.getElementById(targetId);
-  listEl.innerHTML = urls.map(u=>{
-    return `<span class="chip">${mediaIconOrThumb(u)}<button class="x" data-url="${esc(u)}" title="Remove">✕</button></span>`;
-  }).join('') || '<span class="muted">No attachments</span>';
-
-  // Hook up remove buttons
+  listEl.innerHTML = urls.map(u=>`<span class="chip">${mediaIconOrThumb(u)}<button class="x" data-url="${esc(u)}" title="Remove">✕</button></span>`).join('') || '<span class="muted">No attachments</span>';
   listEl.querySelectorAll('.x').forEach(btn=>{
     btn.onclick=()=>{
       textarea.value = removeUrlFromText(textarea.value, btn.dataset.url);
@@ -382,7 +330,6 @@ function refreshAttachChips(textarea){
   });
 }
 
-/* ===== Create ===== */
 async function postNotice(){
   const subject=document.getElementById('n_subject').value.trim();
   const date=document.getElementById('n_date').value;
@@ -404,7 +351,7 @@ async function postNotice(){
   }catch(e){ s.textContent='Failed: '+e.message; }
 }
 
-/* ===== Edit/Delete ===== */
+/* edit/delete */
 function openModal(serial){
   const rec=all.find(x=>x.serial==serial);
   document.getElementById('m_title').textContent='Edit Notice';
@@ -416,7 +363,6 @@ function openModal(serial){
   document.getElementById('editModal').style.display='flex';
 }
 function closeModal(){ document.getElementById('editModal').style.display='none'; }
-
 async function saveModal(){
   const payload={
     serial: document.getElementById('m_serial').value,
@@ -436,7 +382,6 @@ async function saveModal(){
     s.textContent='Saved.'; closeModal(); await fetchNotices();
   }catch(e){ s.textContent='Save failed: '+e.message; }
 }
-
 async function delNotice(serial){
   if(!confirm('Delete notice #'+serial+'?')) return;
   try{
@@ -449,7 +394,7 @@ async function delNotice(serial){
   }catch(e){ alert('Delete failed: '+e.message); }
 }
 
-/* ===== Sorting + Filters ===== */
+/* sort + inputs */
 function attachSort(){
   document.querySelectorAll('#thead th.sort').forEach(th=>{
     th.addEventListener('click',()=>{
@@ -463,11 +408,9 @@ function attachSort(){
   });
 }
 function attachInputs(){
-  ['q','f_serial','f_date','f_subject','f_body','f_link'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.addEventListener('input', apply);
-  });
+  document.getElementById('q').addEventListener('input', apply);
 
-  // compose attach
+  // compose
   document.getElementById('n_attach').onclick=()=>document.getElementById('n_file').click();
   document.getElementById('n_file').addEventListener('change',ev=>{
     uploadMany(ev.target.files, document.getElementById('n_status'), document.getElementById('n_body'));
@@ -475,7 +418,7 @@ function attachInputs(){
   document.getElementById('n_body').addEventListener('input', e=>refreshAttachChips(e.target));
   document.getElementById('n_post').onclick=postNotice;
 
-  // edit attach
+  // edit
   document.getElementById('m_attach').onclick=()=>document.getElementById('m_file').click();
   document.getElementById('m_file').addEventListener('change',ev=>{
     uploadMany(ev.target.files, document.getElementById('m_status'), document.getElementById('m_body'));
@@ -484,7 +427,7 @@ function attachInputs(){
   document.getElementById('m_save').onclick=saveModal;
 }
 
-/* ===== Init ===== */
+/* init */
 (async function init(){
   document.getElementById('n_date').value = toDateInputValueIST();
   try{
@@ -494,7 +437,6 @@ function attachInputs(){
     if(isAdmin) document.getElementById('adminBar').classList.remove('hidden');
   }catch{ return logout(); }
 
-  document.getElementById('meta').textContent='Timezone: IST • Dates: DD-MM-YYYY';
   attachInputs(); attachSort();
   refreshAttachChips(document.getElementById('n_body'));
   await fetchNotices();
