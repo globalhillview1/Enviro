@@ -51,6 +51,11 @@
     .imgDrop img{ max-width:100%; max-height:100%; border-radius:10px }
     @media (max-width:900px){ .grid{ grid-template-columns:1fr 1fr } }
     @media (max-width:640px){ .grid{ grid-template-columns:1fr } }
+
+    /* Action buttons inside table */
+    .btn.small{ padding:6px 8px; border-radius:8px; font-size:13px }
+    .actionsCell{ display:flex; gap:6px; flex-wrap:wrap }
+    .hidden{ display:none }
   </style>
 </head>
 <body>
@@ -90,6 +95,7 @@
             <th class="sort" data-k="joined">Joined On</th>
             <th class="sort" data-k="salary">Salary</th>
             <th>Photo</th>
+            <th id="colActions">Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -176,10 +182,12 @@
 </div>
 
 <script>
+/* ===== Config ===== */
 const API = '/api';
 const IST = 'Asia/Kolkata';
 const PAGE = 12;
 
+/* ===== Helpers ===== */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const token = () => { try{ return localStorage.getItem('token'); }catch{ return null; } };
 
@@ -196,16 +204,19 @@ function toDateInputValueIST(d){
   return new Intl.DateTimeFormat('en-CA',{ timeZone: IST, year:'numeric', month:'2-digit', day:'2-digit' }).format(dt);
 }
 
-/* local store so you can test immediately */
+/* ===== Local data store (for demo; replace with API if needed) ===== */
 function loadEmployees(){ try{ return JSON.parse(localStorage.getItem('employees') || '[]'); }catch{ return []; } }
 function saveEmployees(list){ try{ localStorage.setItem('employees', JSON.stringify(list)); }catch{} }
 
+/* ===== State ===== */
+let isAdmin = false;
 let all = loadEmployees();
 let rows = [];
 let sortKey = 'serial';
 let sortDir = 'asc';
 let page = 1;
 
+/* ===== UI ===== */
 function apply(){
   const q = (document.getElementById('q').value || '').toLowerCase();
   rows = all.filter(r => {
@@ -244,6 +255,10 @@ function render(){
       <td>${fmtDateIST(r.joined)}</td>
       <td>${Number(r.salary||0).toLocaleString(undefined,{maximumFractionDigits:2})}</td>
       <td>${r.photo ? `<a href="${esc(r.photo)}" target="_blank"><img class="thumb" src="${esc(r.photo)}" alt=""></a>` : ''}</td>
+      <td class="actionsCell">${isAdmin
+        ? `<button class="btn small" onclick="openModal(true, ${r.serial})">Edit</button>
+           <button class="btn small danger" onclick="delEmp(${r.serial})">Delete</button>`
+        : ''}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -251,7 +266,7 @@ function render(){
   document.getElementById('status').textContent = `${total} employee(s), showing ${part.length}`;
 }
 
-/* modal */
+/* ===== Modal ===== */
 function openModal(edit=false, serial=null){
   const box = document.getElementById('empModal');
   document.getElementById('modalTitle').textContent = edit ? 'Edit Record' : 'Add Record';
@@ -291,7 +306,7 @@ function openModal(edit=false, serial=null){
 }
 function closeModal(){ document.getElementById('empModal').style.display='none'; }
 
-/* upload */
+/* ===== Upload to Apps Script drive endpoint ===== */
 async function uploadFile(file, statusEl, targetInput){
   if(!file) return;
   statusEl.textContent = 'Uploading…';
@@ -311,7 +326,7 @@ async function uploadFile(file, statusEl, targetInput){
   }
 }
 
-/* save */
+/* ===== CRUD (local demo; replace with API if/when needed) ===== */
 function ensureSerial(){
   const used = new Set(all.map(x => Number(x.serial)||0));
   let s = 1; while(used.has(s)) s++;
@@ -340,8 +355,15 @@ function saveFromModal(){
   closeModal();
   apply();
 }
+function delEmp(serial){
+  if(!isAdmin) return;
+  if(!confirm('Delete employee #'+serial+'?')) return;
+  all = all.filter(x => String(x.serial) !== String(serial));
+  saveEmployees(all);
+  apply();
+}
 
-/* sort + events */
+/* ===== Sort + Events ===== */
 function attachSort(){
   document.querySelectorAll('#thead th.sort').forEach(th=>{
     th.addEventListener('click', ()=>{
@@ -372,11 +394,27 @@ function attachEvents(){
   document.getElementById('m_save').onclick = saveFromModal;
 }
 
-/* init */
-(function init(){
+/* ===== Admin detection ===== */
+async function detectAdmin(){
+  try{
+    const r = await fetch(`${API}?action=whoami&token=${encodeURIComponent(token()||'')}`,{ cache:'no-store' });
+    const j = await r.json();
+    if(j && j.ok && j.data && j.data.user && String(j.data.user.role||'').toLowerCase()==='admin'){
+      isAdmin = true;
+    }
+  }catch(_){ /* ignore – not logged in or API unavailable */ }
+  // Hide Actions column if not admin
+  if(!isAdmin){
+    document.getElementById('colActions').classList.add('hidden');
+  }
+}
+
+/* ===== Init ===== */
+(async function init(){
   document.getElementById('meta').textContent = '';
   attachEvents();
   attachSort();
+  await detectAdmin();
   apply();
 })();
 </script>
