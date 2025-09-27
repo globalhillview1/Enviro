@@ -5,96 +5,55 @@
   <title>Document Repository</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root{
-      --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --hover:#f1f5f9;
-      --blue:#0d6efd; --danger:#ef4444;
-      --headH:42px; /* header row height */
-      --filtH:40px; /* filter row height (approx, used for spacing) */
-    }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;color:var(--text)}
-    header{
-      position:sticky; top:0; z-index:5;
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:12px 16px; background:var(--bg); border-bottom:1px solid var(--border)
-    }
-    .brand{display:flex;align-items:center;gap:10px}
-    .brand img{height:28px;width:28px;border-radius:6px;object-fit:cover}
-    .title{margin:0;font-weight:800}
-    .btn{appearance:none;border:1px solid var(--border);background:var(--card);padding:8px 10px;border-radius:10px;cursor:pointer}
-    .btn:hover{background:var(--hover)}
-    .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
-    .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
-    input,select{padding:8px 10px;border:1px solid var(--border);border-radius:8px}
+    :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
+    *{ box-sizing:border-box }
+    body{ margin:0; background:var(--bg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial; color:var(--text) }
+    header{ position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; background:var(--bg); border-bottom:1px solid var(--border) }
+    .brand{ display:flex; align-items:center; gap:10px }
+    .brand img{ height:28px; width:28px; border-radius:6px; object-fit:cover }
+    .title{ margin:0; font-weight:800 }
+    .btn{ appearance:none; border:1px solid var(--border); background:var(--card); padding:8px 10px; border-radius:10px; cursor:pointer }
+    .btn:hover{ background:var(--hover) }
+    .btn.primary{ background:var(--blue); color:#fff; border-color:transparent }
+    .btn.danger{ background:var(--danger); color:#fff; border-color:transparent }
+    input,select,textarea{ padding:8px 10px; border:1px solid var(--border); border-radius:8px; font:inherit }
+    textarea{ resize:vertical }
+    .wrap{ padding:14px 16px }
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+    .muted{ color:var(--muted) }
 
-    .wrap{padding:14px 16px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px}
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .muted{color:var(--muted)}
-    .hidden{display:none}
+    /* table */
+    table{ width:100%; border-collapse:separate; border-spacing:0 }
+    thead.sticky{ position:sticky; top: calc(56px + 12px); z-index:2; background:var(--card) } /* header height ~56 */
+    thead.sticky th{ background:var(--card) }
+    thead th{ border-bottom:1px solid var(--border); padding:10px; text-align:left; font-weight:700; white-space:nowrap }
+    tbody td{ border-top:1px solid var(--border); padding:10px; vertical-align:top }
+    th.sort{ cursor:pointer; user-select:none }
+    th.sort:after{ content:" ⇵"; color:#94a3b8; font-weight:400 }
+    th.sort.asc:after{ content:" ↑" } th.sort.desc:after{ content:" ↓" }
 
-    /* scroll container for sticky head/filters */
-    .tablewrap{
-      position:relative;
-      overflow:auto;
-      border:1px solid var(--border);
-      border-radius:12px;
-      max-height:70vh; /* so header+filters stay visible when you scroll rows */
-      background:var(--card);
-    }
+    /* filter row (separate bar above table) */
+    .filters{ display:grid; grid-template-columns: 110px 150px 1fr 160px 240px 240px 160px; gap:8px; margin:8px 0 10px 0 }
+    .filters input{ width:100% }
 
-    table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+    /* media preview */
+    .thumb{ width:58px; height:44px; object-fit:cover; border-radius:5px; border:1px solid #e5e7eb; background:#f8fafc }
+    .fileicon{ display:inline-flex; align-items:center; gap:6px; padding:3px 6px; border:1px solid #e5e7eb; border-radius:6px; color:#334155; background:#f8fafc; font-size:12px }
+    .fileicon svg{ width:14px; height:14px }
+    .media-stack{ display:flex; gap:6px; flex-wrap:wrap; align-items:center }
+    .badge{ font-size:12px; padding:2px 6px; border-radius:999px; border:1px solid var(--border); background:#f8fafc; color:#334155 }
 
-    /* fixed column widths via colgroup classes */
-    col.c-serial   { width: 72px; }
-    col.c-date     { width: 140px; }
-    col.c-subject  { width: auto; }      /* flex column */
-    col.c-category { width: 160px; }
-    col.c-media    { width: 120px; }
-    col.c-link     { width: 120px; }
-    col.c-actions  { width: 140px; }
-
-    /* sticky header row */
-    thead tr.head th{
-      position:sticky; top:0;
-      background:var(--card);
-      border-bottom:1px solid var(--border);
-      padding:10px;
-      text-align:left;
-      font-weight:700;
-      white-space:nowrap;
-      z-index:2;
-      height:var(--headH);
-    }
-    /* sticky filter row directly beneath header row */
-    thead tr.filters th{
-      position:sticky; top:var(--headH);
-      background:#f8fafc;
-      z-index:1;
-      padding:6px 10px;
-      height:var(--filtH);
-      border-bottom:1px solid var(--border);
-    }
-    thead tr.filters input, thead tr.filters select{
-      width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:8px
-    }
-
-    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-    th.sort{cursor:pointer;user-select:none}
-    th.sort:after{content:" ⇵";color:#94a3b8;font-weight:400}
-    th.sort.asc:after{content:" ↑";} th.sort.desc:after{content:" ↓";}
-
-    .thumb{width:58px;height:44px;object-fit:cover;border-radius:5px;border:1px solid #e5e7eb;background:#f8fafc}
-    .fileicon{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:6px;color:#334155;background:#f8fafc;font-size:12px}
-    .fileicon svg{width:14px;height:14px}
-
-    .pager{display:flex;gap:8px;align-items:center;margin-top:10px}
+    .pager{ display:flex; gap:8px; align-items:center; margin-top:10px }
+    .hidden{ display:none }
 
     /* modal */
-    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center}
-    .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(720px,94vw)}
-    .box h3{margin:6px 0 12px}
+    .modal{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; align-items:center; justify-content:center }
+    .modal .box{ background:#fff; border-radius:12px; border:1px solid var(--border); padding:16px; width:min(820px,94vw) }
+    .box h3{ margin:6px 0 12px }
+
+    .chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 8px; background:#f8fafc; border:1px solid var(--border); border-radius:999px; font-size:12px }
+    .chip .x{ cursor:pointer; font-weight:700; color:#ef4444 }
   </style>
 </head>
 <body>
@@ -111,6 +70,8 @@
 
 <div class="wrap">
   <div class="card">
+
+    <!-- Top row -->
     <div class="row" style="margin-bottom:8px">
       <input id="q" placeholder="Quick search…" style="min-width:260px">
       <button id="addBtn" class="btn primary hidden">+ Add Document</button>
@@ -119,21 +80,21 @@
       <span id="status" class="muted" style="margin-left:auto"></span>
     </div>
 
-    <div class="tablewrap">
-      <table id="grid">
-        <!-- fixed column widths -->
-        <colgroup>
-          <col class="c-serial" />
-          <col class="c-date" />
-          <col class="c-subject" />
-          <col class="c-category" />
-          <col class="c-media" />
-          <col class="c-link" />
-          <col class="c-actions" />
-        </colgroup>
+    <!-- Column filters (separate bar) -->
+    <div class="filters" id="filterBar">
+      <input id="f_serial"    placeholder="#" />
+      <input id="f_date"      placeholder="dd-mm-yyyy" />
+      <input id="f_subject"   placeholder="contains…" />
+      <input id="f_category"  placeholder="contains…" />
+      <input id="f_media"     placeholder="contains…" />
+      <input id="f_url"       placeholder="contains…" />
+      <span></span>
+    </div>
 
-        <thead id="thead">
-          <tr class="head">
+    <div style="overflow:auto; border:1px solid var(--border); border-radius:12px">
+      <table id="grid">
+        <thead class="sticky">
+          <tr>
             <th class="sort" data-k="serial">Serial #</th>
             <th class="sort" data-k="date">Date</th>
             <th class="sort" data-k="subject">Subject</th>
@@ -141,15 +102,6 @@
             <th class="sort" data-k="media">Media</th>
             <th class="sort" data-k="url">Link</th>
             <th>Actions</th>
-          </tr>
-          <tr class="filters">
-            <th><input id="f_serial" placeholder="#"></th>
-            <th><input id="f_date" placeholder="dd-mm-yyyy"></th>
-            <th><input id="f_subject" placeholder="contains…"></th>
-            <th><input id="f_category" placeholder="contains…"></th>
-            <th><input id="f_media" placeholder="contains…"></th>
-            <th><input id="f_url" placeholder="contains…"></th>
-            <th></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -169,10 +121,12 @@
   <div class="box">
     <h3 id="modalTitle">Add Document</h3>
     <input type="hidden" id="m_serial">
+
     <div class="row">
       <label>Date <input type="date" id="m_date"></label>
       <label style="flex:1 1 auto">Subject <input id="m_subject" style="width:100%"></label>
     </div>
+
     <div class="row" style="margin-top:8px">
       <label style="flex:1 1 auto">Category
         <div class="row">
@@ -181,21 +135,32 @@
         </div>
       </label>
     </div>
-    <div class="row" style="margin-top:8px">
-      <button id="m_browse" class="btn">Browse…</button><span class="muted">(existing)</span>
+
+    <!-- Attachments -->
+    <div style="margin-top:8px">
+      <div class="row" style="align-items:center">
+        <strong>Attachments</strong>
+        <button id="m_browse" class="btn">Browse…</button>
+        <span id="m_up_status" class="muted"></span>
+      </div>
+      <div id="m_files" class="row" style="margin-top:6px"></div>
+      <small class="muted">You can select multiple files; they’ll be uploaded and saved in the Media column (one URL per line).</small>
     </div>
-    <div class="row" style="margin-top:8px">
-      <label style="flex:1 1 auto">Media URL <input id="m_media" style="width:100%" placeholder="(filled after upload, or paste a link)"></label>
+
+    <!-- Extra link(s) -->
+    <div style="margin-top:10px">
+      <label style="display:block">Additional Link(s) — one per line
+        <textarea id="m_url" rows="2" style="width:100%" placeholder="https://… (optional, one per line)"></textarea>
+      </label>
     </div>
-    <div class="row" style="margin-top:8px">
-      <label style="flex:1 1 auto">Link URL <input id="m_url" style="width:100%" placeholder="https://... (optional)"></label>
-    </div>
+
     <div class="row" style="margin-top:10px">
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button id="m_save" class="btn primary">Save</button>
       <span id="m_status" class="muted" style="margin-left:auto"></span>
     </div>
-    <input id="m_file" type="file" style="display:none">
+
+    <input id="m_file" type="file" style="display:none" multiple>
   </div>
 </div>
 
@@ -216,12 +181,12 @@
 </div>
 
 <script>
-/* ===== CONFIG ===== */
-const API = '/api';            // or hard-code your Script URL here
-const IST = 'Asia/Kolkata';     // timezone
-const PAGE = 12;                // rows per page
+/* ========= CONFIG ========= */
+const API = '/api';
+const IST = 'Asia/Kolkata';
+const PAGE = 12;
 
-/* ===== Utils ===== */
+/* ========= Helpers ========= */
 function logout(){ try{localStorage.clear()}catch{} location.replace('/login'); }
 function token(){ try{return localStorage.getItem('token')}catch{ return null; } }
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -257,29 +222,47 @@ function icon(kind,label){
   }[kind]||'';
   return `<span class="fileicon">${svg}<span>${esc(label||kind)}</span></span>`;
 }
-function mediaCell(url){
-  if(!url) return '';
-  const l=url.toLowerCase(); const th=driveThumb(url);
-  if(/\.(png|jpg|jpeg|gif|webp)$/i.test(l) || th){
-    const src = /\.(png|jpg|jpeg|gif|webp)$/i.test(l)?url:th;
-    return `<a href="${esc(url)}" target="_blank"><img class="thumb" src="${esc(src)}" alt=""></a>`;
+
+/* Multiple-URL aware cells */
+function splitLines(s){ return (String(s||'').trim()==='')? [] : String(s).split(/\r?\n/).map(x=>x.trim()).filter(Boolean); }
+
+function mediaCellMulti(s){
+  const urls = splitLines(s);
+  if(urls.length===0) return '';
+  const parts = [];
+  for(let i=0;i<Math.min(3, urls.length);i++){
+    const url = urls[i], l=url.toLowerCase(), th=driveThumb(url);
+    if(/\.(png|jpg|jpeg|gif|webp)$/i.test(l) || th){
+      const src = /\.(png|jpg|jpeg|gif|webp)$/i.test(l)?url:th;
+      parts.push(`<a href="${esc(url)}" target="_blank"><img class="thumb" src="${esc(src)}" alt=""></a>`);
+    }else if(/\.pdf($|\?)/i.test(l))  parts.push(`<a href="${esc(url)}" target="_blank">${icon('pdf','PDF')}</a>`);
+    else if(/\.(doc|docx)($|\?)/i.test(l)) parts.push(`<a href="${esc(url)}" target="_blank">${icon('doc','DOC')}</a>`);
+    else if(/\.(xls|xlsx)($|\?)/i.test(l)) parts.push(`<a href="${esc(url)}" target="_blank">${icon('xls','XLS')}</a>`);
+    else if(/\.(ppt|pptx)($|\?)/i.test(l)) parts.push(`<a href="${esc(url)}" target="_blank">${icon('ppt','PPT')}</a>`);
+    else if(/\.csv($|\?)/i.test(l))  parts.push(`<a href="${esc(url)}" target="_blank">${icon('csv','CSV')}</a>`);
+    else if(/\.zip($|\?)/i.test(l))  parts.push(`<a href="${esc(url)}" target="_blank">${icon('zip','ZIP')}</a>`);
+    else parts.push(`<a href="${esc(url)}" target="_blank">open</a>`);
   }
-  if(/\.pdf($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('pdf','PDF')}</a>`;
-  if(/\.(doc|docx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('doc','DOC')}</a>`;
-  if(/\.(xls|xlsx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('xls','XLS')}</a>`;
-  if(/\.(ppt|pptx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('ppt','PPT')}</a>`;
-  if(/\.csv($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('csv','CSV')}</a>`;
-  if(/\.zip($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('zip','ZIP')}</a>`;
-  return `<a href="${esc(url)}" target="_blank">open</a>`;
+  const more = urls.length>3 ? `<span class="badge">+${urls.length-3}</span>` : '';
+  return `<div class="media-stack">${parts.join('')}${more}</div>`;
 }
 
-/* ===== State ===== */
+function linkCellMulti(s){
+  const urls = splitLines(s);
+  if(urls.length===0) return '';
+  const show = urls.slice(0,3).map(u=>`<a href="${esc(u)}" target="_blank">open</a>`).join(' · ');
+  const more = urls.length>3 ? `<span class="badge">+${urls.length-3}</span>` : '';
+  return `<div class="media-stack">${show}${more}</div>`;
+}
+
+/* ========= State ========= */
 let isAdmin=false, all=[], rows=[], sortKey='date', sortDir='desc', page=1;
 let categories=[];
+let modalFiles = []; // array of attachment URLs (strings)
 
+/* ========= Filters / Render ========= */
 function unique(arr){ return [...new Set(arr.filter(Boolean).map(x=>String(x)))].sort((a,b)=>a.localeCompare(b)); }
 
-/* ===== Filters, Sort, Render ===== */
 function readFilters(){
   return {
     quick:(document.getElementById('q').value||'').toLowerCase(),
@@ -291,6 +274,7 @@ function readFilters(){
     url:(document.getElementById('f_url').value||'').toLowerCase(),
   };
 }
+
 function apply(){
   const f=readFilters();
   rows = all.filter(r=>{
@@ -311,6 +295,7 @@ function apply(){
   });
   page=1; render();
 }
+
 function render(){
   const tbody=document.querySelector('#grid tbody'); tbody.innerHTML='';
   const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
@@ -319,23 +304,21 @@ function render(){
   part.forEach(r=>{
     const tr=document.createElement('tr');
     tr.innerHTML = `
-      <td title="${esc(r.serial)}">${esc(r.serial)}</td>
-      <td title="${fmtDateIST(r.date)}">${fmtDateIST(r.date)}</td>
-      <td title="${esc(r.subject)}">${esc(r.subject)}</td>
-      <td title="${esc(r.category||'')}">${esc(r.category||'')}</td>
-      <td>${mediaCell(r.media)}</td>
-      <td>${r.url? `<a target="_blank" href="${esc(r.url)}">open</a>`:''}</td>
-      <td>${isAdmin? `
-        <button class="btn" onclick="openModal(true, ${r.serial})">Edit</button>
-        <button class="btn danger" onclick="delDoc(${r.serial})">Delete</button>`:''}
-      </td>`;
+      <td>${esc(r.serial)}</td>
+      <td>${fmtDateIST(r.date)}</td>
+      <td>${esc(r.subject)}</td>
+      <td>${esc(r.category||'')}</td>
+      <td>${mediaCellMulti(r.media)}</td>
+      <td>${linkCellMulti(r.url)}</td>
+      <td>${isAdmin? `<button class="btn" onclick="openModal(true, ${r.serial})">Edit</button>
+                      <button class="btn danger" onclick="delDoc(${r.serial})">Delete</button>`:''}</td>`;
     tbody.appendChild(tr);
   });
   document.getElementById('pageInfo').textContent=`Page ${page} / ${pages}`;
   document.getElementById('status').textContent=`${total} document(s), showing ${part.length}`;
 }
 
-/* ===== API ===== */
+/* ========= API ========= */
 async function whoami(){
   const r=await fetch(`${API}?action=whoami&token=${encodeURIComponent(token())}`,{cache:'no-store'});
   const j=await r.json(); if(!j.ok) throw new Error('unauthorized');
@@ -346,54 +329,55 @@ async function fetchDocs(){
   const r=await fetch(`${API}?action=documents&token=${encodeURIComponent(token())}`,{cache:'no-store'});
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
   all=(j.data||[]).map(x=>x);
-  categories = unique(all.map(x=>x.category||''));
-  fillCategorySelect();
+  categories = unique(all.map(x=>x.category||'')); fillCategorySelect();
   apply();
 }
 
-/* ===== Categories ===== */
+/* ========= Modal / CRUD ========= */
 function fillCategorySelect(){
   const sel=document.getElementById('m_category');
   sel.innerHTML = categories.map(c=>`<option>${esc(c)}</option>`).join('') + `<option value="">(none)</option>`;
-  // cat list UI
   const list=document.getElementById('catList');
-  list.innerHTML = categories.length
-    ? categories.map(c=>`<span class="fileicon" style="margin:4px 6px 0 0">${esc(c)}</span>`).join('')
-    : '<span class="muted">No categories yet</span>';
-}
-function openCat(){ document.getElementById('catModal').style.display='flex'; }
-function closeCat(){ document.getElementById('catModal').style.display='none'; }
-function addCategory(){
-  const v=document.getElementById('catNew').value.trim(); if(!v) return;
-  if(!categories.includes(v)) categories.push(v);
-  categories = unique(categories);
-  document.getElementById('catNew').value='';
-  fillCategorySelect();
+  list.innerHTML = categories.map(c=>`<span class="fileicon" style="margin:4px 6px 0 0">${esc(c)}</span>`).join('')||'<span class="muted">No categories yet</span>';
 }
 
-/* ===== Modal / CRUD ===== */
+function renderModalFiles(){
+  const wrap = document.getElementById('m_files');
+  wrap.innerHTML = modalFiles.map((u,idx)=>(
+    `<span class="chip" title="${esc(u)}">
+       ${mediaCellMulti(u) || 'link'}
+       <span class="x" onclick="removeModalFile(${idx})">×</span>
+     </span>`
+  )).join('') || '<span class="muted">No attachments</span>';
+}
+function removeModalFile(i){
+  modalFiles.splice(i,1);
+  renderModalFiles();
+}
+
 function openModal(edit=false, serial=null){
   document.getElementById('m_status').textContent='';
+  document.getElementById('m_up_status').textContent='';
   document.getElementById('modalTitle').textContent = edit?'Edit Document':'Add Document';
   document.getElementById('docModal').style.display='flex';
+
   if(edit){
     const rec=all.find(x=>x.serial==serial);
     document.getElementById('m_serial').value = rec.serial;
     document.getElementById('m_date').value = toDateInputValueIST(rec.date);
     document.getElementById('m_subject').value = rec.subject||'';
-    document.getElementById('m_media').value = rec.media||'';
-    document.getElementById('m_url').value = rec.url||'';
-    fillCategorySelect();
-    document.getElementById('m_category').value = rec.category||'';
+    document.getElementById('m_url').value = splitLines(rec.url).join('\n');
+    fillCategorySelect(); document.getElementById('m_category').value = rec.category||'';
+    modalFiles = splitLines(rec.media);
   }else{
     document.getElementById('m_serial').value = '';
     document.getElementById('m_date').value = toDateInputValueIST();
     document.getElementById('m_subject').value = '';
-    document.getElementById('m_media').value = '';
     document.getElementById('m_url').value = '';
-    fillCategorySelect();
-    document.getElementById('m_category').value = '';
+    fillCategorySelect(); document.getElementById('m_category').value = '';
+    modalFiles = [];
   }
+  renderModalFiles();
 }
 function closeModal(){ document.getElementById('docModal').style.display='none'; }
 
@@ -403,12 +387,12 @@ async function saveModal(){
     serial: document.getElementById('m_serial').value || undefined,
     date: document.getElementById('m_date').value,
     subject: document.getElementById('m_subject').value.trim(),
-    media: document.getElementById('m_media').value.trim(),
-    url: document.getElementById('m_url').value.trim(),
+    media: modalFiles.join('\n'),                            // multiple attachments -> newline-separated
+    url: (document.getElementById('m_url').value||'').trim(),// may contain multiple, one per line
     category: document.getElementById('m_category').value.trim()
   };
   if(!payload.subject){ s.textContent='Subject required'; return; }
-  if(!payload.media && !payload.url){ s.textContent='Provide a media upload or URL'; return; }
+  if(!payload.media && !payload.url){ s.textContent='Provide at least one attachment or a link'; return; }
   s.textContent='Saving…';
   try{
     const action = payload.serial? 'updatedoc':'adddoc';
@@ -433,32 +417,47 @@ async function delDoc(serial){
   }catch(e){ alert('Delete failed: '+e.message); }
 }
 
-/* ===== Upload ===== */
-async function uploadFile(file, statusEl, targetInput){
-  if(!file) return;
-  statusEl.textContent='Uploading…';
-  const b64=await file.arrayBuffer().then(b=>btoa(String.fromCharCode(...new Uint8Array(b))));
-  try{
-    const r=await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:file.name,mime:file.type||'application/octet-stream',data:b64})
-    });
-    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    targetInput.value = j.data.url;
-    statusEl.textContent='Uploaded.';
-  }catch(e){ statusEl.textContent='Upload failed: '+e.message; }
+/* Upload many files -> many Drive URLs */
+async function uploadMany(files){
+  const stat = document.getElementById('m_up_status');
+  if(!files || files.length===0) return;
+  stat.textContent = `Uploading ${files.length} file(s)…`;
+  let ok=0, fail=0;
+  for(const file of files){
+    try{
+      const b64 = await file.arrayBuffer().then(b=>btoa(String.fromCharCode(...new Uint8Array(b))));
+      const r = await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(token())}`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name:file.name, mime:file.type||'application/octet-stream', data:b64 })
+      });
+      const j = await r.json(); if(!j.ok) throw new Error(j.error||'upload failed');
+      modalFiles.push(j.data.url);
+      ok++;
+    }catch(_){ fail++; }
+  }
+  renderModalFiles();
+  stat.textContent = `Uploaded ${ok} file(s)` + (fail?`, ${fail} failed`:'') + '.';
 }
 
-/* ===== Wire up ===== */
+/* ========= Categories ========= */
+function openCat(){ document.getElementById('catModal').style.display='flex'; }
+function closeCat(){ document.getElementById('catModal').style.display='none'; }
+function addCategory(){
+  const v=document.getElementById('catNew').value.trim(); if(!v) return;
+  if(!categories.includes(v)) categories.push(v);
+  categories = unique(categories);
+  document.getElementById('catNew').value=''; fillCategorySelect();
+}
+
+/* ========= Wire-up ========= */
 function attachSort(){
-  document.querySelectorAll('#thead th.sort').forEach(th=>{
+  document.querySelectorAll('thead.sticky th.sort').forEach(th=>{
     th.addEventListener('click',()=>{
       const k=th.dataset.k;
       if(sortKey===k) sortDir=(sortDir==='asc'?'desc':'asc');
       else { sortKey=k; sortDir='asc'; }
-      document.querySelectorAll('#thead th.sort').forEach(x=>x.classList.remove('asc','desc'));
-      th.classList.add(sortDir);
-      apply();
+      document.querySelectorAll('thead.sticky th.sort').forEach(x=>x.classList.remove('asc','desc'));
+      th.classList.add(sortDir); apply();
     });
   });
 }
@@ -471,13 +470,12 @@ function attachInputs(){
 
   document.getElementById('addBtn').onclick=()=>openModal(false);
   document.getElementById('m_browse').onclick=()=>document.getElementById('m_file').click();
-  document.getElementById('m_file').addEventListener('change',(ev)=>uploadFile(ev.target.files[0], document.getElementById('m_status'), document.getElementById('m_media')));
+  document.getElementById('m_file').addEventListener('change',(ev)=>uploadMany(ev.target.files));
   document.getElementById('m_newcat').onclick=openCat;
   document.getElementById('catBtn').onclick=openCat;
   document.getElementById('m_save').onclick=saveModal;
 }
 
-/* ===== Init ===== */
 (async function init(){
   try{
     const me=await whoami();
@@ -489,8 +487,7 @@ function attachInputs(){
   }catch{ return logout(); }
 
   document.getElementById('meta').textContent='Timezone: IST • Dates: DD-MM-YYYY';
-  attachInputs();
-  attachSort();
+  attachInputs(); attachSort();
   await fetchDocs();
 })();
 </script>
