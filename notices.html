@@ -1,222 +1,403 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="alternate icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="manifest" href="/site.webmanifest">
   <meta charset="UTF-8">
+  <title>Notice Board</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Notice Board | Global Hillview</title>
-
-  <!-- No-paint guard -->
-  <script>
-    (function(){ try{ if(!localStorage.getItem('token')){ document.documentElement.style.display='none'; location.replace('/login'); } }catch{ document.documentElement.style.display='none'; location.replace('/login'); }})();
-  </script>
-
   <style>
-    :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
+    :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
     *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans";background:var(--bg);color:var(--text)}
-    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:var(--bg);border-bottom:1px solid var(--border)}
+    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial;color:var(--text)}
+    header{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
     .brand{display:flex;align-items:center;gap:10px}
-    .brand img{height:28px;width:28px;border-radius:6px}
-    .title{font-size:18px;font-weight:800;margin:0}
-    .toolbar{display:flex;align-items:center;gap:8px}
-    .userpill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);font-weight:600}
-    .btn{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 10px;border-radius:10px;cursor:pointer}
+    .brand img{height:28px;width:28px;border-radius:6px;object-fit:cover}
+    .title{margin:0;font-weight:800}
+    .btn{appearance:none;border:1px solid var(--border);background:var(--card);padding:8px 10px;border-radius:10px;cursor:pointer}
     .btn:hover{background:var(--hover)}
     .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
     .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
-
-    .wrap{padding:14px 20px}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    input, textarea{padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit}
-    textarea{min-height:140px; width:100%; resize:vertical}
-    table{width:100%;border-collapse:separate;border-spacing:0}
-    thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700}
-    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
+    input,textarea,select{padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-family:inherit}
+    textarea{min-height:120px;width:100%;resize:vertical}
+    .wrap{padding:14px 16px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .muted{color:var(--muted)}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{position:sticky;top:142px;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700;white-space:nowrap}
+    thead tr.filters th{position:sticky;top:174px;background:#f8fafc;z-index:1}
+    thead tr.filters input{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:8px}
+    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
+    th.sort{cursor:pointer;user-select:none}
+    th.sort:after{content:" ⇵";color:#94a3b8;font-weight:400}
+    th.sort.asc:after{content:" ↑";} th.sort.desc:after{content:" ↓";}
+    .thumb{width:58px;height:44px;object-fit:cover;border-radius:5px;border:1px solid #e5e7eb;background:#f8fafc}
+    .fileicon{display:inline-flex;align-items:center;gap:6px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:6px;color:#334155;background:#f8fafc;font-size:12px}
+    .fileicon svg{width:14px;height:14px}
+    .pager{display:flex;gap:8px;align-items:center;margin-top:10px}
+    .hidden{display:none}
+    /* modal */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center}
+    .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(680px,92vw)}
+    .box h3{margin:6px 0 12px}
   </style>
 </head>
 <body>
-  <header>
-    <div class="brand">
-      <img src="/android-chrome-512x512.png" alt="logo">
-      <h1 class="title">Notice Board</h1>
-    </div>
-    <div class="toolbar">
-      <span id="userBadge" class="userpill" style="display:none"></span>
-      <button class="btn" onclick="location.href='/'">Back to Dashboard</button>
-      <button class="btn danger" id="logoutBtn">Logout</button>
-    </div>
-  </header>
+<header>
+  <div class="brand">
+    <img src="/android-chrome-512x512.png" onerror="this.src='logo.png'" alt="logo">
+    <h1 class="title">Notice Board</h1>
+  </div>
+  <div class="row">
+    <button class="btn" onclick="location.href='/'">Dashboard</button>
+    <button class="btn danger" onclick="logout()">Logout</button>
+  </div>
+</header>
 
-  <div class="wrap">
-    <!-- Admin post area -->
-    <div id="adminBar" class="card" style="display:none; margin-bottom:12px">
-      <h3 style="margin:0 0 10px">Post a Notice (admins only)</h3>
-      <div class="row">
-        <input id="n_subject" placeholder="Subject" style="flex:2 1 260px">
-        <input id="n_date" type="date" style="flex:1 1 160px">
-      </div>
-      <div class="row" style="margin-top:8px">
-        <textarea id="n_body" placeholder="Write the notice…"></textarea>
-      </div>
-      <div class="row" style="margin-top:8px; align-items:center">
-        <button id="n_add" class="btn primary">Post Notice</button>
-        <span id="n_status" class="muted"></span>
-      </div>
+<div class="wrap">
+  <!-- Admin composer -->
+  <div id="adminBar" class="card hidden">
+    <h3 style="margin:0 0 10px">Post a Notice (admins only)</h3>
+    <div class="row">
+      <input id="n_subject" placeholder="Subject" style="flex:2 1 260px">
+      <input id="n_date" type="date" style="flex:1 1 160px">
+      <button id="n_attach" class="btn">Attach</button>
+      <input id="n_file" type="file" class="hidden" />
     </div>
-
-    <!-- List/search -->
-    <div class="card">
-      <div class="row" style="margin-bottom:8px">
-        <input id="q" type="search" placeholder="Search subject/body…" style="min-width:260px">
-        <span id="status" class="muted" style="margin-left:auto"></span>
-      </div>
-      <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
-        <table id="grid">
-          <thead><tr>
-            <th style="width:90px">Serial #</th>
-            <th style="width:160px">Date</th>
-            <th style="width:260px">Subject</th>
-            <th>Notice</th>
-          </tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
+    <div class="row" style="margin-top:8px">
+      <textarea id="n_body" placeholder="Write the notice…"></textarea>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="n_post" class="btn primary">Post Notice</button>
+      <span id="n_status" class="muted"></span>
     </div>
   </div>
 
-  <script>
-    const API = '/api';
-    const esc = s => String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    const getTok = () => { try{ return localStorage.getItem('token'); }catch{ return null; } };
+  <div class="card">
+    <div class="row" style="margin-bottom:8px">
+      <input id="q" placeholder="Quick search…" style="min-width:260px">
+      <span id="meta" class="muted"></span>
+      <span id="status" class="muted" style="margin-left:auto"></span>
+    </div>
 
-    function userIcon(){ return `<svg viewBox="0 0 24 24" fill="none" style="width:16px;height:16px;stroke:currentColor;display:block"><circle cx="12" cy="7.5" r="4" stroke-width="1.6"></circle><path d="M4.5 19.5a7.5 7.5 0 0115 0" stroke-width="1.6" stroke-linecap="round"></path></svg>`; }
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px">
+      <table id="grid">
+        <thead id="thead">
+          <tr>
+            <th class="sort" data-k="serial">Serial #</th>
+            <th class="sort" data-k="date">Date</th>
+            <th class="sort" data-k="subject">Subject</th>
+            <th class="sort" data-k="body">Notice</th>
+            <th class="sort" data-k="link">Link</th>
+            <th>Actions</th>
+          </tr>
+          <tr class="filters">
+            <th><input id="f_serial" placeholder="#"></th>
+            <th><input id="f_date" placeholder="dd-mm-yyyy"></th>
+            <th><input id="f_subject" placeholder="contains…"></th>
+            <th><input id="f_body" placeholder="contains…"></th>
+            <th><input id="f_link" placeholder="contains…"></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
 
-    function setBusy(btn, on, txtIdle, txtBusy){
-      if(!btn) return;
-      if(on){
-        btn.disabled = true;
-        btn.dataset._w = btn.offsetWidth;
-        btn.style.minWidth = btn.dataset._w + 'px';
-        btn.innerHTML = `<span class="spinner" aria-hidden="true"></span> ${txtBusy}`;
-      }else{
-        btn.disabled = false;
-        btn.style.minWidth = '';
-        btn.innerHTML = txtIdle;
-      }
+    <div class="pager">
+      <button id="prevBtn" class="btn">Prev</button>
+      <span id="pageInfo" class="muted">Page 1 / 1</span>
+      <button id="nextBtn" class="btn">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal">
+  <div class="box">
+    <h3>Edit Notice</h3>
+    <input type="hidden" id="e_serial">
+    <div class="row"><input id="e_subject" placeholder="Subject" style="flex:2 1 260px">
+      <input id="e_date" type="date" style="flex:1 1 160px"></div>
+    <div class="row" style="margin-top:8px"><textarea id="e_body" placeholder="Write the notice…"></textarea></div>
+    <div class="row" style="margin-top:8px">
+      <button id="e_attach" class="btn">Attach</button>
+      <input id="e_file" type="file" class="hidden" />
+      <div style="margin-left:auto">
+        <button class="btn" onclick="closeEdit()">Cancel</button>
+        <button id="e_save" class="btn primary">Save</button>
+      </div>
+    </div>
+    <div class="row"><span id="e_status" class="muted"></span></div>
+  </div>
+</div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbzXyz1234567890abcdef/exec';
+
+const API='/api';
+const IST='Asia/Kolkata';
+const PAGE=10;
+
+function logout(){ try{localStorage.clear()}catch{} location.replace('/login'); }
+function token(){ try{return localStorage.getItem('token')}catch{ return null; } }
+const esc = s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function fmtDateIST(d){
+  if(!d) return '';
+  const dt = new Date(d);
+  if(isNaN(dt)) return esc(d);
+  const p = new Intl.DateTimeFormat('en-GB',{timeZone:IST,day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(dt);
+  const g=k=>p.find(x=>x.type===k)?.value||'';
+  return `${g('day')}-${g('month')}-${g('year')}`;
+}
+function toDateInputValueIST(d){
+  const dt = d? new Date(d) : new Date();
+  const p = new Intl.DateTimeFormat('en-CA',{timeZone:IST,year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
+  return p; // yyyy-mm-dd
+}
+function gdriveId(url){
+  if(!url) return null;
+  const m=/\/d\/([a-zA-Z0-9_-]{10,})\//.exec(url)||/id=([a-zA-Z0-9_-]{10,})/.exec(url);
+  return m?m[1]:null;
+}
+function driveThumb(url){
+  const id=gdriveId(url);
+  return id?`https://drive.google.com/thumbnail?authuser=0&sz=w200&id=${id}`:null;
+}
+function icon(kind,label){
+  const svg={
+    pdf:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">PDF</text></svg>',
+    doc:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">DOC</text></svg>',
+    xls:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">XLS</text></svg>',
+    ppt:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">PPT</text></svg>',
+    csv:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 2h8l4 4v16H6z" stroke="currentColor"/><text x="6" y="14" font-size="8" fill="currentColor">CSV</text></svg>',
+    zip:'<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor"/><path d="M12 4v14" stroke="currentColor" /><path d="M10 6h4M10 8h4M10 10h4" stroke="currentColor"/></svg>'
+  }[kind]||'';
+  return `<span class="fileicon">${svg}<span>${esc(label||kind)}</span></span>`;
+}
+function mediaPreview(url){
+  if(!url) return '';
+  const l=url.toLowerCase();
+  const th = driveThumb(url);
+  if(/\.(png|jpg|jpeg|gif|webp)$/i.test(l) || th){
+    const src = /\.(png|jpg|jpeg|gif|webp)$/i.test(l)? url : th;
+    return `<a href="${esc(url)}" target="_blank"><img class="thumb" src="${esc(src)}" alt=""></a>`;
+  }
+  if(/\.pdf($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('pdf','PDF')}</a>`;
+  if(/\.(doc|docx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('doc','DOC')}</a>`;
+  if(/\.(xls|xlsx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('xls','XLS')}</a>`;
+  if(/\.(ppt|pptx)($|\?)/i.test(l)) return `<a href="${esc(url)}" target="_blank">${icon('ppt','PPT')}</a>`;
+  if(/\.csv($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('csv','CSV')}</a>`;
+  if(/\.zip($|\?)/i.test(l))  return `<a href="${esc(url)}" target="_blank">${icon('zip','ZIP')}</a>`;
+  return `<a href="${esc(url)}" target="_blank">open</a>`;
+}
+
+let isAdmin=false, all=[], rows=[], sortKey='date', sortDir='desc', page=1;
+
+// pull first Drive URL from body (shows in Link col)
+function extractDrive(body){
+  const re=/(https?:\/\/(?:drive\.google\.com|docs\.google\.com)\/[^\s]+)/i;
+  const m=re.exec(body||''); return m?m[1]:'';
+}
+function stripAttachmentLine(body){
+  return String(body||'').replace(/^\s*Attachment:\s*https?:\/\/\S+\s*/i,'');
+}
+
+function readFilters(){
+  return {
+    quick:(document.getElementById('q').value||'').toLowerCase(),
+    serial:(document.getElementById('f_serial').value||'').toLowerCase(),
+    date:(document.getElementById('f_date').value||'').toLowerCase(),
+    subject:(document.getElementById('f_subject').value||'').toLowerCase(),
+    body:(document.getElementById('f_body').value||'').toLowerCase(),
+    link:(document.getElementById('f_link').value||'').toLowerCase()
+  };
+}
+
+function apply(){
+  const f=readFilters();
+  rows = all.map(r=>{
+    const link = extractDrive(r.body);
+    return {...r, link, cleanBody: stripAttachmentLine(r.body) };
+  }).filter(r=>{
+    const hay=(r.serial+' '+fmtDateIST(r.date)+' '+r.subject+' '+r.cleanBody+' '+r.link).toLowerCase();
+    if(f.quick && !hay.includes(f.quick)) return false;
+    if(f.serial && !String(r.serial).toLowerCase().includes(f.serial)) return false;
+    if(f.date && !fmtDateIST(r.date).includes(f.date)) return false;
+    if(f.subject && !String(r.subject||'').toLowerCase().includes(f.subject)) return false;
+    if(f.body && !String(r.cleanBody||'').toLowerCase().includes(f.body)) return false;
+    if(f.link && !String(r.link||'').toLowerCase().includes(f.link)) return false;
+    return true;
+  }).sort((a,b)=>{
+    let A,B;
+    if(sortKey==='date'){ A=new Date(a.date||0); B=new Date(b.date||0); }
+    else { A=(a[sortKey]??'').toString().toLowerCase(); B=(b[sortKey]??'').toString().toLowerCase(); }
+    const s = (A<B?-1:A>B?1:0);
+    return sortDir==='asc'? s:-s;
+  });
+  page=1; render();
+}
+
+function render(){
+  const tbody=document.querySelector('#grid tbody');
+  tbody.innerHTML='';
+  const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
+  page=Math.min(Math.max(1,page),pages);
+  const part=rows.slice((page-1)*PAGE, (page-1)*PAGE+PAGE);
+  part.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `
+      <td>${esc(r.serial)}</td>
+      <td>${fmtDateIST(r.date)}</td>
+      <td>${esc(r.subject)}</td>
+      <td style="white-space:pre-wrap">${esc(r.cleanBody||'')}</td>
+      <td>${r.link? mediaPreview(r.link):''}</td>
+      <td>
+        ${isAdmin? `<button class="btn" onclick="openEdit(${r.serial})">Edit</button>
+                    <button class="btn danger" onclick="delNotice(${r.serial})">Delete</button>`:''}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('pageInfo').textContent=`Page ${page} / ${pages}`;
+  document.getElementById('status').textContent=`${total} notice(s), showing ${part.length}`;
+}
+
+async function whoami(){
+  const r=await fetch(`${API}?action=whoami&token=${encodeURIComponent(token())}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error('unauthorized');
+  return j.data.user;
+}
+async function fetchNotices(){
+  document.getElementById('status').textContent='Loading…';
+  const r=await fetch(`${API}?action=notices&token=${encodeURIComponent(token())}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+  all=(j.data||[]).map(x=>x);
+  apply();
+}
+
+async function addNotice(){
+  const s=document.getElementById('n_status');
+  const subject=document.getElementById('n_subject').value.trim();
+  const date=document.getElementById('n_date').value; // yyyy-mm-dd
+  const body=document.getElementById('n_body').value.trim();
+  if(!subject||!body){ s.textContent='Subject and notice are required.'; return; }
+  s.textContent='Posting…';
+  try{
+    const r=await fetch(`${API}?action=addnotice&token=${encodeURIComponent(token())}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({subject,date,body})
+    });
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+    s.textContent='Posted.';
+    document.getElementById('n_subject').value='';
+    document.getElementById('n_body').value='';
+    await fetchNotices();
+  }catch(e){ s.textContent='Failed: '+e.message; }
+}
+
+async function delNotice(serial){
+  if(!confirm('Delete notice #'+serial+'?')) return;
+  try{
+    const r=await fetch(`${API}?action=deletenotice&token=${encodeURIComponent(token())}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({serial})
+    });
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+    await fetchNotices();
+  }catch(e){ alert('Delete failed: '+e.message); }
+}
+
+// ---- Edit modal ----
+function openEdit(serial){
+  const rec = rows.find(x=>x.serial==serial);
+  if(!rec) return;
+  document.getElementById('e_serial').value=rec.serial;
+  document.getElementById('e_subject').value=rec.subject||'';
+  document.getElementById('e_date').value = toDateInputValueIST(rec.date);
+  document.getElementById('e_body').value = rec.body||'';
+  document.getElementById('e_status').textContent='';
+  document.getElementById('editModal').style.display='flex';
+}
+function closeEdit(){ document.getElementById('editModal').style.display='none'; }
+async function saveEdit(){
+  const serial=Number(document.getElementById('e_serial').value);
+  const subject=document.getElementById('e_subject').value.trim();
+  const date=document.getElementById('e_date').value;
+  const body=document.getElementById('e_body').value.trim();
+  const s=document.getElementById('e_status');
+  s.textContent='Saving…';
+  try{
+    const r=await fetch(`${API}?action=updatenotice&token=${encodeURIComponent(token())}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({serial,subject,date,body})
+    });
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+    s.textContent='Saved.';
+    closeEdit(); await fetchNotices();
+  }catch(e){ s.textContent='Failed: '+e.message; }
+}
+
+// ---- Upload (adds "Attachment: <url>" line) ----
+async function uploadAndAppend(file, targetTextarea, statusSpan){
+  if(!file) return;
+  statusSpan.textContent='Uploading…';
+  const b64=await file.arrayBuffer().then(b=>btoa(String.fromCharCode(...new Uint8Array(b))));
+  try{
+    const r=await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(token())}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:file.name,mime:file.type||'application/octet-stream',data:b64})
+    });
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+    const url=j.data.url;
+    const cur=targetTextarea.value.trim();
+    targetTextarea.value = (cur?cur+'\n':'')+`Attachment: ${url}`;
+    statusSpan.textContent='Attached.';
+  }catch(e){ statusSpan.textContent='Upload failed: '+e.message; }
+}
+
+function attachSort(){
+  document.querySelectorAll('#thead th.sort').forEach(th=>{
+    th.addEventListener('click',()=>{
+      const k=th.dataset.k;
+      if(sortKey===k) sortDir = (sortDir==='asc'?'desc':'asc');
+      else { sortKey=k; sortDir='asc'; }
+      document.querySelectorAll('#thead th.sort').forEach(x=>x.classList.remove('asc','desc'));
+      th.classList.add(sortDir);
+      apply();
+    });
+  });
+}
+function attachFilterInputs(){
+  ['q','f_serial','f_date','f_subject','f_body','f_link'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.addEventListener('input', apply);
+  });
+  document.getElementById('prevBtn').onclick=()=>{ page=Math.max(1,page-1); render(); };
+  document.getElementById('nextBtn').onclick=()=>{ page=page+1; render(); };
+}
+
+(async function init(){
+  try{
+    const me=await whoami();
+    isAdmin = (me.role==='admin');
+    if(isAdmin){
+      document.getElementById('adminBar').classList.remove('hidden');
+      document.getElementById('n_date').value = toDateInputValueIST();
+      document.getElementById('n_post').onclick = addNotice;
+      // upload (composer)
+      document.getElementById('n_attach').onclick=()=>document.getElementById('n_file').click();
+      document.getElementById('n_file').addEventListener('change', (ev)=>uploadAndAppend(ev.target.files[0], document.getElementById('n_body'), document.getElementById('n_status')));
+      // upload (edit)
+      document.getElementById('e_attach').onclick=()=>document.getElementById('e_file').click();
+      document.getElementById('e_file').addEventListener('change', (ev)=>uploadAndAppend(ev.target.files[0], document.getElementById('e_body'), document.getElementById('e_status')));
+      document.getElementById('e_save').onclick=saveEdit;
     }
+  }catch{ return logout(); }
 
-    async function whoami(){
-      const r = await fetch(`${API}?action=whoami&token=${encodeURIComponent(getTok())}`, {cache:'no-store'});
-      const j = await r.json().catch(()=>({}));
-      if(!j.ok) throw new Error('unauthorized');
-      return j.data.user; // {username, role}
-    }
-
-    // state
-    let all = [];
-    let isAdmin = false;
-
-    function render(){
-      const q = (document.getElementById('q').value||'').toLowerCase().trim();
-      const tbody = document.querySelector('#grid tbody');
-      tbody.innerHTML = '';
-      const filtered = all.filter(r => {
-        const hay = [r.subject, r.body, r.date, String(r.serial)].map(v=>String(v||'').toLowerCase()).join(' ');
-        return !q || hay.includes(q);
-      });
-      filtered.forEach(r=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${esc(r.serial)}</td>
-          <td>${esc(r.date)}</td>
-          <td>${esc(r.subject)}</td>
-          <td style="white-space:pre-wrap">${esc(r.body)}</td>`;
-        tbody.appendChild(tr);
-      });
-      document.getElementById('status').textContent = `Loaded ${all.length} notice(s)`;
-    }
-
-    async function fetchNotices(){
-      const status = document.getElementById('status');
-      status.textContent = 'Loading…';
-      const res = await fetch(`${API}?action=notices&token=${encodeURIComponent(getTok())}`, {cache:'no-store'});
-      const j = await res.json();
-      if(!j.ok) throw new Error(j.error || 'Failed');
-      all = (j.data || []).sort((a,b)=>{
-        // Sort by date desc then serial desc
-        const ad = new Date(a.date||0).getTime(), bd = new Date(b.date||0).getTime();
-        if(ad!==bd) return bd-ad;
-        return (b.serial||0)-(a.serial||0);
-      });
-      render();
-    }
-
-    async function addNotice(){
-      const btn = document.getElementById('n_add');
-      const s = document.getElementById('n_status');
-      const subject = document.getElementById('n_subject').value.trim();
-      const date = document.getElementById('n_date').value;
-      const body = document.getElementById('n_body').value.trim();
-      if(!subject || !body){ s.textContent = 'Subject and notice text are required.'; return; }
-      setBusy(btn, true, 'Post Notice', 'Posting…');
-      s.textContent = '';
-      try{
-        const res = await fetch(`${API}?action=addnotice&token=${encodeURIComponent(getTok())}`,{
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ subject, date, body })
-        });
-        const j = await res.json().catch(()=>({}));
-        if(!j.ok) throw new Error(j.error || 'Failed');
-        // clear inputs
-        document.getElementById('n_subject').value = '';
-        document.getElementById('n_body').value = '';
-        s.textContent = 'Posted.';
-        await fetchNotices();
-      }catch(e){
-        s.textContent = 'Failed to post (configure /api?action=addnotice).';
-      }finally{
-        setBusy(btn, false, 'Post Notice', 'Posting…');
-      }
-    }
-
-    (async function init(){
-      // header chrome + logout
-      const ub = document.getElementById('userBadge');
-      document.getElementById('logoutBtn').addEventListener('click', ()=>{
-        const b = document.getElementById('logoutBtn');
-        setBusy(b, true, 'Logout', 'Logging out…');
-        try{ localStorage.removeItem('token'); localStorage.removeItem('role'); localStorage.removeItem('username'); }catch{}
-        setTimeout(()=>location.replace('/login'), 600);
-      });
-
-      try{
-        const me = await whoami();
-        isAdmin = (me.role === 'admin');
-        try{ localStorage.setItem('role', me.role); localStorage.setItem('username', me.username); }catch{}
-        if(ub){ ub.style.display='inline-flex'; ub.innerHTML = userIcon()+`<span>${esc(me.username||'')}</span>`; }
-        if(isAdmin){
-          document.getElementById('adminBar').style.display = 'block';
-          document.getElementById('n_date').valueAsDate = new Date();
-          document.getElementById('n_add').addEventListener('click', addNotice);
-        }
-      }catch{
-        // invalid session
-        location.replace('/login');
-        return;
-      }
-
-      document.getElementById('q').addEventListener('input', render);
-      await fetchNotices();
-    })();
-  </script>
+  document.getElementById('meta').textContent='Timezone: IST • Dates: DD-MM-YYYY';
+  attachSort(); attachFilterInputs();
+  document.getElementById('e_date').value = toDateInputValueIST();
+  await fetchNotices();
+})();
+</script>
 </body>
 </html>
