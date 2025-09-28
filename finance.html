@@ -1,137 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Finance – P/L, Balance Sheet, COA & Opening Balances</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
 :root{
   --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --blue:#0d6efd; --danger:#ef4444;
-  /* layout controls */
-  --leftPct:50;         /* % width of P/L (left) vs B/S (right) 20–80 range via splitter */
-  --topH:52vh;          /* top area height vs transactions 25–85vh via splitter */
+  --radius:14px;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
-header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border)}
+
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border)}
 h1{margin:0;font-size:18px;font-weight:800}
 
+.wrap{padding:16px}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,textarea{border:1px solid var(--border);border-radius:8px;padding:8px}
 .btn{border:1px solid var(--border);background:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
 .btn:hover{background:#f1f5f9}
 .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
 .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
-
-.wrap{padding:16px}
-
-/* cards flex so the inner tableWrap can fill available height */
-.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin:0;display:flex;flex-direction:column;min-height:0}
-
-/* generic table + sticky header inside its own scroller */
-.tableWrap{overflow:auto;border:1px solid var(--border);border-radius:12px}
-table{width:100%;border-collapse:separate;border-spacing:0}
-.tableWrap thead th{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:10px;text-align:left;z-index:1}
-tbody td, tfoot th{border-top:1px solid var(--border);padding:10px;vertical-align:top}
-.right{text-align:right}
 .badge{display:inline-block;padding:2px 6px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;color:#334155;font-size:12px}
 .muted{color:var(--muted)}
+.right{text-align:right}
 .hidden{display:none}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-input,select,textarea{border:1px solid var(--border);border-radius:8px;padding:8px}
 
-/* MAIN LAYOUT: Top (P/L + B/S) vs Transactions, with a draggable splitter */
-.layout{display:grid;grid-template-rows:var(--topH) 8px auto;gap:16px;min-height:calc(100vh - 64px)} /* 64≈header+padding */
-.topgrid{display:grid;grid-template-columns:calc(var(--leftPct)*1%) 8px calc(100% - var(--leftPct)*1%);gap:16px;min-height:0}
+/* split layout */
+.split{display:grid;grid-template-columns:1fr 8px 1fr;gap:0}
+.split>.card{margin:0}
+.split .gutter{cursor:col-resize;background:linear-gradient(90deg,#0000,#e5e7eb,#0000)}
+.split .gutter:active{background:linear-gradient(90deg,#0000,#cbd5e1,#0000)}
 
-/* splitters */
-.splitX{background:var(--border);cursor:col-resize;border-radius:4px}
-.splitY{background:var(--border);cursor:row-resize;border-radius:4px}
+/* table wrappers with sticky headers */
+.tableWrap{overflow:auto;border:1px solid var(--border);border-radius:12px}
+.tableWrap.maxh{max-height:340px}
+table{width:100%;border-collapse:separate;border-spacing:0}
+thead th{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:10px;text-align:left;z-index:5}
+tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
 
-/* make table area grow inside cards */
-.card > .tableWrap{flex:1;min-height:0;margin-top:10px}
+/* drawers (not loaded by default) */
+.drawer{display:none;border:1px solid var(--border);border-radius:var(--radius);padding:14px;background:#fff}
+.drawer.open{display:block;animation:fade .12s ease}
+@keyframes fade{from{opacity:.6;transform:translateY(-2px)}to{opacity:1;transform:none}}
+.drawer h3{margin:0 0 6px}
 
-/* small headings inside B/S columns */
-h4{margin:8px 0}
+/* small utilities */
+.w100{width:100%}
 </style>
 </head>
 <body>
 <header>
   <h1>Finance</h1>
-  <div class="row"><button class="btn" onclick="location.href='/'">Back</button></div>
+  <div class="row">
+    <button class="btn" onclick="location.href='/'">Back</button>
+  </div>
 </header>
 
-<div class="wrap layout">
-  <!-- Filters card sits above, inside top area left column -->
-  <div class="topgrid">
-    <!-- LEFT: Profit & Loss (plus filters card placed separately below) -->
-    <div style="display:flex;flex-direction:column;min-height:0;gap:16px">
-      <div class="card">
-        <div class="row">
-          <label>From <input id="from" type="date"></label>
-          <label>To <input id="to" type="date"></label>
-          <label>As of <input id="asof" type="date"></label>
-          <button id="run" class="btn primary">Run</button>
-          <span id="status" class="muted"></span>
-          <span class="muted" style="margin-left:auto">Timezone: IST • Dates: DD-MM-YYYY</span>
-        </div>
-      </div>
+<div class="wrap">
 
-      <div class="card">
-        <div class="row" style="justify-content:space-between">
-          <h3 style="margin:0">Profit & Loss</h3>
-          <div class="row"><button id="coaBtn" class="btn hidden">Manage COA</button></div>
-        </div>
-        <div class="tableWrap">
-          <table>
-            <thead><tr><th>Group</th><th class="right">Amount</th></tr></thead>
-            <tbody id="plBody"></tbody>
-            <tfoot>
-              <tr><th>Total Income</th><th id="tInc" class="right">–</th></tr>
-              <tr><th>Total Expense</th><th id="tExp" class="right">–</th></tr>
-              <tr><th>Surplus / (Deficit)</th><th id="tSur" class="right">–</th></tr>
-            </tfoot>
-          </table>
-        </div>
+  <div class="card">
+    <div class="row">
+      <label>From <input id="from" type="date"></label>
+      <label>To <input id="to" type="date"></label>
+      <label>As of <input id="asof" type="date"></label>
+      <button id="run" class="btn primary">Run</button>
+      <span id="status" class="muted"></span>
+      <span class="muted" style="margin-left:auto">Timezone: IST • Dates: DD-MM-YYYY</span>
+    </div>
+  </div>
+
+  <!-- Split: P&L | BS with draggable gutter -->
+  <div class="split card" style="padding:0">
+    <div class="card" style="border:0;border-right:1px solid var(--border);border-radius:14px 0 0 14px">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <h3 style="margin:0">Profit & Loss</h3>
+        <button id="openCoa" class="btn hidden">Manage COA</button>
+      </div>
+      <div class="tableWrap maxh">
+        <table>
+          <thead><tr><th>Group</th><th class="right">Amount</th></tr></thead>
+          <tbody id="plBody"></tbody>
+          <tfoot>
+            <tr><th style="padding:10px">Total Income</th><th id="tInc" class="right" style="padding:10px">–</th></tr>
+            <tr><th style="padding:10px">Total Expense</th><th id="tExp" class="right" style="padding:10px">–</th></tr>
+            <tr><th style="padding:10px">Surplus / (Deficit)</th><th id="tSur" class="right" style="padding:10px">–</th></tr>
+          </tfoot>
+        </table>
       </div>
     </div>
 
-    <!-- SPLITTER: horizontal (left-right) -->
-    <div id="splitX" class="splitX" aria-label="Resize columns"></div>
+    <div class="gutter" id="gutter"></div>
 
-    <!-- RIGHT: Balance Sheet -->
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
+    <div class="card" style="border:0;border-left:1px solid var(--border);border-radius:0 14px 14px 0">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
         <h3 style="margin:0">Balance Sheet</h3>
-        <button id="obBtn" class="btn hidden">Opening Balances</button>
+        <button id="openOb" class="btn hidden">Opening Balances</button>
       </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:0">
-        <div style="display:flex;flex-direction:column;min-height:0">
-          <h4>Assets</h4>
-          <div class="tableWrap"><table><tbody id="bsA"></tbody></table></div>
+      <div class="row" style="gap:16px;align-items:flex-start">
+        <div class="w100" style="max-width:50%">
+          <h4 style="margin:0 0 6px">Assets</h4>
+          <div class="tableWrap maxh"><table><tbody id="bsA"></tbody></table></div>
         </div>
-        <div style="display:flex;flex-direction:column;min-height:0">
-          <h4>Liabilities &amp; Equity</h4>
-          <div class="tableWrap"><table><tbody id="bsL"></tbody></table></div>
+        <div class="w100" style="max-width:50%">
+          <h4 style="margin:0 0 6px">Liabilities & Equity</h4>
+          <div class="tableWrap maxh"><table><tbody id="bsL"></tbody></table></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- SPLITTER: vertical (top-bottom) -->
-  <div id="splitY" class="splitY" aria-label="Resize sections"></div>
+  <hr style="border:none;border-top:1px solid var(--border);margin:16px 0" />
 
-  <!-- Transactions -->
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <div class="row">
         <h3 style="margin:0">Transactions</h3>
         <input id="q" placeholder="Quick search…" style="min-width:260px;margin-left:10px">
       </div>
-      <div class="row"><button id="addBtn" class="btn primary hidden">+ Add Transaction</button></div>
+      <div class="row">
+        <button id="openTx" class="btn primary hidden">+ Add Transaction</button>
+      </div>
     </div>
 
-    <div class="tableWrap">
+    <div class="tableWrap" style="margin-top:10px;max-height:420px">
       <table>
         <thead>
           <tr>
@@ -151,16 +145,16 @@ h4{margin:8px 0}
       <span id="count" class="muted" style="margin-left:auto"></span>
     </div>
   </div>
-</div>
 
-<!-- TX Modal -->
-<div id="txModal" class="modal">
-  <div class="box">
-    <h3 id="m_title">Add Transaction</h3>
+  <!-- Drawers (closed by default) -->
+  <div id="txDrawer" class="drawer">
+    <h3>Add Transaction</h3>
     <input type="hidden" id="m_serial">
-    <div class="row" style="grid-template-columns:repeat(2,1fr);gap:12px;flex-wrap:wrap">
+    <div class="row" style="flex-wrap:wrap">
       <label>Date <input id="m_date" type="date"></label>
-      <label>Type <select id="m_type"><option>Income</option><option>Expense</option></select></label>
+      <label>Type
+        <select id="m_type"><option>Income</option><option>Expense</option></select>
+      </label>
       <label>Category <input id="m_category" placeholder="e.g., Maintenance/Utilities"></label>
       <label>Sub-category <input id="m_sub" placeholder="e.g., Common Maintenance/Lift AMC"></label>
       <label>Amount <input id="m_amount" type="number" step="0.01" min="0"></label>
@@ -169,48 +163,49 @@ h4{margin:8px 0}
       <label>Party <input id="m_party"></label>
       <label>Mode <input id="m_mode" placeholder="Bank/Cash/UPI"></label>
       <label>Ref <input id="m_ref"></label>
-      <label style="flex:1 1 100%">Notes <input id="m_notes" style="width:100%"></label>
+      <label class="w100">Notes <input id="m_notes" class="w100"></label>
       <label>Cost Center <input id="m_cc"></label>
       <label>Cleared
         <select id="m_cleared"><option value="true">Yes</option><option value="false">No</option></select>
       </label>
-      <div style="flex:1 1 100%">
-        <div class="row"><button id="m_browse" class="btn">Attach file…</button><span id="m_att" class="muted">(none)</span></div>
+      <div class="row" style="gap:8px;width:100%">
+        <button id="m_browse" class="btn">Attach file…</button>
+        <span id="m_att" class="muted">(none)</span>
       </div>
     </div>
     <div class="row" style="margin-top:10px">
-      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn" onclick="closeTx()">Cancel</button>
       <button id="m_save" class="btn primary">Save</button>
       <span id="m_status" class="muted" style="margin-left:auto"></span>
     </div>
     <input id="m_file" type="file" style="display:none">
   </div>
-</div>
 
-<!-- COA Modal -->
-<div id="coaModal" class="modal">
-  <div class="box">
+  <div id="coaDrawer" class="drawer">
     <h3>Manage Chart of Accounts</h3>
     <div class="row">
-      <label>Statement <select id="coa_stmt"><option>BS</option></select></label>
-      <label>Group <select id="coa_group"><option>Asset</option><option>Liability</option><option>Equity</option></select></label>
+      <label>Statement
+        <select id="coa_stmt"><option>BS</option><option>PL</option></select>
+      </label>
+      <label>Group
+        <select id="coa_group"><option>Asset</option><option>Liability</option><option>Equity</option><option>Income</option><option>Expense</option></select>
+      </label>
       <label>Account <input id="coa_account" placeholder="e.g., Bank"></label>
       <button id="coa_add" class="btn primary">Add</button>
       <span id="coa_status" class="muted"></span>
     </div>
-    <div class="tableWrap" style="margin-top:10px">
+    <div class="tableWrap" style="margin-top:10px;max-height:300px">
       <table>
         <thead><tr><th>Statement</th><th>Group</th><th>Account</th><th>Actions</th></tr></thead>
         <tbody id="coa_body"></tbody>
       </table>
     </div>
-    <div class="row" style="margin-top:10px"><button class="btn" onclick="closeCOA()">Close</button></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" onclick="closeCoa()">Close</button>
+    </div>
   </div>
-</div>
 
-<!-- OB Modal -->
-<div id="obModal" class="modal">
-  <div class="box">
+  <div id="obDrawer" class="drawer">
     <h3>Opening Balances</h3>
     <div class="row">
       <label>Account <input id="ob_account" placeholder="e.g., Bank"></label>
@@ -218,14 +213,17 @@ h4{margin:8px 0}
       <button id="ob_set" class="btn primary">Save</button>
       <span id="ob_status" class="muted"></span>
     </div>
-    <div class="tableWrap" style="margin-top:10px">
+    <div class="tableWrap" style="margin-top:10px;max-height:300px">
       <table>
         <thead><tr><th>Account</th><th class="right">Balance</th><th>Actions</th></tr></thead>
         <tbody id="ob_body"></tbody>
       </table>
     </div>
-    <div class="row" style="margin-top:10px"><button class="btn" onclick="closeOB()">Close</button></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" onclick="closeOb()">Close</button>
+    </div>
   </div>
+
 </div>
 
 <script>
@@ -235,19 +233,20 @@ const token=()=>{ try{return localStorage.getItem('token')}catch{return null} };
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const dd=(d)=>{ if(!d) return ''; const dt=new Date(d);
   const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(dt);
-  const g=k=>p.find(x=>x.type===k)?.value||''; return `${g('day')}-${g('month')}-${g('year')}`; };
+  const g=k=>p.find(x=>x.type===k)?.value||''; return `${g('day')}-${g('month')}-${g('year')}`;
+};
 const toDateInput=(d)=>{ const dt=d?new Date(d):new Date();
-  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(dt); };
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
+};
 const cur=(n)=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});
 
 let me=null, isAdmin=false;
 let rows=[], view=[], page=1;
 
-// ---------- Fetchers ----------
+/* ---------- API ---------- */
 async function whoami(){
   const r=await fetch(`${API}?action=whoami&token=${encodeURIComponent(token()||'')}`,{cache:'no-store'});
-  const j=await r.json(); if(!j.ok) throw new Error('unauthorized');
-  return j.data.user;
+  const j=await r.json(); if(!j.ok) throw new Error('unauthorized'); return j.data.user;
 }
 async function fetchPL(from,to){
   const r=await fetch(`${API}?action=pl&token=${encodeURIComponent(token()||'')}&from=${encodeURIComponent(from||'')}&to=${encodeURIComponent(to||'')}`,{cache:'no-store'});
@@ -261,7 +260,7 @@ async function fetchTx(from,to){
   const r=await fetch(`${API}?action=txlist&token=${encodeURIComponent(token()||'')}&from=${encodeURIComponent(from||'')}&to=${encodeURIComponent(to||'')}`,{cache:'no-store'});
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Tx failed'); return j.data||[];
 }
-// COA
+/* COA */
 async function fetchCOA(){
   const r=await fetch(`${API}?action=coa&token=${encodeURIComponent(token()||'')}`,{cache:'no-store'});
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'COA failed'); return j.data||[];
@@ -278,7 +277,7 @@ async function delCOA(account){
   });
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Del COA failed'); return j.data;
 }
-// OB
+/* OB */
 async function fetchOB(){
   const r=await fetch(`${API}?action=ob&token=${encodeURIComponent(token()||'')}`,{cache:'no-store'});
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'OB failed'); return j.data||[];
@@ -296,7 +295,7 @@ async function delOB(account){
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Del OB failed'); return j.data;
 }
 
-// ---------- P/L + BS + TX UI ----------
+/* ---------- UI fill ---------- */
 function fillPL(data){
   const tb=document.getElementById('plBody'); tb.innerHTML='';
   Object.entries(data.income||{}).forEach(([k,v])=>{
@@ -310,12 +309,12 @@ function fillPL(data){
   document.getElementById('tSur').textContent=cur(data.surplus||0);
 }
 function fillBS(data){
-  const A=document.getElementById('bsA'); const L=document.getElementById('bsL');
+  const A=document.getElementById('bsA'), L=document.getElementById('bsL');
   A.innerHTML=''; L.innerHTML='';
   Object.entries(data.assets||{}).forEach(([k,v])=>{
     const tr=document.createElement('tr'); tr.innerHTML=`<td>${esc(k)}</td><td class="right">${cur(v)}</td>`; A.appendChild(tr);
   });
-  const le = {...(data.liabilities||{}), ...(data.equity||{})};
+  const le={...(data.liabilities||{}), ...(data.equity||{})};
   Object.entries(le).forEach(([k,v])=>{
     const tr=document.createElement('tr'); tr.innerHTML=`<td>${esc(k)}</td><td class="right">${cur(v)}</td>`; L.appendChild(tr);
   });
@@ -352,7 +351,7 @@ function renderTable(){
       <td>${esc(r.ref||'')}</td>
       <td>${r.cleared? 'Yes':'No'}</td>
       <td>${att}</td>
-      <td>${isAdmin? `<button class="btn" onclick="openModal(true, ${r.serial})">Edit</button>
+      <td>${isAdmin? `<button class="btn" onclick="openTx(true, ${r.serial})">Edit</button>
                       <button class="btn danger" onclick="delTx(${r.serial})">Delete</button>`:''}</td>`;
     body.appendChild(tr);
   });
@@ -360,6 +359,7 @@ function renderTable(){
   document.getElementById('count').textContent=`${total} record(s), showing ${part.length}`;
 }
 
+/* ---------- Run ---------- */
 async function run(){
   const from=document.getElementById('from').value;
   const to=document.getElementById('to').value;
@@ -371,11 +371,10 @@ async function run(){
   document.getElementById('status').textContent='Done';
 }
 
-// ---------- TX modal ----------
-function openModal(edit=false, serial=null){
+/* ---------- Drawers ---------- */
+function openTx(edit=false, serial=null){
+  const d=document.getElementById('txDrawer'); d.classList.add('open');
   document.getElementById('m_status').textContent='';
-  document.getElementById('txModal').style.display='flex';
-  document.getElementById('m_title').textContent = edit? 'Edit Transaction' : 'Add Transaction';
   if(edit){
     const r=rows.find(x=>x.serial==serial);
     document.getElementById('m_serial').value = r.serial;
@@ -401,7 +400,71 @@ function openModal(edit=false, serial=null){
     document.getElementById('m_att').textContent='(none)';
   }
 }
-function closeModal(){ document.getElementById('txModal').style.display='none'; }
+function closeTx(){ document.getElementById('txDrawer').classList.remove('open'); }
+
+function openCoa(){ const d=document.getElementById('coaDrawer'); d.classList.add('open'); loadCOA(); }
+function closeCoa(){ document.getElementById('coaDrawer').classList.remove('open'); }
+async function loadCOA(){
+  const body=document.getElementById('coa_body'); body.innerHTML='<tr><td colspan="4" class="muted">Loading…</td></tr>';
+  const list = await fetchCOA();
+  body.innerHTML='';
+  list.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${esc(r.statement)}</td><td>${esc(r.group)}</td><td>${esc(r.account)}</td>
+                    <td><button class="btn danger" onclick="delCOAItem('${esc(r.account)}')">Delete</button></td>`;
+    body.appendChild(tr);
+  });
+}
+async function addCOAItem(){
+  const s=document.getElementById('coa_status');
+  const stmt=document.getElementById('coa_stmt').value;
+  const group=document.getElementById('coa_group').value;
+  const account=document.getElementById('coa_account').value.trim();
+  if(!account){ s.textContent='Account required'; return; }
+  s.textContent='Saving…';
+  try{ await addCOA(stmt,group,account); s.textContent='Added'; document.getElementById('coa_account').value=''; await loadCOA(); }
+  catch(e){ s.textContent='Failed: '+e.message; }
+}
+async function delCOAItem(account){
+  if(!confirm('Delete account "'+account+'"?')) return;
+  const s=document.getElementById('coa_status'); s.textContent='Deleting…';
+  try{ await delCOA(account); s.textContent='Deleted'; await loadCOA(); }
+  catch(e){ s.textContent='Failed: '+e.message; }
+}
+
+function openOb(){ const d=document.getElementById('obDrawer'); d.classList.add('open'); loadOB(); }
+function closeOb(){ document.getElementById('obDrawer').classList.remove('open'); }
+async function loadOB(){
+  const body=document.getElementById('ob_body'); body.innerHTML='<tr><td colspan="3" class="muted">Loading…</td></tr>';
+  const list = await fetchOB();
+  body.innerHTML='';
+  list.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${esc(r.account)}</td><td class="right">${cur(r.balance)}</td>
+                    <td><button class="btn danger" onclick="delOBItem('${esc(r.account)}')">Delete</button></td>`;
+    body.appendChild(tr);
+  });
+}
+async function saveOBItem(){
+  const s=document.getElementById('ob_status');
+  const account=document.getElementById('ob_account').value.trim();
+  const balance=Number(document.getElementById('ob_balance').value||0);
+  if(!account){ s.textContent='Account required'; return; }
+  s.textContent='Saving…';
+  try{ await setOB(account,balance); s.textContent='Saved'; document.getElementById('ob_account').value=''; document.getElementById('ob_balance').value=''; await loadOB(); }
+  catch(e){ s.textContent='Failed: '+e.message; }
+}
+async function delOBItem(account){
+  if(!confirm('Delete opening balance for "'+account+'"?')) return;
+  const s=document.getElementById('ob_status'); s.textContent='Deleting…';
+  try{ await delOB(account); s.textContent='Deleted'; await loadOB(); }
+  catch(e){ s.textContent='Failed: '+e.message; }
+}
+
+/* TX actions */
+document.getElementById('m_browse').onclick=()=>document.getElementById('m_file').click();
+document.getElementById('m_file').addEventListener('change',ev=>uploadFile(ev.target.files[0]));
+document.getElementById('m_save').onclick=saveModal;
 async function saveModal(){
   const s=document.getElementById('m_status');
   const payload = {
@@ -431,7 +494,7 @@ async function saveModal(){
       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
     });
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    s.textContent='Saved'; closeModal(); await run();
+    s.textContent='Saved'; closeTx(); await run();
   }catch(e){ s.textContent='Save failed: '+e.message; }
 }
 async function delTx(serial){
@@ -452,135 +515,46 @@ async function uploadFile(file){
       body:JSON.stringify({name:file.name, mime:file.type||'application/octet-stream', data:b64})
     });
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'failed');
-    const crt = document.getElementById('m_att').textContent.trim();
-    document.getElementById('m_att').textContent = crt && crt!=='(none)' ? (crt+','+j.data.url) : j.data.url;
+    const curA = document.getElementById('m_att').textContent.trim();
+    document.getElementById('m_att').textContent = curA && curA!=='(none)' ? (curA+','+j.data.url) : j.data.url;
     st.textContent='Uploaded';
   }catch(e){ st.textContent='Upload failed: '+e.message; }
 }
 
-// ---------- COA modal ----------
-function openCOA(){ document.getElementById('coaModal').style.display='flex'; loadCOA(); }
-function closeCOA(){ document.getElementById('coaModal').style.display='none'; }
-async function loadCOA(){
-  const body=document.getElementById('coa_body'); body.innerHTML='<tr><td colspan="4" class="muted">Loading…</td></tr>';
-  const list = await fetchCOA();
-  body.innerHTML='';
-  list.forEach(r=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${esc(r.statement)}</td><td>${esc(r.group)}</td><td>${esc(r.account)}</td>
-                    <td><button class="btn danger" onclick="delCOAItem('${esc(r.account)}')">Delete</button></td>`;
-    body.appendChild(tr);
-  });
-}
-async function addCOAItem(){
-  const s=document.getElementById('coa_status');
-  const stmt=document.getElementById('coa_stmt').value;
-  const group=document.getElementById('coa_group').value;
-  const account=document.getElementById('coa_account').value.trim();
-  if(!account){ s.textContent='Account required'; return; }
-  s.textContent='Saving…';
-  try{ await addCOA(stmt,group,account); s.textContent='Added'; document.getElementById('coa_account').value=''; await loadCOA(); }
-  catch(e){ s.textContent='Failed: '+e.message; }
-}
-async function delCOAItem(account){
-  if(!confirm('Delete account "'+account+'"?')) return;
-  const s=document.getElementById('coa_status'); s.textContent='Deleting…';
-  try{ await delCOA(account); s.textContent='Deleted'; await loadCOA(); }
-  catch(e){ s.textContent='Failed: '+e.message; }
-}
-
-// ---------- OB modal ----------
-function openOB(){ document.getElementById('obModal').style.display='flex'; loadOB(); }
-function closeOB(){ document.getElementById('obModal').style.display='none'; }
-async function loadOB(){
-  const body=document.getElementById('ob_body'); body.innerHTML='<tr><td colspan="3" class="muted">Loading…</td></tr>';
-  const list = await fetchOB();
-  body.innerHTML='';
-  list.forEach(r=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `<td>${esc(r.account)}</td><td class="right">${cur(r.balance)}</td>
-                    <td><button class="btn danger" onclick="delOBItem('${esc(r.account)}')">Delete</button></td>`;
-    body.appendChild(tr);
-  });
-}
-async function saveOBItem(){
-  const s=document.getElementById('ob_status');
-  const account=document.getElementById('ob_account').value.trim();
-  const balance=Number(document.getElementById('ob_balance').value||0);
-  if(!account){ s.textContent='Account required'; return; }
-  s.textContent='Saving…';
-  try{ await setOB(account,balance); s.textContent='Saved'; document.getElementById('ob_account').value=''; document.getElementById('ob_balance').value=''; await loadOB(); }
-  catch(e){ s.textContent='Failed: '+e.message; }
-}
-async function delOBItem(account){
-  if(!confirm('Delete opening balance for "'+account+'"?')) return;
-  const s=document.getElementById('ob_status'); s.textContent='Deleting…';
-  try{ await delOB(account); s.textContent='Deleted'; await loadOB(); }
-  catch(e){ s.textContent='Failed: '+e.message; }
-}
-
-// ---------- Splitters ----------
-(function(){
-  const root = document.documentElement;
-  const bar  = document.getElementById('splitX');
-  const area = document.querySelector('.topgrid');
-  if(!bar || !area) return;
-
-  bar.addEventListener('pointerdown', e => {
-    bar.setPointerCapture(e.pointerId);
-    const rect = area.getBoundingClientRect();
-    const move = ev => {
-      const pct = Math.min(80, Math.max(20, ((ev.clientX - rect.left) / rect.width) * 100));
-      root.style.setProperty('--leftPct', pct.toFixed(1));
-    };
-    const up = () => { bar.releasePointerCapture(e.pointerId); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  });
-})();
-(function(){
-  const root = document.documentElement;
-  const bar  = document.getElementById('splitY');
-  const layout = document.querySelector('.layout');
-  if(!bar || !layout) return;
-
-  bar.addEventListener('pointerdown', e => {
-    bar.setPointerCapture(e.pointerId);
-    const rect = layout.getBoundingClientRect();
-    const vh = window.innerHeight / 100;
-    const move = ev => {
-      const px = ev.clientY - rect.top;
-      const vhVal = Math.min(85, Math.max(25, px / vh));
-      root.style.setProperty('--topH', vhVal.toFixed(1) + 'vh');
-    };
-    const up = () => { bar.releasePointerCapture(e.pointerId); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  });
-})();
-
-// ---------- Events ----------
+/* events */
 document.getElementById('run').onclick=()=>run();
 document.getElementById('q').addEventListener('input',filterAndRender);
 document.getElementById('prev').onclick=()=>{ page=Math.max(1,page-1); renderTable(); };
 document.getElementById('next').onclick=()=>{ page=page+1; renderTable(); };
 
-document.getElementById('addBtn').onclick=()=>openModal(false);
-document.getElementById('m_browse').onclick=()=>document.getElementById('m_file').click();
-document.getElementById('m_file').addEventListener('change',ev=>uploadFile(ev.target.files[0]));
-document.getElementById('m_save').onclick=saveModal;
+document.getElementById('openTx').onclick=()=>openTx(false);
+document.getElementById('openCoa').onclick=openCoa;
+document.getElementById('openOb').onclick=openOb;
 
-document.getElementById('coaBtn').onclick=openCOA;
 document.getElementById('coa_add').onclick=addCOAItem;
-
-document.getElementById('obBtn').onclick=openOB;
 document.getElementById('ob_set').onclick=saveOBItem;
 
-// ---------- Init ----------
+/* draggable split */
+(function(){
+  const gutter=document.getElementById('gutter');
+  const parent=gutter.parentElement;
+  let down=false,startX=0,left=0;
+  gutter.addEventListener('mousedown',e=>{down=true;startX=e.clientX;left=parent.getBoundingClientRect().left;document.body.style.userSelect='none';});
+  window.addEventListener('mouseup',()=>{down=false;document.body.style.userSelect='';});
+  window.addEventListener('mousemove',e=>{
+    if(!down) return;
+    const rect=parent.getBoundingClientRect();
+    const x=e.clientX-left;
+    const pct=Math.min(90,Math.max(10,(x/rect.width)*100));
+    parent.style.gridTemplateColumns=`${pct}% 8px ${100-pct}%`;
+  });
+})();
+
+/* init */
 (async function(){
   try{
     me=await whoami(); isAdmin=(me.role==='admin');
-    if(isAdmin){ document.getElementById('addBtn').classList.remove('hidden'); document.getElementById('coaBtn').classList.remove('hidden'); document.getElementById('obBtn').classList.remove('hidden'); }
+    if(isAdmin){ document.getElementById('openTx').classList.remove('hidden'); document.getElementById('openCoa').classList.remove('hidden'); document.getElementById('openOb').classList.remove('hidden'); }
   }catch{ location.replace('/login'); return; }
   const now=new Date();
   const start=new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
