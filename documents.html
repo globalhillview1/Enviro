@@ -6,43 +6,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --hover:#f1f5f9; --blue:#0d6efd; --danger:#ef4444; }
+
     *{ box-sizing:border-box }
     body{ margin:0; background:var(--bg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial; color:var(--text) }
-    header{ position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; background:var(--bg); border-bottom:1px solid var(--border) }
+
+    /* ===== Top app header ===== */
+    header{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:12px 16px; background:var(--bg); border-bottom:1px solid var(--border)
+    }
     .brand{ display:flex; align-items:center; gap:10px }
     .brand img{ height:28px; width:28px; border-radius:6px; object-fit:cover }
     .title{ margin:0; font-weight:800 }
+
+    /* ===== Buttons / inputs ===== */
     .btn{ appearance:none; border:1px solid var(--border); background:var(--card); padding:8px 10px; border-radius:10px; cursor:pointer }
     .btn:hover{ background:var(--hover) }
     .btn.primary{ background:var(--blue); color:#fff; border-color:transparent }
     .btn.danger{ background:var(--danger); color:#fff; border-color:transparent }
     input,select,textarea{ padding:8px 10px; border:1px solid var(--border); border-radius:8px; font:inherit }
-    textarea{ resize:vertical }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
     .wrap{ padding:14px 16px }
     .card{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px }
-    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
     .muted{ color:var(--muted) }
+    .hidden{ display:none }
 
-    /* table */
-    table{ width:100%; border-collapse:separate; border-spacing:0 }
-    /* fixed: make header stick to the top of the scroll area */
-.tableWrap thead th{
-  position: sticky;
-  top: 0;                 /* stick to the top of the scroll container */
-  z-index: 2;
-  background: var(--card);
-}
-    thead th{ border-bottom:1px solid var(--border); padding:10px; text-align:left; font-weight:700; white-space:nowrap }
+    /* ===== Table + sticky header ===== */
+    .tableWrap{               /* <-- This wrapper creates its own scroll context */
+      overflow:auto;
+      border:1px solid var(--border);
+      border-radius:12px;
+      max-height: calc(100vh - 210px); /* space for top header + controls */
+      background:var(--card);
+    }
+    table{ width:100%; border-collapse:separate; border-spacing:0; background:var(--card) }
+    thead th{
+      position:sticky;
+      top:0;                 /* sticky within .tableWrap */
+      z-index:1;
+      background:var(--card);
+      border-bottom:1px solid var(--border);
+      padding:10px; text-align:left; font-weight:700; white-space:nowrap
+    }
     tbody td{ border-top:1px solid var(--border); padding:10px; vertical-align:top }
     th.sort{ cursor:pointer; user-select:none }
     th.sort:after{ content:" ⇵"; color:#94a3b8; font-weight:400 }
     th.sort.asc:after{ content:" ↑" } th.sort.desc:after{ content:" ↓" }
 
-    /* filter row (separate bar above table) */
-    .filters{ display:grid; grid-template-columns: 110px 150px 1fr 160px 240px 240px 160px; gap:8px; margin:8px 0 10px 0 }
-    .filters input{ width:100% }
-
-    /* media preview */
+    /* media/link previews */
     .thumb{ width:58px; height:44px; object-fit:cover; border-radius:5px; border:1px solid #e5e7eb; background:#f8fafc }
     .fileicon{ display:inline-flex; align-items:center; gap:6px; padding:3px 6px; border:1px solid #e5e7eb; border-radius:6px; color:#334155; background:#f8fafc; font-size:12px }
     .fileicon svg{ width:14px; height:14px }
@@ -50,15 +62,6 @@
     .badge{ font-size:12px; padding:2px 6px; border-radius:999px; border:1px solid var(--border); background:#f8fafc; color:#334155 }
 
     .pager{ display:flex; gap:8px; align-items:center; margin-top:10px }
-    .hidden{ display:none }
-
-    /* modal */
-    .modal{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; align-items:center; justify-content:center }
-    .modal .box{ background:#fff; border-radius:12px; border:1px solid var(--border); padding:16px; width:min(820px,94vw) }
-    .box h3{ margin:6px 0 12px }
-
-    .chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 8px; background:#f8fafc; border:1px solid var(--border); border-radius:999px; font-size:12px }
-    .chip .x{ cursor:pointer; font-weight:700; color:#ef4444 }
   </style>
 </head>
 <body>
@@ -75,8 +78,7 @@
 
 <div class="wrap">
   <div class="card">
-
-    <!-- Top row -->
+    <!-- Controls -->
     <div class="row" style="margin-bottom:8px">
       <input id="q" placeholder="Quick search…" style="min-width:260px">
       <button id="addBtn" class="btn primary hidden">+ Add Document</button>
@@ -85,20 +87,10 @@
       <span id="status" class="muted" style="margin-left:auto"></span>
     </div>
 
-    <!-- Column filters (separate bar) -->
-    <div class="filters" id="filterBar">
-      <input id="f_serial"    placeholder="#" />
-      <input id="f_date"      placeholder="dd-mm-yyyy" />
-      <input id="f_subject"   placeholder="contains…" />
-      <input id="f_category"  placeholder="contains…" />
-      <input id="f_media"     placeholder="contains…" />
-      <input id="f_url"       placeholder="contains…" />
-      <span></span>
-    </div>
-
-<div class="tableWrap" style="border:1px solid var(--border); border-radius:12px">
-  <table id="grid">
-    <thead>
+    <!-- Table (no per-column filter row) -->
+    <div class="tableWrap">
+      <table id="grid">
+        <thead>
           <tr>
             <th class="sort" data-k="serial">Serial #</th>
             <th class="sort" data-k="date">Date</th>
@@ -121,9 +113,9 @@
   </div>
 </div>
 
-<!-- Add/Edit Modal -->
-<div id="docModal" class="modal">
-  <div class="box">
+<!-- Add/Edit Modal (unchanged except for using newline-joined media) -->
+<div id="docModal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; align-items:center; justify-content:center">
+  <div class="box" style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(820px,94vw)">
     <h3 id="modalTitle">Add Document</h3>
     <input type="hidden" id="m_serial">
 
@@ -141,7 +133,6 @@
       </label>
     </div>
 
-    <!-- Attachments -->
     <div style="margin-top:8px">
       <div class="row" style="align-items:center">
         <strong>Attachments</strong>
@@ -152,7 +143,6 @@
       <small class="muted">You can select multiple files; they’ll be uploaded and saved in the Media column (one URL per line).</small>
     </div>
 
-    <!-- Extra link(s) -->
     <div style="margin-top:10px">
       <label style="display:block">Additional Link(s) — one per line
         <textarea id="m_url" rows="2" style="width:100%" placeholder="https://… (optional, one per line)"></textarea>
@@ -169,9 +159,9 @@
   </div>
 </div>
 
-<!-- Manage Categories Modal -->
-<div id="catModal" class="modal">
-  <div class="box">
+<!-- Manage Categories Modal (unchanged) -->
+<div id="catModal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; align-items:center; justify-content:center">
+  <div class="box" style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(820px,94vw)">
     <h3>Manage Categories</h3>
     <div id="catList" class="row" style="flex-wrap:wrap"></div>
     <div class="row" style="margin-top:10px">
@@ -251,7 +241,6 @@ function mediaCellMulti(s){
   const more = urls.length>3 ? `<span class="badge">+${urls.length-3}</span>` : '';
   return `<div class="media-stack">${parts.join('')}${more}</div>`;
 }
-
 function linkCellMulti(s){
   const urls = splitLines(s);
   if(urls.length===0) return '';
@@ -265,33 +254,12 @@ let isAdmin=false, all=[], rows=[], sortKey='date', sortDir='desc', page=1;
 let categories=[];
 let modalFiles = []; // array of attachment URLs (strings)
 
-/* ========= Filters / Render ========= */
-function unique(arr){ return [...new Set(arr.filter(Boolean).map(x=>String(x)))].sort((a,b)=>a.localeCompare(b)); }
-
-function readFilters(){
-  return {
-    quick:(document.getElementById('q').value||'').toLowerCase(),
-    serial:(document.getElementById('f_serial').value||'').toLowerCase(),
-    date:(document.getElementById('f_date').value||'').toLowerCase(),
-    subject:(document.getElementById('f_subject').value||'').toLowerCase(),
-    category:(document.getElementById('f_category').value||'').toLowerCase(),
-    media:(document.getElementById('f_media').value||'').toLowerCase(),
-    url:(document.getElementById('f_url').value||'').toLowerCase(),
-  };
-}
-
+/* ========= Filtering (Quick search only) ========= */
 function apply(){
-  const f=readFilters();
+  const q = (document.getElementById('q').value||'').toLowerCase();
   rows = all.filter(r=>{
     const hay=(r.serial+' '+fmtDateIST(r.date)+' '+r.subject+' '+r.category+' '+r.media+' '+r.url).toLowerCase();
-    if(f.quick && !hay.includes(f.quick)) return false;
-    if(f.serial && !String(r.serial).toLowerCase().includes(f.serial)) return false;
-    if(f.date && !fmtDateIST(r.date).includes(f.date)) return false;
-    if(f.subject && !String(r.subject||'').toLowerCase().includes(f.subject)) return false;
-    if(f.category && !String(r.category||'').toLowerCase().includes(f.category)) return false;
-    if(f.media && !String(r.media||'').toLowerCase().includes(f.media)) return false;
-    if(f.url && !String(r.url||'').toLowerCase().includes(f.url)) return false;
-    return true;
+    return q ? hay.includes(q) : true;
   }).sort((a,b)=>{
     let A,B;
     if(sortKey==='date'){ A=new Date(a.date||0); B=new Date(b.date||0); }
@@ -301,6 +269,7 @@ function apply(){
   page=1; render();
 }
 
+/* ========= Render ========= */
 function render(){
   const tbody=document.querySelector('#grid tbody'); tbody.innerHTML='';
   const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
@@ -334,7 +303,8 @@ async function fetchDocs(){
   const r=await fetch(`${API}?action=documents&token=${encodeURIComponent(token())}`,{cache:'no-store'});
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
   all=(j.data||[]).map(x=>x);
-  categories = unique(all.map(x=>x.category||'')); fillCategorySelect();
+  categories = [...new Set(all.map(x=>(x.category||'')).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  fillCategorySelect();
   apply();
 }
 
@@ -342,23 +312,15 @@ async function fetchDocs(){
 function fillCategorySelect(){
   const sel=document.getElementById('m_category');
   sel.innerHTML = categories.map(c=>`<option>${esc(c)}</option>`).join('') + `<option value="">(none)</option>`;
-  const list=document.getElementById('catList');
-  list.innerHTML = categories.map(c=>`<span class="fileicon" style="margin:4px 6px 0 0">${esc(c)}</span>`).join('')||'<span class="muted">No categories yet</span>';
+  document.getElementById('catList').innerHTML = categories.map(c=>`<span class="fileicon" style="margin:4px 6px 0 0">${esc(c)}</span>`).join('')||'<span class="muted">No categories yet</span>';
 }
-
 function renderModalFiles(){
   const wrap = document.getElementById('m_files');
   wrap.innerHTML = modalFiles.map((u,idx)=>(
-    `<span class="chip" title="${esc(u)}">
-       ${mediaCellMulti(u) || 'link'}
-       <span class="x" onclick="removeModalFile(${idx})">×</span>
-     </span>`
+    `<span class="fileicon" title="${esc(u)}">file<span class="x" style="margin-left:6px;cursor:pointer;color:#ef4444" onclick="removeModalFile(${idx})">×</span></span>`
   )).join('') || '<span class="muted">No attachments</span>';
 }
-function removeModalFile(i){
-  modalFiles.splice(i,1);
-  renderModalFiles();
-}
+function removeModalFile(i){ modalFiles.splice(i,1); renderModalFiles(); }
 
 function openModal(edit=false, serial=null){
   document.getElementById('m_status').textContent='';
@@ -392,8 +354,8 @@ async function saveModal(){
     serial: document.getElementById('m_serial').value || undefined,
     date: document.getElementById('m_date').value,
     subject: document.getElementById('m_subject').value.trim(),
-    media: modalFiles.join('\n'),                            // multiple attachments -> newline-separated
-    url: (document.getElementById('m_url').value||'').trim(),// may contain multiple, one per line
+    media: modalFiles.join('\n'),
+    url: (document.getElementById('m_url').value||'').trim(),
     category: document.getElementById('m_category').value.trim()
   };
   if(!payload.subject){ s.textContent='Subject required'; return; }
@@ -402,27 +364,22 @@ async function saveModal(){
   try{
     const action = payload.serial? 'updatedoc':'adddoc';
     const r=await fetch(`${API}?action=${action}&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
+      method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
     });
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
     s.textContent='Saved.'; closeModal(); await fetchDocs();
   }catch(e){ s.textContent='Save failed: '+e.message; }
 }
-
 async function delDoc(serial){
   if(!confirm('Delete document #'+serial+'?')) return;
   try{
     const r=await fetch(`${API}?action=deletedoc&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({serial})
+      method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({serial})
     });
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
     await fetchDocs();
   }catch(e){ alert('Delete failed: '+e.message); }
 }
-
-/* Upload many files -> many Drive URLs */
 async function uploadMany(files){
   const stat = document.getElementById('m_up_status');
   if(!files || files.length===0) return;
@@ -436,8 +393,7 @@ async function uploadMany(files){
         body: JSON.stringify({ name:file.name, mime:file.type||'application/octet-stream', data:b64 })
       });
       const j = await r.json(); if(!j.ok) throw new Error(j.error||'upload failed');
-      modalFiles.push(j.data.url);
-      ok++;
+      modalFiles.push(j.data.url); ok++;
     }catch(_){ fail++; }
   }
   renderModalFiles();
@@ -450,26 +406,24 @@ function closeCat(){ document.getElementById('catModal').style.display='none'; }
 function addCategory(){
   const v=document.getElementById('catNew').value.trim(); if(!v) return;
   if(!categories.includes(v)) categories.push(v);
-  categories = unique(categories);
+  categories = [...new Set(categories)].sort((a,b)=>a.localeCompare(b));
   document.getElementById('catNew').value=''; fillCategorySelect();
 }
 
 /* ========= Wire-up ========= */
 function attachSort(){
-  document.querySelectorAll('thead.sticky th.sort').forEach(th=>{
+  document.querySelectorAll('thead th.sort').forEach(th=>{
     th.addEventListener('click',()=>{
       const k=th.dataset.k;
       if(sortKey===k) sortDir=(sortDir==='asc'?'desc':'asc');
       else { sortKey=k; sortDir='asc'; }
-      document.querySelectorAll('thead.sticky th.sort').forEach(x=>x.classList.remove('asc','desc'));
+      document.querySelectorAll('thead th.sort').forEach(x=>x.classList.remove('asc','desc'));
       th.classList.add(sortDir); apply();
     });
   });
 }
 function attachInputs(){
-  ['q','f_serial','f_date','f_subject','f_category','f_media','f_url'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.addEventListener('input', apply);
-  });
+  document.getElementById('q').addEventListener('input', apply);
   document.getElementById('prevBtn').onclick=()=>{ page=Math.max(1,page-1); render(); };
   document.getElementById('nextBtn').onclick=()=>{ page=page+1; render(); };
 
