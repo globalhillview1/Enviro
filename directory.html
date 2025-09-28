@@ -205,16 +205,32 @@ function toDateInputValueIST(d){
 }
 
 /* ===== Local data store (for demo; replace with API if needed) ===== */
-function loadEmployees(){ try{ return JSON.parse(localStorage.getItem('employees') || '[]'); }catch{ return []; } }
-function saveEmployees(list){ try{ localStorage.setItem('employees', JSON.stringify(list)); }catch{} }
+// --- replace the localStorage helpers with these ---
+async function fetchEmployees(){
+  const r = await fetch(`${API}?action=directory&token=${encodeURIComponent(token()||'')}`, {cache:'no-store'});
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error || 'Failed to load directory');
+  return j.data || [];
+}
+async function addEmployee(p){
+  const r = await fetch(`${API}?action=addemp&token=${encodeURIComponent(token()||'')}`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)
+  });
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'Add failed'); return j.data;
+}
+async function updateEmployee(p){
+  const r = await fetch(`${API}?action=updateemp&token=${encodeURIComponent(token()||'')}`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)
+  });
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'Update failed'); return j.data;
+}
+async function deleteEmployee(serial){
+  const r = await fetch(`${API}?action=deleteemp&token=${encodeURIComponent(token()||'')}`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({serial})
+  });
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'Delete failed'); return j.data;
+}
 
-/* ===== State ===== */
-let isAdmin = false;
-let all = loadEmployees();
-let rows = [];
-let sortKey = 'serial';
-let sortDir = 'asc';
-let page = 1;
 
 /* ===== UI ===== */
 function apply(){
@@ -363,6 +379,46 @@ function delEmp(serial){
   apply();
 }
 
+async function saveFromModal(){
+  const sEl = document.getElementById('m_status');
+  const name = document.getElementById('m_name').value.trim();
+  if(!name){ sEl.textContent = 'Name is required.'; return; }
+
+  const payload = {
+    serial: document.getElementById('m_serial').value || undefined, // undefined => add
+    name,
+    department: document.getElementById('m_department').value.trim(),
+    designation: document.getElementById('m_designation').value.trim(),
+    shift: document.getElementById('m_shift').value,
+    mobile: document.getElementById('m_mobile').value.trim(),
+    email: document.getElementById('m_email').value.trim(),
+    gender: document.querySelector('input[name="m_gender"]:checked').value,
+    joined: document.getElementById('m_joined').value,  // yyyy-mm-dd (you already format for display)
+    salary: document.getElementById('m_salary').value,
+    photo: document.getElementById('m_photoUrl').value.trim()
+  };
+
+  try{
+    sEl.textContent = 'Saving…';
+    if(payload.serial){ await updateEmployee(payload); }
+    else { await addEmployee(payload); }
+    closeModal();
+    all = await fetchEmployees();   // refresh
+    apply();
+  }catch(e){ sEl.textContent = 'Save failed: '+ e.message; }
+}
+
+async function delEmp(serial){
+  if(!isAdmin) return;
+  if(!confirm('Delete employee #'+serial+'?')) return;
+  try{
+    await deleteEmployee(serial);
+    all = await fetchEmployees();
+    apply();
+  }catch(e){ alert('Delete failed: ' + e.message); }
+}
+
+
 /* ===== Sort + Events ===== */
 function attachSort(){
   document.querySelectorAll('#thead th.sort').forEach(th=>{
@@ -412,11 +468,17 @@ async function detectAdmin(){
 /* ===== Init ===== */
 (async function init(){
   document.getElementById('meta').textContent = '';
-  attachEvents();
-  attachSort();
-  await detectAdmin();
+  attachEvents(); attachSort(); await detectAdmin();
+
+  try {
+    all = await fetchEmployees();   // <-- gets rows from the “Directory” sheet
+  } catch (e) {
+    document.getElementById('status').textContent = 'Load failed: ' + e.message;
+    all = [];
+  }
   apply();
 })();
+
 </script>
 </body>
 </html>
