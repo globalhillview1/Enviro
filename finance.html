@@ -4,102 +4,134 @@
 <meta charset="UTF-8">
 <title>Finance – P/L, Balance Sheet, COA & Opening Balances</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-:root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --blue:#0d6efd; --danger:#ef4444 }
-*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+:root{
+  --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --blue:#0d6efd; --danger:#ef4444;
+  /* layout controls */
+  --leftPct:50;         /* % width of P/L (left) vs B/S (right) 20–80 range via splitter */
+  --topH:52vh;          /* top area height vs transactions 25–85vh via splitter */
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
 header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border)}
 h1{margin:0;font-size:18px;font-weight:800}
+
 .btn{border:1px solid var(--border);background:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
 .btn:hover{background:#f1f5f9}
 .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
 .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+
 .wrap{padding:16px}
-.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-input,select,textarea{border:1px solid var(--border);border-radius:8px;padding:8px}
+
+/* cards flex so the inner tableWrap can fill available height */
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin:0;display:flex;flex-direction:column;min-height:0}
+
+/* generic table + sticky header inside its own scroller */
+.tableWrap{overflow:auto;border:1px solid var(--border);border-radius:12px}
 table{width:100%;border-collapse:separate;border-spacing:0}
-thead th{position:sticky;top:122px;background:#fff;border-bottom:1px solid var(--border);padding:10px;text-align:left;z-index:5}
-tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media(max-width:980px){.grid{grid-template-columns:1fr}}
+.tableWrap thead th{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:10px;text-align:left;z-index:1}
+tbody td, tfoot th{border-top:1px solid var(--border);padding:10px;vertical-align:top}
+.right{text-align:right}
 .badge{display:inline-block;padding:2px 6px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;color:#334155;font-size:12px}
 .muted{color:var(--muted)}
-.right{text-align:right}
 .hidden{display:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,textarea{border:1px solid var(--border);border-radius:8px;padding:8px}
 
-/* modal */
-.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:center;justify-content:center}
-.modal .box{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;width:min(860px,94vw)}
-.box h3{margin:6px 0 12px}
+/* MAIN LAYOUT: Top (P/L + B/S) vs Transactions, with a draggable splitter */
+.layout{display:grid;grid-template-rows:var(--topH) 8px auto;gap:16px;min-height:calc(100vh - 64px)} /* 64≈header+padding */
+.topgrid{display:grid;grid-template-columns:calc(var(--leftPct)*1%) 8px calc(100% - var(--leftPct)*1%);gap:16px;min-height:0}
+
+/* splitters */
+.splitX{background:var(--border);cursor:col-resize;border-radius:4px}
+.splitY{background:var(--border);cursor:row-resize;border-radius:4px}
+
+/* make table area grow inside cards */
+.card > .tableWrap{flex:1;min-height:0;margin-top:10px}
+
+/* small headings inside B/S columns */
+h4{margin:8px 0}
 </style>
 </head>
 <body>
 <header>
   <h1>Finance</h1>
-  <div class="row">
-    <button class="btn" onclick="location.href='/'">Back</button>
-  </div>
+  <div class="row"><button class="btn" onclick="location.href='/'">Back</button></div>
 </header>
 
-<div class="wrap">
-  <div class="card">
-    <div class="row">
-      <label>From <input id="from" type="date"></label>
-      <label>To <input id="to" type="date"></label>
-      <label>As of <input id="asof" type="date"></label>
-      <button id="run" class="btn primary">Run</button>
-      <span id="status" class="muted"></span>
-      <span class="muted" style="margin-left:auto">Timezone: IST • Dates: DD-MM-YYYY</span>
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <h3 style="margin:0">Profit & Loss</h3>
+<div class="wrap layout">
+  <!-- Filters card sits above, inside top area left column -->
+  <div class="topgrid">
+    <!-- LEFT: Profit & Loss (plus filters card placed separately below) -->
+    <div style="display:flex;flex-direction:column;min-height:0;gap:16px">
+      <div class="card">
         <div class="row">
-          <button id="coaBtn" class="btn hidden">Manage COA</button>
+          <label>From <input id="from" type="date"></label>
+          <label>To <input id="to" type="date"></label>
+          <label>As of <input id="asof" type="date"></label>
+          <button id="run" class="btn primary">Run</button>
+          <span id="status" class="muted"></span>
+          <span class="muted" style="margin-left:auto">Timezone: IST • Dates: DD-MM-YYYY</span>
         </div>
       </div>
-      <table>
-        <thead><tr><th>Group</th><th class="right">Amount</th></tr></thead>
-        <tbody id="plBody"></tbody>
-        <tfoot>
-          <tr><th>Total Income</th><th id="tInc" class="right">–</th></tr>
-          <tr><th>Total Expense</th><th id="tExp" class="right">–</th></tr>
-          <tr><th>Surplus / (Deficit)</th><th id="tSur" class="right">–</th></tr>
-        </tfoot>
-      </table>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Profit & Loss</h3>
+          <div class="row"><button id="coaBtn" class="btn hidden">Manage COA</button></div>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead><tr><th>Group</th><th class="right">Amount</th></tr></thead>
+            <tbody id="plBody"></tbody>
+            <tfoot>
+              <tr><th>Total Income</th><th id="tInc" class="right">–</th></tr>
+              <tr><th>Total Expense</th><th id="tExp" class="right">–</th></tr>
+              <tr><th>Surplus / (Deficit)</th><th id="tSur" class="right">–</th></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
     </div>
 
+    <!-- SPLITTER: horizontal (left-right) -->
+    <div id="splitX" class="splitX" aria-label="Resize columns"></div>
+
+    <!-- RIGHT: Balance Sheet -->
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <h3 style="margin:0">Balance Sheet</h3>
         <button id="obBtn" class="btn hidden">Opening Balances</button>
       </div>
-      <div class="grid">
-        <div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:0">
+        <div style="display:flex;flex-direction:column;min-height:0">
           <h4>Assets</h4>
-          <table><tbody id="bsA"></tbody></table>
+          <div class="tableWrap"><table><tbody id="bsA"></tbody></table></div>
         </div>
-        <div>
-          <h4>Liabilities & Equity</h4>
-          <table><tbody id="bsL"></tbody></table>
+        <div style="display:flex;flex-direction:column;min-height:0">
+          <h4>Liabilities &amp; Equity</h4>
+          <div class="tableWrap"><table><tbody id="bsL"></tbody></table></div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- SPLITTER: vertical (top-bottom) -->
+  <div id="splitY" class="splitY" aria-label="Resize sections"></div>
+
+  <!-- Transactions -->
   <div class="card">
     <div class="row" style="justify-content:space-between">
       <div class="row">
         <h3 style="margin:0">Transactions</h3>
         <input id="q" placeholder="Quick search…" style="min-width:260px;margin-left:10px">
       </div>
-      <div class="row">
-        <button id="addBtn" class="btn primary hidden">+ Add Transaction</button>
-      </div>
+      <div class="row"><button id="addBtn" class="btn primary hidden">+ Add Transaction</button></div>
     </div>
-    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px;margin-top:10px">
+
+    <div class="tableWrap">
       <table>
         <thead>
           <tr>
@@ -111,6 +143,7 @@ tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
         <tbody id="txBody"></tbody>
       </table>
     </div>
+
     <div class="row" style="margin-top:10px">
       <button id="prev" class="btn">Prev</button>
       <span id="page" class="muted">Page 1 / 1</span>
@@ -125,33 +158,24 @@ tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
   <div class="box">
     <h3 id="m_title">Add Transaction</h3>
     <input type="hidden" id="m_serial">
-    <div class="grid">
-      <div><label>Date <input id="m_date" type="date"></label></div>
-      <div>
-        <label>Type
-          <select id="m_type"><option>Income</option><option>Expense</option></select>
-        </label>
-      </div>
-      <div><label>Category <input id="m_category" placeholder="e.g., Maintenance/Utilities"></label></div>
-      <div><label>Sub-category <input id="m_sub" placeholder="e.g., Common Maintenance/Lift AMC"></label></div>
-      <div><label>Amount <input id="m_amount" type="number" step="0.01" min="0"></label></div>
-      <div><label>Account (Dr) <input id="m_dr" placeholder="e.g., Bank"></label></div>
-      <div><label>Account (Cr) <input id="m_cr" placeholder="e.g., Income:Maintenance"></label></div>
-      <div><label>Party <input id="m_party"></label></div>
-      <div><label>Mode <input id="m_mode" placeholder="Bank/Cash/UPI"></label></div>
-      <div><label>Ref <input id="m_ref"></label></div>
-      <div style="grid-column:1/-1"><label>Notes <input id="m_notes" style="width:100%"></label></div>
-      <div><label>Cost Center <input id="m_cc"></label></div>
-      <div>
-        <label>Cleared
-          <select id="m_cleared"><option value="true">Yes</option><option value="false">No</option></select>
-        </label>
-      </div>
-      <div style="grid-column:1/-1">
-        <div class="row">
-          <button id="m_browse" class="btn">Attach file…</button>
-          <span id="m_att" class="muted">(none)</span>
-        </div>
+    <div class="row" style="grid-template-columns:repeat(2,1fr);gap:12px;flex-wrap:wrap">
+      <label>Date <input id="m_date" type="date"></label>
+      <label>Type <select id="m_type"><option>Income</option><option>Expense</option></select></label>
+      <label>Category <input id="m_category" placeholder="e.g., Maintenance/Utilities"></label>
+      <label>Sub-category <input id="m_sub" placeholder="e.g., Common Maintenance/Lift AMC"></label>
+      <label>Amount <input id="m_amount" type="number" step="0.01" min="0"></label>
+      <label>Account (Dr) <input id="m_dr" placeholder="e.g., Bank"></label>
+      <label>Account (Cr) <input id="m_cr" placeholder="e.g., Income:Maintenance"></label>
+      <label>Party <input id="m_party"></label>
+      <label>Mode <input id="m_mode" placeholder="Bank/Cash/UPI"></label>
+      <label>Ref <input id="m_ref"></label>
+      <label style="flex:1 1 100%">Notes <input id="m_notes" style="width:100%"></label>
+      <label>Cost Center <input id="m_cc"></label>
+      <label>Cleared
+        <select id="m_cleared"><option value="true">Yes</option><option value="false">No</option></select>
+      </label>
+      <div style="flex:1 1 100%">
+        <div class="row"><button id="m_browse" class="btn">Attach file…</button><span id="m_att" class="muted">(none)</span></div>
       </div>
     </div>
     <div class="row" style="margin-top:10px">
@@ -168,25 +192,19 @@ tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
   <div class="box">
     <h3>Manage Chart of Accounts</h3>
     <div class="row">
-      <label>Statement
-        <select id="coa_stmt"><option>BS</option></select>
-      </label>
-      <label>Group
-        <select id="coa_group"><option>Asset</option><option>Liability</option><option>Equity</option></select>
-      </label>
+      <label>Statement <select id="coa_stmt"><option>BS</option></select></label>
+      <label>Group <select id="coa_group"><option>Asset</option><option>Liability</option><option>Equity</option></select></label>
       <label>Account <input id="coa_account" placeholder="e.g., Bank"></label>
       <button id="coa_add" class="btn primary">Add</button>
       <span id="coa_status" class="muted"></span>
     </div>
-    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px;margin-top:10px">
+    <div class="tableWrap" style="margin-top:10px">
       <table>
         <thead><tr><th>Statement</th><th>Group</th><th>Account</th><th>Actions</th></tr></thead>
         <tbody id="coa_body"></tbody>
       </table>
     </div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn" onclick="closeCOA()">Close</button>
-    </div>
+    <div class="row" style="margin-top:10px"><button class="btn" onclick="closeCOA()">Close</button></div>
   </div>
 </div>
 
@@ -200,15 +218,13 @@ tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
       <button id="ob_set" class="btn primary">Save</button>
       <span id="ob_status" class="muted"></span>
     </div>
-    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px;margin-top:10px">
+    <div class="tableWrap" style="margin-top:10px">
       <table>
         <thead><tr><th>Account</th><th class="right">Balance</th><th>Actions</th></tr></thead>
         <tbody id="ob_body"></tbody>
       </table>
     </div>
-    <div class="row" style="margin-top:10px">
-      <button class="btn" onclick="closeOB()">Close</button>
-    </div>
+    <div class="row" style="margin-top:10px"><button class="btn" onclick="closeOB()">Close</button></div>
   </div>
 </div>
 
@@ -217,16 +233,11 @@ const API='/api';
 const PAGE=12;
 const token=()=>{ try{return localStorage.getItem('token')}catch{return null} };
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-const dd=(d)=>{ // to dd-mm-yyyy in IST
-  if(!d) return '';
-  const dt=new Date(d);
+const dd=(d)=>{ if(!d) return ''; const dt=new Date(d);
   const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(dt);
-  const g=k=>p.find(x=>x.type===k)?.value||''; return `${g('day')}-${g('month')}-${g('year')}`;
-};
-const toDateInput=(d)=>{
-  const dt=d?new Date(d):new Date();
-  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
-};
+  const g=k=>p.find(x=>x.type===k)?.value||''; return `${g('day')}-${g('month')}-${g('year')}`; };
+const toDateInput=(d)=>{ const dt=d?new Date(d):new Date();
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(dt); };
 const cur=(n)=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});
 
 let me=null, isAdmin=false;
@@ -257,15 +268,13 @@ async function fetchCOA(){
 }
 async function addCOA(stmt, group, account){
   const r=await fetch(`${API}?action=addcoa&token=${encodeURIComponent(token()||'')}`,{
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({statement:stmt, group, account})
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({statement:stmt, group, account})
   });
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Add COA failed'); return j.data;
 }
 async function delCOA(account){
   const r=await fetch(`${API}?action=delcoa&token=${encodeURIComponent(token()||'')}`,{
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({account})
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({account})
   });
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Del COA failed'); return j.data;
 }
@@ -276,15 +285,13 @@ async function fetchOB(){
 }
 async function setOB(account,balance){
   const r=await fetch(`${API}?action=setob&token=${encodeURIComponent(token()||'')}`,{
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({account, balance})
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({account, balance})
   });
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Set OB failed'); return j.data;
 }
 async function delOB(account){
   const r=await fetch(`${API}?action=delob&token=${encodeURIComponent(token()||'')}`,{
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({account})
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({account})
   });
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Del OB failed'); return j.data;
 }
@@ -372,7 +379,7 @@ function openModal(edit=false, serial=null){
   if(edit){
     const r=rows.find(x=>x.serial==serial);
     document.getElementById('m_serial').value = r.serial;
-    document.getElementById('m_date').value = toDateInput(r.date.split('-').reverse().join('-')); // dd-mm-yyyy -> yyyy-mm-dd
+    document.getElementById('m_date').value = toDateInput(r.date.split('-').reverse().join('-'));
     document.getElementById('m_type').value = r.type;
     document.getElementById('m_category').value = r.category;
     document.getElementById('m_sub').value = r.subCategory||'';
@@ -399,7 +406,7 @@ async function saveModal(){
   const s=document.getElementById('m_status');
   const payload = {
     serial: document.getElementById('m_serial').value||undefined,
-    date: dd(document.getElementById('m_date').value), // dd-mm-yyyy
+    date: dd(document.getElementById('m_date').value),
     type: document.getElementById('m_type').value,
     category: document.getElementById('m_category').value.trim(),
     subCategory: document.getElementById('m_sub').value.trim(),
@@ -445,8 +452,8 @@ async function uploadFile(file){
       body:JSON.stringify({name:file.name, mime:file.type||'application/octet-stream', data:b64})
     });
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'failed');
-    const cur = document.getElementById('m_att').textContent.trim();
-    document.getElementById('m_att').textContent = cur && cur!=='(none)' ? (cur+','+j.data.url) : j.data.url;
+    const crt = document.getElementById('m_att').textContent.trim();
+    document.getElementById('m_att').textContent = crt && crt!=='(none)' ? (crt+','+j.data.url) : j.data.url;
     st.textContent='Uploaded';
   }catch(e){ st.textContent='Upload failed: '+e.message; }
 }
@@ -512,6 +519,46 @@ async function delOBItem(account){
   catch(e){ s.textContent='Failed: '+e.message; }
 }
 
+// ---------- Splitters ----------
+(function(){
+  const root = document.documentElement;
+  const bar  = document.getElementById('splitX');
+  const area = document.querySelector('.topgrid');
+  if(!bar || !area) return;
+
+  bar.addEventListener('pointerdown', e => {
+    bar.setPointerCapture(e.pointerId);
+    const rect = area.getBoundingClientRect();
+    const move = ev => {
+      const pct = Math.min(80, Math.max(20, ((ev.clientX - rect.left) / rect.width) * 100));
+      root.style.setProperty('--leftPct', pct.toFixed(1));
+    };
+    const up = () => { bar.releasePointerCapture(e.pointerId); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+})();
+(function(){
+  const root = document.documentElement;
+  const bar  = document.getElementById('splitY');
+  const layout = document.querySelector('.layout');
+  if(!bar || !layout) return;
+
+  bar.addEventListener('pointerdown', e => {
+    bar.setPointerCapture(e.pointerId);
+    const rect = layout.getBoundingClientRect();
+    const vh = window.innerHeight / 100;
+    const move = ev => {
+      const px = ev.clientY - rect.top;
+      const vhVal = Math.min(85, Math.max(25, px / vh));
+      root.style.setProperty('--topH', vhVal.toFixed(1) + 'vh');
+    };
+    const up = () => { bar.releasePointerCapture(e.pointerId); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+})();
+
 // ---------- Events ----------
 document.getElementById('run').onclick=()=>run();
 document.getElementById('q').addEventListener('input',filterAndRender);
@@ -535,7 +582,6 @@ document.getElementById('ob_set').onclick=saveOBItem;
     me=await whoami(); isAdmin=(me.role==='admin');
     if(isAdmin){ document.getElementById('addBtn').classList.remove('hidden'); document.getElementById('coaBtn').classList.remove('hidden'); document.getElementById('obBtn').classList.remove('hidden'); }
   }catch{ location.replace('/login'); return; }
-  // defaults: current month
   const now=new Date();
   const start=new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
   const end=new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
