@@ -1,477 +1,548 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>
-  (function(){
-    try {
-      if (!localStorage.getItem('token')) {
-        // hide page instantly so user doesn’t see a flash
-        document.documentElement.style.display='none';
-        location.replace('/login');
-      }
-    } catch {
-      document.documentElement.style.display='none';
-      location.replace('/login');
-    }
-  })();
-</script>
-<meta charset="utf-8">
-<title>Finance — P/L & Balance Sheet</title>
-   <!-- LOGIN GUARD -->
-  <script>
-    (function(){
-      try {
-        if (!localStorage.getItem('token')) {
-          document.documentElement.style.display='none';
-          location.replace('/login');
-        }
-      } catch {
-        document.documentElement.style.display='none';
-        location.replace('/login');
-      }
-    })();
-  </script>
+<meta charset="UTF-8">
+<title>Finance – P/L, Balance Sheet, COA & Opening Balances</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  :root{--bg:#f7f9fc;--card:#fff;--text:#0f172a;--muted:#64748b;--border:#e5e7eb;--hover:#f1f5f9;--blue:#0d6efd;--danger:#ef4444;}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
-  header{position:sticky;top:0;z-index:10;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
-  .brand{display:flex;gap:10px;align-items:center}
-  .brand img{height:28px;width:28px;border-radius:6px;object-fit:cover}
-  h1{margin:0;font-size:18px;font-weight:800}
-  .wrap{padding:14px 16px}
-  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-  .tab{padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer}
-  .tab.active{background:var(--blue);color:#fff;border-color:transparent}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .muted{color:var(--muted)}
-  .btn{appearance:none;border:1px solid var(--border);background:var(--card);padding:8px 10px;border-radius:10px;cursor:pointer}
-  .btn:hover{background:var(--hover)}
-  .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
-  .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
-  input,select{padding:8px 10px;border:1px solid var(--border);border-radius:8px}
-  .tableWrap{overflow:auto;border:1px solid var(--border);border-radius:12px;max-height:calc(100vh - 280px)}
-  table{width:100%;border-collapse:separate;border-spacing:0}
-  thead th{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--border);padding:10px;text-align:left;font-weight:700;white-space:nowrap;z-index:5}
-  tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
-  th.sort{cursor:pointer;user-select:none}
-  th.sort:after{content:" ⇵";color:#94a3b8;font-weight:400}
-  th.sort.asc:after{content:" ↑";} th.sort.desc:after{content:" ↓";}
-  .hidden{display:none}
-  /* modal */
-  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center}
-  .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(820px,96vw)}
-  .box h3{margin:6px 0 12px}
-  .box label{display:block;margin-top:10px;font-weight:600}
-  .box input,.box select{width:100%;margin-top:4px}
-  .pill{display:inline-block;padding:3px 8px;border:1px solid var(--border);border-radius:999px;background:#f8fafc;margin-right:6px}
+:root{ --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --blue:#0d6efd; --danger:#ef4444 }
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border)}
+h1{margin:0;font-size:18px;font-weight:800}
+.btn{border:1px solid var(--border);background:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
+.btn:hover{background:#f1f5f9}
+.btn.primary{background:var(--blue);color:#fff;border-color:transparent}
+.btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+.wrap{padding:16px}
+.card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input,select,textarea{border:1px solid var(--border);border-radius:8px;padding:8px}
+table{width:100%;border-collapse:separate;border-spacing:0}
+thead th{position:sticky;top:122px;background:#fff;border-bottom:1px solid var(--border);padding:10px;text-align:left;z-index:5}
+tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media(max-width:980px){.grid{grid-template-columns:1fr}}
+.badge{display:inline-block;padding:2px 6px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;color:#334155;font-size:12px}
+.muted{color:var(--muted)}
+.right{text-align:right}
+.hidden{display:none}
+
+/* modal */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:center;justify-content:center}
+.modal .box{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;width:min(860px,94vw)}
+.box h3{margin:6px 0 12px}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand">
-    <img src="/android-chrome-512x512.png" onerror="this.src='logo.png'" alt="logo">
-    <h1>Finance</h1>
-  </div>
+  <h1>Finance</h1>
   <div class="row">
     <button class="btn" onclick="location.href='/'">Back</button>
-    <button id="addBtn" class="btn primary hidden">+ Add Transaction</button>
-    <button class="btn" onclick="logout()">Logout</button>
   </div>
 </header>
 
 <div class="wrap">
-  <div class="tabs">
-    <div id="tabTx" class="tab active" onclick="showTab('tx')">Transactions</div>
-    <div id="tabPL" class="tab" onclick="showTab('pl')">Profit &amp; Loss</div>
-    <div id="tabBS" class="tab" onclick="showTab('bs')">Balance Sheet</div>
+  <div class="card">
+    <div class="row">
+      <label>From <input id="from" type="date"></label>
+      <label>To <input id="to" type="date"></label>
+      <label>As of <input id="asof" type="date"></label>
+      <button id="run" class="btn primary">Run</button>
+      <span id="status" class="muted"></span>
+      <span class="muted" style="margin-left:auto">Timezone: IST • Dates: DD-MM-YYYY</span>
+    </div>
   </div>
 
-  <!-- TRANSACTIONS -->
-  <section id="viewTx" class="card">
-    <div class="row" style="margin-bottom:8px">
-      <input id="q" placeholder="Quick search…" style="min-width:260px">
-      <select id="filterType">
-        <option value="">All types</option>
-        <option>Income</option><option>Expense</option><option>Asset</option><option>Liability</option><option>Equity</option>
-      </select>
-      <span id="statusTx" class="muted" style="margin-left:auto"></span>
-    </div>
-    <div class="tableWrap">
-      <table id="gridTx">
-        <thead id="theadTx">
-          <tr>
-            <th class="sort" data-k="serial">Serial</th>
-            <th class="sort" data-k="date">Date</th>
-            <th class="sort" data-k="type">Type</th>
-            <th class="sort" data-k="account">Account</th>
-            <th class="sort" data-k="subAccount">Sub-Account</th>
-            <th>Description</th>
-            <th class="sort" data-k="amount">Amount</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
+  <div class="grid">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h3 style="margin:0">Profit & Loss</h3>
+        <div class="row">
+          <button id="coaBtn" class="btn hidden">Manage COA</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Group</th><th class="right">Amount</th></tr></thead>
+        <tbody id="plBody"></tbody>
+        <tfoot>
+          <tr><th>Total Income</th><th id="tInc" class="right">–</th></tr>
+          <tr><th>Total Expense</th><th id="tExp" class="right">–</th></tr>
+          <tr><th>Surplus / (Deficit)</th><th id="tSur" class="right">–</th></tr>
+        </tfoot>
       </table>
     </div>
-  </section>
 
-  <!-- P/L -->
-  <section id="viewPL" class="card hidden">
-    <div class="row" style="margin-bottom:8px">
-      <label>From <input type="date" id="plFrom"></label>
-      <label>To <input type="date" id="plTo"></label>
-      <button class="btn" onclick="loadPL()">Run</button>
-      <span id="statusPL" class="muted" style="margin-left:auto"></span>
-    </div>
-    <div id="plOut"></div>
-  </section>
-
-  <!-- Balance Sheet -->
-  <section id="viewBS" class="card hidden">
-    <div class="row" style="margin-bottom:8px">
-      <label>As of <input type="date" id="bsAsOf"></label>
-      <button class="btn" onclick="loadBS()">Run</button>
-      <span id="statusBS" class="muted" style="margin-left:auto"></span>
-    </div>
-    <div id="bsOut"></div>
-  </section>
-</div>
-
-<!-- Add/Edit Modal -->
-<div id="txModal" class="modal" role="dialog" aria-modal="true">
-  <div class="box">
-    <h3 id="modalTitle">Add Transaction</h3>
-    <input type="hidden" id="m_serial">
-    <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
-      <div style="flex:1 1 260px">
-        <label>Date <input id="m_date" type="date"></label>
-        <label>Type
-          <select id="m_type">
-            <option>Income</option><option>Expense</option><option>Asset</option><option>Liability</option><option>Equity</option>
-          </select>
-        </label>
-        <label>Account
-          <select id="m_account"></select>
-        </label>
-        <label>Sub-Account <input id="m_sub"></label>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <h3 style="margin:0">Balance Sheet</h3>
+        <button id="obBtn" class="btn hidden">Opening Balances</button>
       </div>
-      <div style="flex:1 1 260px">
-        <label>Description <input id="m_desc" placeholder="e.g., April salaries / Event fees"></label>
-        <label>Amount <input id="m_amount" type="number" step="0.01"></label>
-        <div class="muted" style="margin-top:6px">
-          Suggestions:
-          <span class="pill">Common Maintenance (Income)</span>
-          <span class="pill">Events (Income)</span>
-          <span class="pill">Fines (Income)</span>
-          <span class="pill">Salaries (Expense)</span>
-          <span class="pill">Electrician (Expense)</span>
-          <span class="pill">Security (Expense)</span>
-          <span class="pill">Housekeeping (Expense)</span>
-          <span class="pill">Gardeners (Expense)</span>
-          <span class="pill">Mason (Expense)</span>
+      <div class="grid">
+        <div>
+          <h4>Assets</h4>
+          <table><tbody id="bsA"></tbody></table>
+        </div>
+        <div>
+          <h4>Liabilities & Equity</h4>
+          <table><tbody id="bsL"></tbody></table>
         </div>
       </div>
     </div>
-    <div class="row" style="margin-top:12px">
-      <button class="btn" onclick="closeTx()">Cancel</button>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <h3 style="margin:0">Transactions</h3>
+        <input id="q" placeholder="Quick search…" style="min-width:260px;margin-left:10px">
+      </div>
+      <div class="row">
+        <button id="addBtn" class="btn primary hidden">+ Add Transaction</button>
+      </div>
+    </div>
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px;margin-top:10px">
+      <table>
+        <thead>
+          <tr>
+            <th>Serial</th><th>Date</th><th>Type</th><th>Category</th><th>Sub-category</th>
+            <th class="right">Amount</th><th>Dr</th><th>Cr</th><th>Party</th><th>Notes</th>
+            <th>Cost Center</th><th>Mode</th><th>Ref</th><th>Cleared</th><th>Attachment</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="txBody"></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button id="prev" class="btn">Prev</button>
+      <span id="page" class="muted">Page 1 / 1</span>
+      <button id="next" class="btn">Next</button>
+      <span id="count" class="muted" style="margin-left:auto"></span>
+    </div>
+  </div>
+</div>
+
+<!-- TX Modal -->
+<div id="txModal" class="modal">
+  <div class="box">
+    <h3 id="m_title">Add Transaction</h3>
+    <input type="hidden" id="m_serial">
+    <div class="grid">
+      <div><label>Date <input id="m_date" type="date"></label></div>
+      <div>
+        <label>Type
+          <select id="m_type"><option>Income</option><option>Expense</option></select>
+        </label>
+      </div>
+      <div><label>Category <input id="m_category" placeholder="e.g., Maintenance/Utilities"></label></div>
+      <div><label>Sub-category <input id="m_sub" placeholder="e.g., Common Maintenance/Lift AMC"></label></div>
+      <div><label>Amount <input id="m_amount" type="number" step="0.01" min="0"></label></div>
+      <div><label>Account (Dr) <input id="m_dr" placeholder="e.g., Bank"></label></div>
+      <div><label>Account (Cr) <input id="m_cr" placeholder="e.g., Income:Maintenance"></label></div>
+      <div><label>Party <input id="m_party"></label></div>
+      <div><label>Mode <input id="m_mode" placeholder="Bank/Cash/UPI"></label></div>
+      <div><label>Ref <input id="m_ref"></label></div>
+      <div style="grid-column:1/-1"><label>Notes <input id="m_notes" style="width:100%"></label></div>
+      <div><label>Cost Center <input id="m_cc"></label></div>
+      <div>
+        <label>Cleared
+          <select id="m_cleared"><option value="true">Yes</option><option value="false">No</option></select>
+        </label>
+      </div>
+      <div style="grid-column:1/-1">
+        <div class="row">
+          <button id="m_browse" class="btn">Attach file…</button>
+          <span id="m_att" class="muted">(none)</span>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" onclick="closeModal()">Cancel</button>
       <button id="m_save" class="btn primary">Save</button>
       <span id="m_status" class="muted" style="margin-left:auto"></span>
+    </div>
+    <input id="m_file" type="file" style="display:none">
+  </div>
+</div>
+
+<!-- COA Modal -->
+<div id="coaModal" class="modal">
+  <div class="box">
+    <h3>Manage Chart of Accounts</h3>
+    <div class="row">
+      <label>Statement
+        <select id="coa_stmt"><option>BS</option></select>
+      </label>
+      <label>Group
+        <select id="coa_group"><option>Asset</option><option>Liability</option><option>Equity</option></select>
+      </label>
+      <label>Account <input id="coa_account" placeholder="e.g., Bank"></label>
+      <button id="coa_add" class="btn primary">Add</button>
+      <span id="coa_status" class="muted"></span>
+    </div>
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px;margin-top:10px">
+      <table>
+        <thead><tr><th>Statement</th><th>Group</th><th>Account</th><th>Actions</th></tr></thead>
+        <tbody id="coa_body"></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" onclick="closeCOA()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- OB Modal -->
+<div id="obModal" class="modal">
+  <div class="box">
+    <h3>Opening Balances</h3>
+    <div class="row">
+      <label>Account <input id="ob_account" placeholder="e.g., Bank"></label>
+      <label>Balance <input id="ob_balance" type="number" step="0.01"></label>
+      <button id="ob_set" class="btn primary">Save</button>
+      <span id="ob_status" class="muted"></span>
+    </div>
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:12px;margin-top:10px">
+      <table>
+        <thead><tr><th>Account</th><th class="right">Balance</th><th>Actions</th></tr></thead>
+        <tbody id="ob_body"></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" onclick="closeOB()">Close</button>
     </div>
   </div>
 </div>
 
 <script>
-/* === Config === */
-const API = 'https://script.google.com/macros/s/AKfycb.../exec'; // <-- put your script URL
-const IST = 'Asia/Kolkata';
-const PAGE = 20;
-
-/* === Helpers === */
-function logout(){ try{localStorage.clear()}catch{} location.replace('/login'); }
-function token(){ try{return localStorage.getItem('token')}catch{ return null; } }
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function fmtDateIST(d){
+const API='/api';
+const PAGE=12;
+const token=()=>{ try{return localStorage.getItem('token')}catch{return null} };
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+const dd=(d)=>{ // to dd-mm-yyyy in IST
   if(!d) return '';
-  const dt = new Date(d);
-  if(isNaN(dt)) return esc(d);
-  const p = new Intl.DateTimeFormat('en-GB',{timeZone:IST,day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(dt);
+  const dt=new Date(d);
+  const p=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(dt);
   const g=k=>p.find(x=>x.type===k)?.value||''; return `${g('day')}-${g('month')}-${g('year')}`;
-}
-function toDateInputValueIST(d){
-  const dt = d? new Date(d) : new Date();
-  return new Intl.DateTimeFormat('en-CA',{timeZone:IST,year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
-}
+};
+const toDateInput=(d)=>{
+  const dt=d?new Date(d):new Date();
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);
+};
+const cur=(n)=>Number(n||0).toLocaleString(undefined,{maximumFractionDigits:0});
 
-/* === State === */
-let isAdmin=false, txAll=[], txRows=[], sortKey='date', sortDir='desc', page=1;
+let me=null, isAdmin=false;
+let rows=[], view=[], page=1;
 
-/* === Tabs === */
-function showTab(key){
-  document.getElementById('tabTx').classList.toggle('active', key==='tx');
-  document.getElementById('tabPL').classList.toggle('active', key==='pl');
-  document.getElementById('tabBS').classList.toggle('active', key==='bs');
-  document.getElementById('viewTx').classList.toggle('hidden', key!=='tx');
-  document.getElementById('viewPL').classList.toggle('hidden', key!=='pl');
-  document.getElementById('viewBS').classList.toggle('hidden', key!=='bs');
-}
-
-/* === Fetch === */
+// ---------- Fetchers ----------
 async function whoami(){
-  const r=await fetch(`${API}?action=whoami&token=${encodeURIComponent(token())}`,{cache:'no-store'});
-  const j=await r.json(); if(!j.ok) throw new Error('unauthorized'); return j.data.user;
+  const r=await fetch(`${API}?action=whoami&token=${encodeURIComponent(token()||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error('unauthorized');
+  return j.data.user;
 }
-async function fetchTx(){
-  document.getElementById('statusTx').textContent='Loading…';
-  // We’ll build from Finance sheet via P/L accounts + direct list endpoint (list is not separate; reuse finance view by date wide open)
-  // The API doesn’t have a raw list endpoint, so we’ll infer by running PL & BS spans or store in one go:
-  // In v10 we exposed listFinance_ only internally; simplest path: fetch full year window P/L to touch API, but we need transactions.
-  // To list transactions, we’ll extend: we can just GET accounts (for dropdowns) and POST/GET via add/upd/del; to display tx list, we’ll
-  // keep a cached list client-side by calling a tiny “report” window: from 1970-01-01 to 2100-01-01 not exposed; so we’ll fetch via a custom endpoint?
-  // We didn’t ship it; but we can reconstruct list via admin endpoints? No. Let’s add a minimal fetch:
-  // Since your api.gs already includes listFinance_(), I'll add a light “view=accounts” call for suggestions and a hidden backfill endpoint below:
-  // -> We’ll fetch accounts for dropdown, then pull PL for wide window just to display totals, and ALSO call a tiny list endpoint we added: view=pl with huge window doesn't return rows.
-  // Solution: expose a tiny “?action=finance&view=accounts” (already) for options; and for rows you can add an optional endpoint later.
-  // For now, I’ll assume you’ll add GET ?action=finance&view=accounts for dropdowns and I’ll keep tx grid empty until you use addtxn in this session (so it reflects state post ops).
-  // To actually show existing rows, we will call a helper we included: though not exposed as endpoint. So we’ll fake a broad P/L window to compute only totals, not rows.
-
-  // Workaround: keep grid showing items you add/modify this session + advise adding list endpoint if you need historical rows right away.
-  // However, you asked “add all suggestions at once” and I delivered api with views only; to display rows now, I’ll add a lightweight reader endpoint
-  // by calling the same API with action=finance&view=accounts (for options) and we’ll use a special flag ?view=__list which I added in api v10? Not included.
-  // To avoid mismatch, I’ll just render an empty grid if there are no local changes. (Feel free to ask me to add a list endpoint.)
-
-  document.getElementById('statusTx').textContent='Tip: to see historical rows, I can add a list endpoint. For now, rows show after you add.';
-  render();
+async function fetchPL(from,to){
+  const r=await fetch(`${API}?action=pl&token=${encodeURIComponent(token()||'')}&from=${encodeURIComponent(from||'')}&to=${encodeURIComponent(to||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'PL failed'); return j.data;
 }
-async function loadAccounts(){
-  const r=await fetch(`${API}?action=finance&view=accounts&token=${encodeURIComponent(token())}`,{cache:'no-store'});
-  const j=await r.json(); if(!j.ok) return;
-  const sel=document.getElementById('m_account');
-  const buckets = [
-    ['Income', ...(j.data.income||[]), 'Common Maintenance','Events','Fines'],
-    ['Expense', ...(j.data.expense||[]), 'Salaries','Electrician','Security','Housekeeping','Gardeners','Mason'],
-    ['Asset', ...(j.data.asset||[])],
-    ['Liability', ...(j.data.liability||[])],
-    ['Equity', ...(j.data.equity||[])]
-  ];
-  sel.innerHTML='';
-  buckets.forEach(group=>{
-    const head=group.shift();
-    const opt=document.createElement('option');
-    opt.disabled=true; opt.textContent=`— ${head} —`;
-    sel.appendChild(opt);
-    group.filter(Boolean).forEach(a=>{
-      const o=document.createElement('option'); o.textContent=a; sel.appendChild(o);
-    });
+async function fetchBS(asof){
+  const r=await fetch(`${API}?action=balancesheet&token=${encodeURIComponent(token()||'')}&asof=${encodeURIComponent(asof||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'BS failed'); return j.data;
+}
+async function fetchTx(from,to){
+  const r=await fetch(`${API}?action=txlist&token=${encodeURIComponent(token()||'')}&from=${encodeURIComponent(from||'')}&to=${encodeURIComponent(to||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Tx failed'); return j.data||[];
+}
+// COA
+async function fetchCOA(){
+  const r=await fetch(`${API}?action=coa&token=${encodeURIComponent(token()||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'COA failed'); return j.data||[];
+}
+async function addCOA(stmt, group, account){
+  const r=await fetch(`${API}?action=addcoa&token=${encodeURIComponent(token()||'')}`,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({statement:stmt, group, account})
+  });
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Add COA failed'); return j.data;
+}
+async function delCOA(account){
+  const r=await fetch(`${API}?action=delcoa&token=${encodeURIComponent(token()||'')}`,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({account})
+  });
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Del COA failed'); return j.data;
+}
+// OB
+async function fetchOB(){
+  const r=await fetch(`${API}?action=ob&token=${encodeURIComponent(token()||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'OB failed'); return j.data||[];
+}
+async function setOB(account,balance){
+  const r=await fetch(`${API}?action=setob&token=${encodeURIComponent(token()||'')}`,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({account, balance})
+  });
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Set OB failed'); return j.data;
+}
+async function delOB(account){
+  const r=await fetch(`${API}?action=delob&token=${encodeURIComponent(token()||'')}`,{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({account})
+  });
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Del OB failed'); return j.data;
+}
+
+// ---------- P/L + BS + TX UI ----------
+function fillPL(data){
+  const tb=document.getElementById('plBody'); tb.innerHTML='';
+  Object.entries(data.income||{}).forEach(([k,v])=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${esc(k)}</td><td class="right">${cur(v)}</td>`; tb.appendChild(tr);
+  });
+  Object.entries(data.expense||{}).forEach(([k,v])=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${esc(k)}</td><td class="right">-${cur(v)}</td>`; tb.appendChild(tr);
+  });
+  document.getElementById('tInc').textContent=cur(data.totalIncome||0);
+  document.getElementById('tExp').textContent=cur(data.totalExpense||0);
+  document.getElementById('tSur').textContent=cur(data.surplus||0);
+}
+function fillBS(data){
+  const A=document.getElementById('bsA'); const L=document.getElementById('bsL');
+  A.innerHTML=''; L.innerHTML='';
+  Object.entries(data.assets||{}).forEach(([k,v])=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${esc(k)}</td><td class="right">${cur(v)}</td>`; A.appendChild(tr);
+  });
+  const le = {...(data.liabilities||{}), ...(data.equity||{})};
+  Object.entries(le).forEach(([k,v])=>{
+    const tr=document.createElement('tr'); tr.innerHTML=`<td>${esc(k)}</td><td class="right">${cur(v)}</td>`; L.appendChild(tr);
   });
 }
-
-/* === Transactions grid === */
-function applyTx(){
+function filterAndRender(){
   const q=(document.getElementById('q').value||'').toLowerCase();
-  const type=(document.getElementById('filterType').value||'').toLowerCase();
-  txRows = txAll.filter(r=>{
-    if(type && r.type.toLowerCase()!==type) return false;
-    const hay=(r.serial+' '+fmtDateIST(r.date)+' '+r.type+' '+r.account+' '+r.subAccount+' '+r.description+' '+r.amount).toLowerCase();
-    return !q || hay.includes(q);
-  }).sort((a,b)=>{
-    let A,B;
-    if(sortKey==='date'){ A=new Date(a.date||0); B=new Date(b.date||0); }
-    else if(sortKey==='amount'){ A=Number(a.amount||0); B=Number(b.amount||0); }
-    else if(sortKey==='serial'){ A=Number(a.serial||0); B=Number(b.serial||0); }
-    else { A=(a[sortKey]??'').toString().toLowerCase(); B=(b[sortKey]??'').toString().toLowerCase(); }
-    const s=(A<B?-1:A>B?1:0); return sortDir==='asc'?s:-s;
+  view = rows.filter(r=>{
+    const hay = (r.serial+' '+r.date+' '+r.type+' '+r.category+' '+r.subCategory+' '+r.amount+' '+r.accountDr+' '+r.accountCr+' '+r.party+' '+r.notes+' '+r.mode+' '+r.ref+' '+r.attachments).toLowerCase();
+    return hay.includes(q);
   });
-  page=1; render();
+  page=1; renderTable();
 }
-function render(){
-  const tbody=document.querySelector('#gridTx tbody'); tbody.innerHTML='';
-  const total=txRows.length, pages=Math.max(1,Math.ceil(total/PAGE));
+function renderTable(){
+  const body=document.getElementById('txBody'); body.innerHTML='';
+  const total=view.length, pages=Math.max(1,Math.ceil(total/PAGE));
   page=Math.min(Math.max(1,page),pages);
-  const part=txRows.slice((page-1)*PAGE,(page-1)*PAGE+PAGE);
+  const part=view.slice((page-1)*PAGE,(page-1)*PAGE+PAGE);
   part.forEach(r=>{
     const tr=document.createElement('tr');
+    const att=r.attachments?`<a class="badge" href="${esc(r.attachments.split(',')[0].trim())}" target="_blank">open</a>`:'';
     tr.innerHTML=`
       <td>${esc(r.serial)}</td>
-      <td>${fmtDateIST(r.date)}</td>
+      <td>${esc(r.date)}</td>
       <td>${esc(r.type)}</td>
-      <td>${esc(r.account||'')}</td>
-      <td>${esc(r.subAccount||'')}</td>
-      <td>${esc(r.description||'')}</td>
-      <td>${Number(r.amount||0).toFixed(2)}</td>
-      <td>${isAdmin? `<button class="btn" onclick="openTx(true, ${r.serial})">Edit</button> <button class="btn danger" onclick="delTxn(${r.serial})">Delete</button>`:''}</td>`;
-    tbody.appendChild(tr);
+      <td>${esc(r.category)}</td>
+      <td>${esc(r.subCategory)}</td>
+      <td class="right">${cur(r.amount)}</td>
+      <td>${esc(r.accountDr)}</td>
+      <td>${esc(r.accountCr)}</td>
+      <td>${esc(r.party)}</td>
+      <td>${esc(r.notes)}</td>
+      <td>${esc(r.costCenter||'')}</td>
+      <td>${esc(r.mode)}</td>
+      <td>${esc(r.ref||'')}</td>
+      <td>${r.cleared? 'Yes':'No'}</td>
+      <td>${att}</td>
+      <td>${isAdmin? `<button class="btn" onclick="openModal(true, ${r.serial})">Edit</button>
+                      <button class="btn danger" onclick="delTx(${r.serial})">Delete</button>`:''}</td>`;
+    body.appendChild(tr);
   });
-  document.getElementById('statusTx').textContent=`${total} txn(s), showing ${part.length}`;
+  document.getElementById('page').textContent=`Page ${page} / ${pages}`;
+  document.getElementById('count').textContent=`${total} record(s), showing ${part.length}`;
 }
 
-/* === Modal === */
-function openTx(edit=false, serial=null){
+async function run(){
+  const from=document.getElementById('from').value;
+  const to=document.getElementById('to').value;
+  const asof=document.getElementById('asof').value || to || from;
+  document.getElementById('status').textContent='Loading…';
+  const [pl, bs, tx] = await Promise.all([fetchPL(from,to), fetchBS(asof), fetchTx(from,to)]);
+  fillPL(pl); fillBS(bs);
+  rows = tx; filterAndRender();
+  document.getElementById('status').textContent='Done';
+}
+
+// ---------- TX modal ----------
+function openModal(edit=false, serial=null){
   document.getElementById('m_status').textContent='';
-  document.getElementById('modalTitle').textContent = edit?'Edit Transaction':'Add Transaction';
   document.getElementById('txModal').style.display='flex';
-  const today = toDateInputValueIST();
+  document.getElementById('m_title').textContent = edit? 'Edit Transaction' : 'Add Transaction';
   if(edit){
-    const r=txAll.find(x=>x.serial==serial);
+    const r=rows.find(x=>x.serial==serial);
     document.getElementById('m_serial').value = r.serial;
-    document.getElementById('m_date').value = toDateInputValueIST(r.date||today);
+    document.getElementById('m_date').value = toDateInput(r.date.split('-').reverse().join('-')); // dd-mm-yyyy -> yyyy-mm-dd
     document.getElementById('m_type').value = r.type;
-    document.getElementById('m_account').value = r.account||'';
-    document.getElementById('m_sub').value = r.subAccount||'';
-    document.getElementById('m_desc').value = r.description||'';
-    document.getElementById('m_amount').value = r.amount||'';
+    document.getElementById('m_category').value = r.category;
+    document.getElementById('m_sub').value = r.subCategory||'';
+    document.getElementById('m_amount').value = r.amount;
+    document.getElementById('m_dr').value = r.accountDr;
+    document.getElementById('m_cr').value = r.accountCr;
+    document.getElementById('m_party').value = r.party;
+    document.getElementById('m_notes').value = r.notes;
+    document.getElementById('m_cc').value = r.costCenter||'';
+    document.getElementById('m_mode').value = r.mode||'';
+    document.getElementById('m_ref').value = r.ref||'';
+    document.getElementById('m_cleared').value = r.cleared? 'true':'false';
+    document.getElementById('m_att').textContent = r.attachments||'(none)';
   }else{
-    ['m_serial','m_sub','m_desc','m_amount'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('m_date').value = today;
-    document.getElementById('m_type').value = 'Income';
-    // default account convenience
-    const accSel=document.getElementById('m_account');
-    if(accSel.options.length>0) accSel.selectedIndex=0;
+    document.getElementById('m_serial').value = '';
+    document.getElementById('m_date').value = toDateInput();
+    ['m_type','m_category','m_sub','m_amount','m_dr','m_cr','m_party','m_notes','m_cc','m_mode','m_ref'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('m_cleared').value='true';
+    document.getElementById('m_att').textContent='(none)';
   }
 }
-function closeTx(){ document.getElementById('txModal').style.display='none'; }
-
-async function saveTx(){
+function closeModal(){ document.getElementById('txModal').style.display='none'; }
+async function saveModal(){
   const s=document.getElementById('m_status');
-  const payload={
-    serial: document.getElementById('m_serial').value || undefined,
-    date: document.getElementById('m_date').value,
+  const payload = {
+    serial: document.getElementById('m_serial').value||undefined,
+    date: dd(document.getElementById('m_date').value), // dd-mm-yyyy
     type: document.getElementById('m_type').value,
-    account: document.getElementById('m_account').value,
-    subAccount: document.getElementById('m_sub').value.trim(),
-    description: document.getElementById('m_desc').value.trim(),
-    amount: document.getElementById('m_amount').value
+    category: document.getElementById('m_category').value.trim(),
+    subCategory: document.getElementById('m_sub').value.trim(),
+    amount: document.getElementById('m_amount').value,
+    accountDr: document.getElementById('m_dr').value.trim(),
+    accountCr: document.getElementById('m_cr').value.trim(),
+    party: document.getElementById('m_party').value.trim(),
+    notes: document.getElementById('m_notes').value.trim(),
+    costCenter: document.getElementById('m_cc').value.trim(),
+    mode: document.getElementById('m_mode').value.trim(),
+    ref: document.getElementById('m_ref').value.trim(),
+    cleared: document.getElementById('m_cleared').value==='true',
+    attachments: (document.getElementById('m_att').textContent||'').trim()
   };
-  if(!payload.amount){ s.textContent='Amount required'; return; }
+  if(!payload.type || !payload.category || !payload.amount || !payload.accountDr || !payload.accountCr){
+    s.textContent='Type, Category, Amount, Dr and Cr are required'; return;
+  }
   s.textContent='Saving…';
   try{
-    const action = payload.serial? 'updatetxn':'addtxn';
-    const r=await fetch(`${API}?action=${action}&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+    const action = payload.serial? 'updatetx':'addtx';
+    const r=await fetch(`${API}?action=${action}&token=${encodeURIComponent(token()||'')}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
     });
     const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    s.textContent='Saved.'; closeTx();
-    // reflect in local grid
-    if(payload.serial){
-      const i=txAll.findIndex(t=>String(t.serial)===String(payload.serial));
-      if(i>-1) txAll[i]=Object.assign({},txAll[i],payload);
-    }else{
-      // API returns {serial}; fetch last serial from response if needed
-      const newSerial = j.data.serial;
-      txAll.unshift(Object.assign({serial:newSerial},payload));
-    }
-    applyTx();
+    s.textContent='Saved'; closeModal(); await run();
   }catch(e){ s.textContent='Save failed: '+e.message; }
 }
-async function delTxn(serial){
+async function delTx(serial){
   if(!confirm('Delete transaction #'+serial+'?')) return;
+  const r=await fetch(`${API}?action=deltx&token=${encodeURIComponent(token()||'')}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({serial})
+  });
+  const j=await r.json(); if(!j.ok){ alert('Delete failed: '+(j.error||'Failed')); return; }
+  await run();
+}
+async function uploadFile(file){
+  if(!file) return;
+  const st=document.getElementById('m_status'); st.textContent='Uploading…';
+  const b64 = await file.arrayBuffer().then(b=>btoa(String.fromCharCode(...new Uint8Array(b))));
   try{
-    const r=await fetch(`${API}?action=deletetxn&token=${encodeURIComponent(token())}`,{
-      method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({serial})
+    const r=await fetch(`${API}?action=uploaddocb64&token=${encodeURIComponent(token()||'')}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:file.name, mime:file.type||'application/octet-stream', data:b64})
     });
-    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
-    txAll = txAll.filter(x=>String(x.serial)!==String(serial));
-    applyTx();
-  }catch(e){ alert('Delete failed: '+e.message); }
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'failed');
+    const cur = document.getElementById('m_att').textContent.trim();
+    document.getElementById('m_att').textContent = cur && cur!=='(none)' ? (cur+','+j.data.url) : j.data.url;
+    st.textContent='Uploaded';
+  }catch(e){ st.textContent='Upload failed: '+e.message; }
 }
 
-/* === PL & BS === */
-async function loadPL(){
-  const from=document.getElementById('plFrom').value||'';
-  const to=document.getElementById('plTo').value||'';
-  document.getElementById('statusPL').textContent='Loading…';
-  const r=await fetch(`${API}?action=finance&view=pl&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&token=${encodeURIComponent(token())}`,{cache:'no-store'});
-  const j=await r.json(); if(!j.ok){ document.getElementById('statusPL').textContent=j.error||'Failed'; return; }
-  const d=j.data;
-  const incRows = Object.entries(d.incomeByAccount||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td style="text-align:right">${Number(v).toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="2" class="muted">No income</td></tr>';
-  const expRows = Object.entries(d.expenseByAccount||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td style="text-align:right">${Number(v).toFixed(2)}</td></tr>`).join('')||'<tr><td colspan="2" class="muted">No expense</td></tr>';
-  document.getElementById('plOut').innerHTML = `
-    <div class="row muted" style="margin-bottom:8px">From: ${esc(from||'—')} • To: ${esc(to||'—')}</div>
-    <div class="row" style="align-items:flex-start">
-      <div style="flex:1 1 320px" class="card">
-        <h3 style="margin:0 0 8px">Income</h3>
-        <table style="width:100%"><tbody>${incRows}</tbody>
-          <tfoot><tr><th style="text-align:left">Total Income</th><th style="text-align:right">${Number(d.income||0).toFixed(2)}</th></tr></tfoot>
-        </table>
-      </div>
-      <div style="flex:1 1 320px" class="card">
-        <h3 style="margin:0 0 8px">Expenses</h3>
-        <table style="width:100%"><tbody>${expRows}</tbody>
-          <tfoot><tr><th style="text-align:left">Total Expense</th><th style="text-align:right">${Number(d.expense||0).toFixed(2)}</th></tr></tfoot>
-        </table>
-      </div>
-      <div style="flex:1 1 220px" class="card">
-        <h3 style="margin:0 0 8px">Net</h3>
-        <div style="font-size:24px;font-weight:800">${Number(d.net||0).toFixed(2)}</div>
-      </div>
-    </div>`;
-  document.getElementById('statusPL').textContent='Done';
-}
-async function loadBS(){
-  const asof=document.getElementById('bsAsOf').value||'';
-  document.getElementById('statusBS').textContent='Loading…';
-  const r=await fetch(`${API}?action=finance&view=balancesheet&asof=${encodeURIComponent(asof)}&token=${encodeURIComponent(token())}`,{cache:'no-store'});
-  const j=await r.json(); if(!j.ok){ document.getElementById('statusBS').textContent=j.error||'Failed'; return; }
-  const d=j.data;
-  function tableFrom(obj,title,total){
-    const rows = Object.entries(obj||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td style="text-align:right">${Number(v).toFixed(2)}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">No data</td></tr>';
-    return `<div class="card" style="flex:1 1 300px">
-      <h3 style="margin:0 0 8px">${title}</h3>
-      <table style="width:100%"><tbody>${rows}</tbody>
-        <tfoot><tr><th style="text-align:left">Total</th><th style="text-align:right">${Number(total||0).toFixed(2)}</th></tr></tfoot>
-      </table>
-    </div>`;
-  }
-  document.getElementById('bsOut').innerHTML = `
-    <div class="muted" style="margin-bottom:8px">As of: ${esc(asof||'—')}</div>
-    <div class="row" style="align-items:flex-start">
-      ${tableFrom(d.byType?.Asset||{},'Assets',d.assets)}
-      ${tableFrom(d.byType?.Liability||{},'Liabilities',d.liabilities)}
-      ${tableFrom(d.byType?.Equity||{},'Equity',d.equity)}
-    </div>`;
-  document.getElementById('statusBS').textContent='Done';
-}
-
-/* === UI bindings === */
-function attach(){
-  document.getElementById('q').addEventListener('input',applyTx);
-  document.getElementById('filterType').addEventListener('change',applyTx);
-  document.getElementById('m_save').onclick=saveTx;
-  document.getElementById('addBtn').onclick=()=>openTx(false);
-
-  document.querySelectorAll('#theadTx th.sort').forEach(th=>{
-    th.addEventListener('click',()=>{
-      const k=th.dataset.k;
-      if(sortKey===k) sortDir=(sortDir==='asc'?'desc':'asc');
-      else { sortKey=k; sortDir='asc'; }
-      document.querySelectorAll('#theadTx th.sort').forEach(x=>x.classList.remove('asc','desc'));
-      th.classList.add(sortDir);
-      applyTx();
-    });
+// ---------- COA modal ----------
+function openCOA(){ document.getElementById('coaModal').style.display='flex'; loadCOA(); }
+function closeCOA(){ document.getElementById('coaModal').style.display='none'; }
+async function loadCOA(){
+  const body=document.getElementById('coa_body'); body.innerHTML='<tr><td colspan="4" class="muted">Loading…</td></tr>';
+  const list = await fetchCOA();
+  body.innerHTML='';
+  list.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${esc(r.statement)}</td><td>${esc(r.group)}</td><td>${esc(r.account)}</td>
+                    <td><button class="btn danger" onclick="delCOAItem('${esc(r.account)}')">Delete</button></td>`;
+    body.appendChild(tr);
   });
 }
+async function addCOAItem(){
+  const s=document.getElementById('coa_status');
+  const stmt=document.getElementById('coa_stmt').value;
+  const group=document.getElementById('coa_group').value;
+  const account=document.getElementById('coa_account').value.trim();
+  if(!account){ s.textContent='Account required'; return; }
+  s.textContent='Saving…';
+  try{ await addCOA(stmt,group,account); s.textContent='Added'; document.getElementById('coa_account').value=''; await loadCOA(); }
+  catch(e){ s.textContent='Failed: '+e.message; }
+}
+async function delCOAItem(account){
+  if(!confirm('Delete account "'+account+'"?')) return;
+  const s=document.getElementById('coa_status'); s.textContent='Deleting…';
+  try{ await delCOA(account); s.textContent='Deleted'; await loadCOA(); }
+  catch(e){ s.textContent='Failed: '+e.message; }
+}
 
-/* === Boot === */
-(async function init(){
+// ---------- OB modal ----------
+function openOB(){ document.getElementById('obModal').style.display='flex'; loadOB(); }
+function closeOB(){ document.getElementById('obModal').style.display='none'; }
+async function loadOB(){
+  const body=document.getElementById('ob_body'); body.innerHTML='<tr><td colspan="3" class="muted">Loading…</td></tr>';
+  const list = await fetchOB();
+  body.innerHTML='';
+  list.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${esc(r.account)}</td><td class="right">${cur(r.balance)}</td>
+                    <td><button class="btn danger" onclick="delOBItem('${esc(r.account)}')">Delete</button></td>`;
+    body.appendChild(tr);
+  });
+}
+async function saveOBItem(){
+  const s=document.getElementById('ob_status');
+  const account=document.getElementById('ob_account').value.trim();
+  const balance=Number(document.getElementById('ob_balance').value||0);
+  if(!account){ s.textContent='Account required'; return; }
+  s.textContent='Saving…';
+  try{ await setOB(account,balance); s.textContent='Saved'; document.getElementById('ob_account').value=''; document.getElementById('ob_balance').value=''; await loadOB(); }
+  catch(e){ s.textContent='Failed: '+e.message; }
+}
+async function delOBItem(account){
+  if(!confirm('Delete opening balance for "'+account+'"?')) return;
+  const s=document.getElementById('ob_status'); s.textContent='Deleting…';
+  try{ await delOB(account); s.textContent='Deleted'; await loadOB(); }
+  catch(e){ s.textContent='Failed: '+e.message; }
+}
+
+// ---------- Events ----------
+document.getElementById('run').onclick=()=>run();
+document.getElementById('q').addEventListener('input',filterAndRender);
+document.getElementById('prev').onclick=()=>{ page=Math.max(1,page-1); renderTable(); };
+document.getElementById('next').onclick=()=>{ page=page+1; renderTable(); };
+
+document.getElementById('addBtn').onclick=()=>openModal(false);
+document.getElementById('m_browse').onclick=()=>document.getElementById('m_file').click();
+document.getElementById('m_file').addEventListener('change',ev=>uploadFile(ev.target.files[0]));
+document.getElementById('m_save').onclick=saveModal;
+
+document.getElementById('coaBtn').onclick=openCOA;
+document.getElementById('coa_add').onclick=addCOAItem;
+
+document.getElementById('obBtn').onclick=openOB;
+document.getElementById('ob_set').onclick=saveOBItem;
+
+// ---------- Init ----------
+(async function(){
   try{
-    const me=await whoami();
-    isAdmin = (me.role==='admin');
-    if(isAdmin) document.getElementById('addBtn').classList.remove('hidden');
-  }catch{ return logout(); }
-
-  // defaults for report pickers in IST
-  const today = toDateInputValueIST();
-  document.getElementById('plFrom').value = today.slice(0,8) + '01';
-  document.getElementById('plTo').value = today;
-  document.getElementById('bsAsOf').value = today;
-
-  attach();
-  await loadAccounts();
-  await fetchTx();   // shows local/session rows (added/edited)
-  await loadPL();
-  await loadBS();
+    me=await whoami(); isAdmin=(me.role==='admin');
+    if(isAdmin){ document.getElementById('addBtn').classList.remove('hidden'); document.getElementById('coaBtn').classList.remove('hidden'); document.getElementById('obBtn').classList.remove('hidden'); }
+  }catch{ location.replace('/login'); return; }
+  // defaults: current month
+  const now=new Date();
+  const start=new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+  const end=new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().slice(0,10);
+  document.getElementById('from').value=start;
+  document.getElementById('to').value=end;
+  document.getElementById('asof').value=end;
+  await run();
 })();
 </script>
 </body>
