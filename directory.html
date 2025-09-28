@@ -204,8 +204,15 @@ function toDateInputValueIST(d){
   return new Intl.DateTimeFormat('en-CA',{ timeZone: IST, year:'numeric', month:'2-digit', day:'2-digit' }).format(dt);
 }
 
-/* ===== Local data store (for demo; replace with API if needed) ===== */
-// --- replace the localStorage helpers with these ---
+/* ===== State ===== */
+let isAdmin = false;
+let all = [];           // rows from API
+let rows = [];          // filtered/sorted view
+let sortKey = 'serial';
+let sortDir = 'asc';
+let page = 1;
+
+/* ===== API ===== */
 async function fetchEmployees(){
   const r = await fetch(`${API}?action=directory&token=${encodeURIComponent(token()||'')}`, {cache:'no-store'});
   const j = await r.json();
@@ -231,7 +238,6 @@ async function deleteEmployee(serial){
   const j = await r.json(); if(!j.ok) throw new Error(j.error||'Delete failed'); return j.data;
 }
 
-
 /* ===== UI ===== */
 function apply(){
   const q = (document.getElementById('q').value || '').toLowerCase();
@@ -251,7 +257,6 @@ function apply(){
   });
   render();
 }
-
 function render(){
   const tbody = document.querySelector('#grid tbody'); tbody.innerHTML = '';
   const total = rows.length, pages = Math.max(1, Math.ceil(total / PAGE));
@@ -342,43 +347,7 @@ async function uploadFile(file, statusEl, targetInput){
   }
 }
 
-/* ===== CRUD (local demo; replace with API if/when needed) ===== */
-function ensureSerial(){
-  const used = new Set(all.map(x => Number(x.serial)||0));
-  let s = 1; while(used.has(s)) s++;
-  return s;
-}
-function saveFromModal(){
-  const sEl = document.getElementById('m_status');
-  const name = document.getElementById('m_name').value.trim();
-  if(!name){ sEl.textContent = 'Name is required.'; return; }
-  const payload = {
-    serial: document.getElementById('m_serial').value || ensureSerial(),
-    name,
-    department: document.getElementById('m_department').value.trim(),
-    designation: document.getElementById('m_designation').value.trim(),
-    shift: document.getElementById('m_shift').value,
-    mobile: document.getElementById('m_mobile').value.trim(),
-    email: document.getElementById('m_email').value.trim(),
-    gender: document.querySelector('input[name="m_gender"]:checked').value,
-    joined: document.getElementById('m_joined').value,
-    salary: document.getElementById('m_salary').value,
-    photo: document.getElementById('m_photoUrl').value.trim()
-  };
-  const idx = all.findIndex(x => String(x.serial) === String(payload.serial));
-  if(idx >= 0) all[idx] = payload; else all.push(payload);
-  saveEmployees(all);
-  closeModal();
-  apply();
-}
-function delEmp(serial){
-  if(!isAdmin) return;
-  if(!confirm('Delete employee #'+serial+'?')) return;
-  all = all.filter(x => String(x.serial) !== String(serial));
-  saveEmployees(all);
-  apply();
-}
-
+/* ===== Save/Delete via API ===== */
 async function saveFromModal(){
   const sEl = document.getElementById('m_status');
   const name = document.getElementById('m_name').value.trim();
@@ -393,7 +362,7 @@ async function saveFromModal(){
     mobile: document.getElementById('m_mobile').value.trim(),
     email: document.getElementById('m_email').value.trim(),
     gender: document.querySelector('input[name="m_gender"]:checked').value,
-    joined: document.getElementById('m_joined').value,  // yyyy-mm-dd (you already format for display)
+    joined: document.getElementById('m_joined').value,  // yyyy-mm-dd
     salary: document.getElementById('m_salary').value,
     photo: document.getElementById('m_photoUrl').value.trim()
   };
@@ -407,7 +376,6 @@ async function saveFromModal(){
     apply();
   }catch(e){ sEl.textContent = 'Save failed: '+ e.message; }
 }
-
 async function delEmp(serial){
   if(!isAdmin) return;
   if(!confirm('Delete employee #'+serial+'?')) return;
@@ -417,7 +385,6 @@ async function delEmp(serial){
     apply();
   }catch(e){ alert('Delete failed: ' + e.message); }
 }
-
 
 /* ===== Sort + Events ===== */
 function attachSort(){
@@ -458,11 +425,8 @@ async function detectAdmin(){
     if(j && j.ok && j.data && j.data.user && String(j.data.user.role||'').toLowerCase()==='admin'){
       isAdmin = true;
     }
-  }catch(_){ /* ignore – not logged in or API unavailable */ }
-  // Hide Actions column if not admin
-  if(!isAdmin){
-    document.getElementById('colActions').classList.add('hidden');
-  }
+  }catch(_){ /* ignore */ }
+  if(!isAdmin){ document.getElementById('colActions').classList.add('hidden'); }
 }
 
 /* ===== Init ===== */
@@ -471,14 +435,13 @@ async function detectAdmin(){
   attachEvents(); attachSort(); await detectAdmin();
 
   try {
-    all = await fetchEmployees();   // <-- gets rows from the “Directory” sheet
+    all = await fetchEmployees();   // load rows from the “Directory” sheet
   } catch (e) {
     document.getElementById('status').textContent = 'Load failed: ' + e.message;
     all = [];
   }
   apply();
 })();
-
 </script>
 </body>
 </html>
