@@ -74,7 +74,7 @@
       <span id="meta" class="muted" style="margin-left:auto"></span>
     </div>
     <div class="row" style="margin-top:10px">
-      <button id="addBtn" class="btn primary">+ Add Record</button>
+      <button id="addBtn" class="btn primary hidden">+ Add Record</button>
       <span id="status" class="muted"></span>
     </div>
   </div>
@@ -425,8 +425,15 @@ async function detectAdmin(){
     if(j && j.ok && j.data && j.data.user && String(j.data.user.role||'').toLowerCase()==='admin'){
       isAdmin = true;
     }
-  }catch(_){ /* ignore */ }
-  if(!isAdmin){ document.getElementById('colActions').classList.add('hidden'); }
+  }catch(_){}
+
+  // Show admin-only UI
+  if(isAdmin){
+    document.getElementById('addBtn').classList.remove('hidden');
+  }else{
+    document.getElementById('addBtn').classList.add('hidden');
+    document.getElementById('colActions').classList.add('hidden'); // you already had this – keep it
+  }
 }
 
 /* ===== Init ===== */
