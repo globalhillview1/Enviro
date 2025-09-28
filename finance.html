@@ -1,6 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+  (function(){
+    try {
+      if (!localStorage.getItem('token')) {
+        // hide page instantly so user doesn’t see a flash
+        document.documentElement.style.display='none';
+        location.replace('/login');
+      }
+    } catch {
+      document.documentElement.style.display='none';
+      location.replace('/login');
+    }
+  })();
+</script>
 <meta charset="utf-8">
 <title>Finance — P/L & Balance Sheet</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
