@@ -82,6 +82,11 @@
     .userpill svg{width:16px;height:16px;display:block;flex:0 0 16px}
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner{ width:16px; height:16px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; display:inline-block; animation:spin .7s linear infinite }
+
+    /* === Layout shift guard === */
+    .placeholder{ visibility:hidden }              /* keeps space, no flash */
+    #adminBtn{ min-width:74px }                    /* reserve predictable width */
+    #userBadge{ width:150px; justify-content:center } /* reserve space for username */
   </style>
 </head>
 <body>
@@ -97,15 +102,17 @@
       <label class="switch"><span>Auto-refresh</span><input id="autoRefresh" type="checkbox" checked><span class="muted">60s</span></label>
       <button id="toggleDark" class="btn">Dark mode</button>
 
-      <!-- NEW buttons -->
+      <!-- Nav buttons -->
       <button class="btn" id="directoryBtn">Directory</button>
       <button class="btn" id="noticesBtn">Notices</button>
       <button class="btn" id="docsBtn">Documents</button>
       <button class="btn" id="financeBtn">Finance</button>
 
       <button class="btn" id="exportCsv">Export CSV</button>
-      <button class="btn" id="adminBtn" style="display:none">Admin</button>
-      <span id="userBadge" class="userpill" style="display:none"></span>
+
+      <!-- Right-end controls: reserved from first paint -->
+      <button class="btn placeholder" id="adminBtn" aria-hidden="true">Admin</button>
+      <span id="userBadge" class="userpill placeholder" aria-hidden="true">👤&nbsp;</span>
       <button class="btn danger" id="logoutBtn">Logout</button>
     </div>
   </header>
@@ -193,9 +200,22 @@
       if(!j.ok || !j.data || !j.data.user){ logoutNow(); throw new Error('unauthorized'); }
       try{ localStorage.setItem('role', j.data.user.role); localStorage.setItem('username', j.data.user.username); }catch(e){}
       state.isAdmin = (j.data.user.role === 'admin');
-      document.getElementById('adminBtn').style.display = state.isAdmin ? 'inline-block' : 'none';
-      const ub = document.getElementById('userBadge');
-      if (ub) { ub.style.display='inline-flex'; ub.innerHTML = userIcon()+'<span>'+esc(j.data.user.username||'')+'</span>'; }
+
+      // Reveal pre-reserved controls without reflow
+      const adminBtn = document.getElementById('adminBtn');
+      const userBadge = document.getElementById('userBadge');
+
+      if (state.isAdmin) {
+        adminBtn.classList.remove('placeholder');
+        adminBtn.removeAttribute('aria-hidden');
+      } else {
+        // keep placeholder if you want identical width even for non-admins:
+        // adminBtn.classList.add('placeholder');
+      }
+
+      userBadge.innerHTML = userIcon()+'<span>'+esc(j.data.user.username||'')+'</span>';
+      userBadge.classList.remove('placeholder');
+      userBadge.removeAttribute('aria-hidden');
     }
 
     async function heartbeatOnce(){ try{ await verifySession(); }catch(e){} }
@@ -453,9 +473,9 @@
       document.getElementById("tzSelect").addEventListener("change", function(e){ state.tz=e.target.value; render(); });
       document.getElementById("search").addEventListener("input", debounce(applyFilters, 250));
       document.getElementById("logoutBtn").addEventListener("click", logoutNow);
-      document.getElementById("adminBtn").addEventListener("click", function(){ location.href='/admin'; });
+      document.getElementById("adminBtn").addEventListener("click", function(){ if(state.isAdmin) location.href='/admin'; });
 
-      // NEW buttons
+      // Nav
       document.getElementById("directoryBtn").addEventListener("click", function(){ location.href='/directory.html'; });
       document.getElementById("noticesBtn").addEventListener("click", function(){ location.href='/notices.html'; });
       document.getElementById("docsBtn").addEventListener("click", function(){ location.href='/documents.html'; });
