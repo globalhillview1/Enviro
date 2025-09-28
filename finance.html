@@ -17,6 +17,20 @@
 </script>
 <meta charset="utf-8">
 <title>Finance — P/L & Balance Sheet</title>
+   <!-- LOGIN GUARD -->
+  <script>
+    (function(){
+      try {
+        if (!localStorage.getItem('token')) {
+          document.documentElement.style.display='none';
+          location.replace('/login');
+        }
+      } catch {
+        document.documentElement.style.display='none';
+        location.replace('/login');
+      }
+    })();
+  </script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   :root{--bg:#f7f9fc;--card:#fff;--text:#0f172a;--muted:#64748b;--border:#e5e7eb;--hover:#f1f5f9;--blue:#0d6efd;--danger:#ef4444;}
