@@ -33,17 +33,17 @@
     .hidden{ display:none }
 
     /* ===== Table + sticky header ===== */
-    .tableWrap{               /* <-- This wrapper creates its own scroll context */
+    .tableWrap{
       overflow:auto;
       border:1px solid var(--border);
       border-radius:12px;
-      max-height: calc(100vh - 210px); /* space for top header + controls */
+      max-height: calc(100vh - 210px);
       background:var(--card);
     }
     table{ width:100%; border-collapse:separate; border-spacing:0; background:var(--card) }
     thead th{
       position:sticky;
-      top:0;                 /* sticky within .tableWrap */
+      top:0;
       z-index:1;
       background:var(--card);
       border-bottom:1px solid var(--border);
@@ -87,7 +87,7 @@
       <span id="status" class="muted" style="margin-left:auto"></span>
     </div>
 
-    <!-- Table (no per-column filter row) -->
+    <!-- Table -->
     <div class="tableWrap">
       <table id="grid">
         <thead>
@@ -98,7 +98,7 @@
             <th class="sort" data-k="category">Category</th>
             <th class="sort" data-k="media">Media</th>
             <th class="sort" data-k="url">Link</th>
-            <th>Actions</th>
+            <th id="colActions">Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -113,7 +113,7 @@
   </div>
 </div>
 
-<!-- Add/Edit Modal (unchanged except for using newline-joined media) -->
+<!-- Add/Edit Modal -->
 <div id="docModal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; align-items:center; justify-content:center">
   <div class="box" style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(820px,94vw)">
     <h3 id="modalTitle">Add Document</h3>
@@ -159,7 +159,7 @@
   </div>
 </div>
 
-<!-- Manage Categories Modal (unchanged) -->
+<!-- Manage Categories Modal -->
 <div id="catModal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50; align-items:center; justify-content:center">
   <div class="box" style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(820px,94vw)">
     <h3>Manage Categories</h3>
@@ -252,9 +252,9 @@ function linkCellMulti(s){
 /* ========= State ========= */
 let isAdmin=false, all=[], rows=[], sortKey='date', sortDir='desc', page=1;
 let categories=[];
-let modalFiles = []; // array of attachment URLs (strings)
+let modalFiles = []; // array of attachment URLs
 
-/* ========= Filtering (Quick search only) ========= */
+/* ========= Filtering ========= */
 function apply(){
   const q = (document.getElementById('q').value||'').toLowerCase();
   rows = all.filter(r=>{
@@ -276,6 +276,11 @@ function render(){
   page=Math.min(Math.max(1,page),pages);
   const part=rows.slice((page-1)*PAGE,(page-1)*PAGE+PAGE);
   part.forEach(r=>{
+    const actions = isAdmin
+      ? `<td><button class="btn" onclick="openModal(true, ${r.serial})">Edit</button>
+          <button class="btn danger" onclick="delDoc(${r.serial})">Delete</button></td>`
+      : ''; // omit the entire cell when not admin
+
     const tr=document.createElement('tr');
     tr.innerHTML = `
       <td>${esc(r.serial)}</td>
@@ -284,8 +289,7 @@ function render(){
       <td>${esc(r.category||'')}</td>
       <td>${mediaCellMulti(r.media)}</td>
       <td>${linkCellMulti(r.url)}</td>
-      <td>${isAdmin? `<button class="btn" onclick="openModal(true, ${r.serial})">Edit</button>
-                      <button class="btn danger" onclick="delDoc(${r.serial})">Delete</button>`:''}</td>`;
+      ${actions}`;
     tbody.appendChild(tr);
   });
   document.getElementById('pageInfo').textContent=`Page ${page} / ${pages}`;
@@ -439,9 +443,15 @@ function attachInputs(){
   try{
     const me=await whoami();
     isAdmin = (me.role==='admin');
+
+    // Toggle admin-only UI
     if(isAdmin){
       document.getElementById('addBtn').classList.remove('hidden');
       document.getElementById('catBtn').classList.remove('hidden');
+    }else{
+      // Hide Actions header for non-admins
+      const th = document.getElementById('colActions');
+      if (th) th.classList.add('hidden');
     }
   }catch{ return logout(); }
 
