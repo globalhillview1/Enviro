@@ -41,6 +41,10 @@ table{width:100%;border-collapse:separate;border-spacing:0}
 thead th{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:10px;text-align:left;z-index:5}
 tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
 
+/* hide actions column for non-admins */
+th.actions, td.actions { }
+body.no-admin th.actions, body.no-admin td.actions { display:none; }
+
 /* drawers (not loaded by default) */
 .drawer{display:none;border:1px solid var(--border);border-radius:var(--radius);padding:14px;background:#fff}
 .drawer.open{display:block;animation:fade .12s ease}
@@ -131,7 +135,7 @@ tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top}
           <tr>
             <th>Serial</th><th>Date</th><th>Type</th><th>Category</th><th>Sub-category</th>
             <th class="right">Amount</th><th>Dr</th><th>Cr</th><th>Party</th><th>Notes</th>
-            <th>Cost Center</th><th>Mode</th><th>Ref</th><th>Cleared</th><th>Attachment</th><th>Actions</th>
+            <th>Cost Center</th><th>Mode</th><th>Ref</th><th>Cleared</th><th>Attachment</th><th class="actions">Actions</th>
           </tr>
         </thead>
         <tbody id="txBody"></tbody>
@@ -295,6 +299,18 @@ async function delOB(account){
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Del OB failed'); return j.data;
 }
 
+/* ---------- helpers ---------- */
+function attBadge(val){
+  // take first non-empty token and ensure it's an absolute http(s) URL
+  const first = String(val||'')
+    .split(',')
+    .map(s=>s.trim())
+    .find(s => s && s.toLowerCase()!=='(none)' && s!=='-');
+  if(!first) return '';
+  if(!/^(https?:)?\/\//i.test(first)) return ''; // ignore relative or bad values
+  return `<a class="badge" href="${esc(first)}" target="_blank" rel="noopener">open</a>`;
+}
+
 /* ---------- UI fill ---------- */
 function fillPL(data){
   const tb=document.getElementById('plBody'); tb.innerHTML='';
@@ -334,7 +350,7 @@ function renderTable(){
   const part=view.slice((page-1)*PAGE,(page-1)*PAGE+PAGE);
   part.forEach(r=>{
     const tr=document.createElement('tr');
-    const att=r.attachments?`<a class="badge" href="${esc(r.attachments.split(',')[0].trim())}" target="_blank">open</a>`:'';
+    const att = attBadge(r.attachments);
     tr.innerHTML=`
       <td>${esc(r.serial)}</td>
       <td>${esc(r.date)}</td>
@@ -351,7 +367,7 @@ function renderTable(){
       <td>${esc(r.ref||'')}</td>
       <td>${r.cleared? 'Yes':'No'}</td>
       <td>${att}</td>
-      <td>${isAdmin? `<button class="btn" onclick="openTx(true, ${r.serial})">Edit</button>
+      <td class="actions">${isAdmin? `<button class="btn" onclick="openTx(true, ${r.serial})">Edit</button>
                       <button class="btn danger" onclick="delTx(${r.serial})">Delete</button>`:''}</td>`;
     body.appendChild(tr);
   });
@@ -554,7 +570,15 @@ document.getElementById('ob_set').onclick=saveOBItem;
 (async function(){
   try{
     me=await whoami(); isAdmin=(me.role==='admin');
-    if(isAdmin){ document.getElementById('openTx').classList.remove('hidden'); document.getElementById('openCoa').classList.remove('hidden'); document.getElementById('openOb').classList.remove('hidden'); }
+    // Toggle add/manage buttons
+    if(isAdmin){
+      document.getElementById('openTx').classList.remove('hidden');
+      document.getElementById('openCoa').classList.remove('hidden');
+      document.getElementById('openOb').classList.remove('hidden');
+      document.body.classList.remove('no-admin');
+    }else{
+      document.body.classList.add('no-admin'); // hides Actions column completely
+    }
   }catch{ location.replace('/login'); return; }
   const now=new Date();
   const start=new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
