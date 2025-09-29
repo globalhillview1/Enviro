@@ -301,15 +301,35 @@ async function delOB(account){
 
 /* ---------- helpers ---------- */
 function attBadge(val){
-  // take first non-empty token and ensure it's an absolute http(s) URL
-  const first = String(val||'')
-    .split(',')
-    .map(s=>s.trim())
-    .find(s => s && s.toLowerCase()!=='(none)' && s!=='-');
+  // Accept comma/semicolon/space separated lists. Show the first usable URL.
+  const placeholders = new Set(['(none)', '-', 'none', 'na', 'n/a']);
+  const raw = String(val==null ? '' : val).trim();
+
+  const first = raw
+    .split(/[,;\s]+/)                // commas, semicolons, or whitespace
+    .map(s => s.trim().replace(/^["'()]+|["'()]+$/g,'')) // strip quotes/brackets
+    .find(s => s && !placeholders.has(s.toLowerCase()));
+
   if(!first) return '';
-  if(!/^(https?:)?\/\//i.test(first)) return ''; // ignore relative or bad values
-  return `<a class="badge" href="${esc(first)}" target="_blank" rel="noopener">open</a>`;
+
+  let url = first;
+
+  // Allow absolute http(s), protocol-relative, site-relative, and 'www.' URLs
+  if (/^https?:\/\//i.test(url)) {
+    // ok as-is
+  } else if (/^\/\//.test(url)) {
+    url = 'https:' + url;           // protocol-relative → https
+  } else if (/^\//.test(url)) {
+    // site-relative path (keep as-is)
+  } else if (/^www\./i.test(url)) {
+    url = 'https://' + url;         // prefix bare domains
+  } else {
+    return '';                      // anything else is probably not a URL
+  }
+
+  return `<a class="badge" href="${esc(url)}" target="_blank" rel="noopener">open</a>`;
 }
+
 
 /* ---------- UI fill ---------- */
 function fillPL(data){
