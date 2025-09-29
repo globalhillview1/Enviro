@@ -31,6 +31,8 @@
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .muted{color:var(--muted)}
     .hidden{display:none}
+    /* make table columns truly collapse when we hide a <col> */
+    col.hidden { visibility: collapse; }
 
     .chips{display:flex;gap:8px;flex-wrap:wrap}
     .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:4px 8px;background:#f8fafc}
@@ -122,7 +124,7 @@
           <col class="c-subject" />
           <col class="c-body" />
           <col class="c-link" />
-          <col class="c-actions" />
+          <col class="c-actions" id="colActionsCol" />
         </colgroup>
         <thead id="thead">
           <tr>
@@ -131,7 +133,7 @@
             <th class="sort" data-k="subject">Subject</th>
             <th class="sort" data-k="body">Notice</th>
             <th class="sort" data-k="link">Link(s)</th>
-            <th>Actions</th>
+            <th id="colActionsTh">Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -170,7 +172,7 @@
 
 <script>
 /* ==== CONFIG ==== */
-const API = '/api';  // set to your script URL to hard-code
+const API = '/api';
 const IST = 'Asia/Kolkata';
 
 /* ==== session/utils ==== */
@@ -238,7 +240,7 @@ function mediaIconOrThumb(url){
 /* state */
 let isAdmin=false, all=[], rows=[], sortKey='date', sortDir='desc';
 
-/* render + filtering (only quick search retained) */
+/* render + filtering */
 function apply(){
   const q=(document.getElementById('q').value||'').toLowerCase();
   rows = all.filter(r=>{
@@ -260,6 +262,13 @@ function render(){
   rows.forEach(r=>{
     const urls = extractUrls(r.body);
     const bodyClean = stripAttachmentLabels(removeUrls(r.body, urls));
+    const actionsCell = isAdmin
+      ? `<td>
+           <button class="btn" onclick="openModal(${r.serial})">Edit</button>
+           <button class="btn danger" onclick="delNotice(${r.serial})">Delete</button>
+         </td>`
+      : ''; // omit cell entirely for non-admins
+
     const tr=document.createElement('tr');
     tr.innerHTML = `
       <td>${esc(r.serial)}</td>
@@ -267,12 +276,7 @@ function render(){
       <td title="${esc(r.subject)}">${esc(r.subject)}</td>
       <td title="${esc(bodyClean)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(bodyClean)}</td>
       <td><div class="linkbar">${urls.map(u=>mediaIconOrThumb(u)).join('')}</div></td>
-      <td>
-        ${isAdmin? `
-          <button class="btn" onclick="openModal(${r.serial})">Edit</button>
-          <button class="btn danger" onclick="delNotice(${r.serial})">Delete</button>
-        `:''}
-      </td>`;
+      ${actionsCell}`;
     tbody.appendChild(tr);
   });
   document.getElementById('status').textContent = `Loaded ${rows.length} notice(s)`;
@@ -434,7 +438,15 @@ function attachInputs(){
     const me=await whoami();
     isAdmin = (me.role==='admin');
     document.getElementById('userBadge').textContent = me.username ? `@${me.username}` : '';
-    if(isAdmin) document.getElementById('adminBar').classList.remove('hidden');
+    if(isAdmin){
+      document.getElementById('adminBar').classList.remove('hidden');
+    }else{
+      // hide Actions header + column for non-admins
+      const th = document.getElementById('colActionsTh');
+      const col = document.getElementById('colActionsCol');
+      if(th) th.classList.add('hidden');
+      if(col) col.classList.add('hidden');
+    }
   }catch{ return logout(); }
 
   attachInputs(); attachSort();
