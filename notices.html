@@ -31,8 +31,6 @@
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .muted{color:var(--muted)}
     .hidden{display:none}
-    /* make table columns truly collapse when we hide a <col> */
-    col.hidden { visibility: collapse; }
 
     .chips{display:flex;gap:8px;flex-wrap:wrap}
     .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:4px 8px;background:#f8fafc}
@@ -48,6 +46,7 @@
     col.c-subject{width:260px}
     col.c-body{width:auto}
     col.c-link{width:220px}
+    col.c-view{width:90px}
     col.c-actions{width:140px}
 
     thead th{
@@ -70,6 +69,11 @@
     .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center}
     .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(820px,94vw)}
     .box h3{margin:6px 0 12px}
+
+    /* Hide Actions column (header + cells + col) when table has .no-actions */
+    table.no-actions col.c-actions{display:none}
+    table.no-actions th.th-actions{display:none}
+    table.no-actions td.td-actions{display:none}
   </style>
 </head>
 <body>
@@ -124,7 +128,8 @@
           <col class="c-subject" />
           <col class="c-body" />
           <col class="c-link" />
-          <col class="c-actions" id="colActionsCol" />
+          <col class="c-view" />
+          <col class="c-actions" />
         </colgroup>
         <thead id="thead">
           <tr>
@@ -133,7 +138,8 @@
             <th class="sort" data-k="subject">Subject</th>
             <th class="sort" data-k="body">Notice</th>
             <th class="sort" data-k="link">Link(s)</th>
-            <th id="colActionsTh">Actions</th>
+            <th>View</th>
+            <th class="th-actions">Actions</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -167,6 +173,19 @@
       <button class="btn" onclick="closeModal()">Cancel</button>
       <button id="m_save" class="btn primary">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- View Modal (read-only for everyone) -->
+<div id="viewModal" class="modal">
+  <div class="box" style="max-width:900px">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <h3 id="v_subject" style="margin:0">Subject</h3>
+      <button class="btn" onclick="closeView()">Close</button>
+    </div>
+    <div class="muted" id="v_meta" style="margin:6px 0 12px"></div>
+    <div id="v_body" style="white-space:pre-wrap"></div>
+    <div id="v_links" class="linkbar" style="margin-top:12px"></div>
   </div>
 </div>
 
@@ -262,13 +281,6 @@ function render(){
   rows.forEach(r=>{
     const urls = extractUrls(r.body);
     const bodyClean = stripAttachmentLabels(removeUrls(r.body, urls));
-    const actionsCell = isAdmin
-      ? `<td>
-           <button class="btn" onclick="openModal(${r.serial})">Edit</button>
-           <button class="btn danger" onclick="delNotice(${r.serial})">Delete</button>
-         </td>`
-      : ''; // omit cell entirely for non-admins
-
     const tr=document.createElement('tr');
     tr.innerHTML = `
       <td>${esc(r.serial)}</td>
@@ -276,7 +288,13 @@ function render(){
       <td title="${esc(r.subject)}">${esc(r.subject)}</td>
       <td title="${esc(bodyClean)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(bodyClean)}</td>
       <td><div class="linkbar">${urls.map(u=>mediaIconOrThumb(u)).join('')}</div></td>
-      ${actionsCell}`;
+      <td><button class="btn" onclick="viewNotice(${r.serial})">View</button></td>
+      <td class="td-actions">
+        ${isAdmin? `
+          <button class="btn" onclick="openModal(${r.serial})">Edit</button>
+          <button class="btn danger" onclick="delNotice(${r.serial})">Delete</button>
+        `:''}
+      </td>`;
     tbody.appendChild(tr);
   });
   document.getElementById('status').textContent = `Loaded ${rows.length} notice(s)`;
@@ -398,6 +416,25 @@ async function delNotice(serial){
   }catch(e){ alert('Delete failed: '+e.message); }
 }
 
+/* View (read-only) */
+function closeView(){ document.getElementById('viewModal').style.display='none'; }
+function viewNotice(serial){
+  const rec = all.find(x=>x.serial==serial);
+  if(!rec) return;
+  const urls = extractUrls(rec.body);
+  const bodyClean = stripAttachmentLabels(removeUrls(rec.body, urls));
+  document.getElementById('v_subject').textContent = rec.subject || '(no subject)';
+  document.getElementById('v_meta').textContent = `Serial #${rec.serial} • ${fmtDateIST(rec.date)}`;
+  document.getElementById('v_body').textContent = bodyClean || '';
+  document.getElementById('v_links').innerHTML =
+    urls.length ? urls.map(u=>mediaIconOrThumb(u)).join('') : '<span class="muted">No attachments</span>';
+  document.getElementById('viewModal').style.display='flex';
+}
+document.addEventListener('click',(e)=>{
+  const vm=document.getElementById('viewModal');
+  if(vm.style.display==='flex' && e.target===vm){ closeView(); }
+});
+
 /* sort + inputs */
 function attachSort(){
   document.querySelectorAll('#thead th.sort').forEach(th=>{
@@ -440,12 +477,10 @@ function attachInputs(){
     document.getElementById('userBadge').textContent = me.username ? `@${me.username}` : '';
     if(isAdmin){
       document.getElementById('adminBar').classList.remove('hidden');
+      document.getElementById('grid').classList.remove('no-actions');
     }else{
-      // hide Actions header + column for non-admins
-      const th = document.getElementById('colActionsTh');
-      const col = document.getElementById('colActionsCol');
-      if(th) th.classList.add('hidden');
-      if(col) col.classList.add('hidden');
+      // hide Actions column completely
+      document.getElementById('grid').classList.add('no-actions');
     }
   }catch{ return logout(); }
 
