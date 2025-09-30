@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Voters</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#64748b; --border:#e5e7eb; --hover:#f1f5f9;
+      --blue:#0d6efd; --danger:#ef4444; --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
+
+    header{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand img{height:28px;width:28px;border-radius:6px;object-fit:cover}
+    h1{margin:0;font-weight:800;font-size:20px}
+    .wrap{padding:16px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .muted{color:var(--muted)}
+    .hidden{display:none}
+
+    input,select,textarea{border:1px solid var(--border);border-radius:10px;padding:8px 10px;font:inherit}
+    .btn{appearance:none;border:1px solid var(--border);background:#fff;padding:8px 12px;border-radius:10px;cursor:pointer}
+    .btn:hover{background:var(--hover)}
+    .btn.primary{background:var(--blue);color:#fff;border-color:transparent}
+    .btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+
+    .tableWrap{overflow:auto;border:1px solid var(--border);border-radius:12px;max-height:70vh;background:#fff}
+    table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+    thead th{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:10px;text-align:left;white-space:nowrap;z-index:1}
+    tbody td{border-top:1px solid var(--border);padding:10px;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    th.sort{cursor:pointer;user-select:none}
+    th.sort:after{content:" ⇵";color:#94a3b8;font-weight:400}
+    th.sort.asc:after{content:" ↑"} th.sort.desc:after{content:" ↓"}
+
+    /* hide Actions column entirely for non-admins */
+    table.no-actions col.c-actions{display:none}
+    table.no-actions th.th-actions{display:none}
+    table.no-actions td.td-actions{display:none}
+
+    /* modal */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center}
+    .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(900px,95vw)}
+    .box h3{margin:6px 0 12px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img src="/android-chrome-512x512.png" onerror="this.src='logo.png'" alt="logo">
+    <h1>Voters</h1>
+  </div>
+  <div class="row">
+    <span id="userBadge" class="muted"></span>
+    <button class="btn" onclick="location.href='/'">Back to Dashboard</button>
+    <button class="btn danger" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <input id="q" placeholder="Quick search…" style="min-width:260px">
+        <span id="meta" class="muted">Timezone: IST</span>
+      </div>
+      <div class="row">
+        <button id="addBtn" class="btn primary hidden">+ Add Voter</button>
+        <span id="status" class="muted"></span>
+      </div>
+    </div>
+
+    <div class="tableWrap" style="margin-top:10px">
+      <table id="grid">
+        <colgroup>
+          <col class="c-serial" style="width:90px">
+          <col style="width:90px">
+          <col style="width:110px">
+          <col style="width:240px">
+          <col style="width:240px">
+          <col style="width:130px">
+          <col style="width:130px">
+          <col style="width:180px">
+          <col style="width:130px">
+          <col class="c-actions" style="width:160px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="sort" data-k="serial">Serial #</th>
+            <th class="sort" data-k="tower">Tower No.</th>
+            <th class="sort" data-k="flat">Flat No.</th>
+            <th class="sort" data-k="firstOwner">First Owner Name</th>
+            <th class="sort" data-k="secondOwner">Second Owner Name</th>
+            <th class="sort" data-k="cardShare">Card &amp; Share #</th>
+            <th class="sort" data-k="eligible">Eligible Voter</th>
+            <th class="sort" data-k="discrepancy">Discrepancy</th>
+            <th class="sort" data-k="votedEarlier">Voted Earlier</th>
+            <th class="th-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="modal" class="modal">
+  <div class="box">
+    <h3 id="m_title">Add Voter</h3>
+    <input id="m_serial" type="hidden">
+    <div class="row" style="flex-wrap:wrap">
+      <label>Tower No. <input id="m_tower" style="width:120px"></label>
+      <label>Flat No. <input id="m_flat" style="width:140px"></label>
+      <label style="flex:1 1 280px">First Owner Name <input id="m_first" style="width:100%"></label>
+      <label style="flex:1 1 280px">Second Owner Name <input id="m_second" style="width:100%"></label>
+      <label>Card &amp; Share # <input id="m_cardshare" type="number" step="1" min="0" style="width:140px"></label>
+      <label>Eligible Voter
+        <select id="m_eligible"><option>Yes</option><option>No</option></select>
+      </label>
+      <label style="flex:1 1 260px">Discrepancy
+        <input id="m_discrepancy" style="width:100%" placeholder="(optional)">
+      </label>
+      <label>Voted Earlier
+        <select id="m_voted"><option>Yes</option><option>No</option></select>
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button id="m_save" class="btn primary">Save</button>
+      <span id="m_status" class="muted" style="margin-left:auto"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== Config / helpers ====== */
+const API='/api';
+const PAGE=12; // (ready if you later add pager)
+function logout(){ try{localStorage.clear()}catch{} location.replace('/login'); }
+function token(){ try{return localStorage.getItem('token')}catch{ return null; } }
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+let isAdmin=false, all=[], rows=[], sortKey='serial', sortDir='asc';
+
+/* ====== API ====== */
+async function whoami(){
+  const r=await fetch(`${API}?action=whoami&token=${encodeURIComponent(token()||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error('unauthorized'); return j.data.user;
+}
+async function fetchVoters(){
+  const r=await fetch(`${API}?action=voters&token=${encodeURIComponent(token()||'')}`,{cache:'no-store'});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed'); return j.data||[];
+}
+async function addVoter(payload){
+  const r=await fetch(`${API}?action=addvoter&token=${encodeURIComponent(token()||'')}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+  });
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed'); return j.data;
+}
+async function updateVoter(payload){
+  const r=await fetch(`${API}?action=updatevoter&token=${encodeURIComponent(token()||'')}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+  });
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed'); return j.data;
+}
+async function deleteVoter(serial){
+  const r=await fetch(`${API}?action=deletevoter&token=${encodeURIComponent(token()||'')}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({serial})
+  });
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed'); return j.data;
+}
+
+/* ====== Rendering ====== */
+function apply(){
+  const q=(document.getElementById('q').value||'').toLowerCase();
+  rows = (all||[]).filter(r=>{
+    const hay = `${r.serial} ${r.tower} ${r.flat} ${r.firstOwner} ${r.secondOwner} ${r.cardShare} ${r.eligible} ${r.discrepancy||''} ${r.votedEarlier}`.toLowerCase();
+    return !q || hay.includes(q);
+  }).sort((a,b)=>{
+    let A=a[sortKey], B=b[sortKey];
+    // numeric sort for serial/cardShare/flat if numeric
+    if(sortKey==='serial' || sortKey==='cardShare'){
+      A=Number(A||0); B=Number(B||0);
+    }else if(sortKey==='flat'){
+      const na=parseInt(A,10), nb=parseInt(B,10);
+      if(!isNaN(na) && !isNaN(nb)){ A=na; B=nb; }
+    }else{
+      A=(A??'').toString().toLowerCase(); B=(B??'').toString().toLowerCase();
+    }
+    const s=(A<B?-1:A>B?1:0);
+    return sortDir==='asc'?s:-s;
+  });
+  render();
+}
+function render(){
+  const tb=document.getElementById('body'); tb.innerHTML='';
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${esc(r.serial)}</td>
+      <td>${esc(r.tower)}</td>
+      <td>${esc(r.flat)}</td>
+      <td title="${esc(r.firstOwner)}">${esc(r.firstOwner)}</td>
+      <td title="${esc(r.secondOwner||'')}">${esc(r.secondOwner||'')}</td>
+      <td>${esc(r.cardShare)}</td>
+      <td>${esc(r.eligible)}</td>
+      <td title="${esc(r.discrepancy||'')}">${esc(r.discrepancy||'')}</td>
+      <td>${esc(r.votedEarlier)}</td>
+      <td class="td-actions">
+        ${isAdmin? `
+          <button class="btn" onclick="openModal(true, ${r.serial})">Edit</button>
+          <button class="btn danger" onclick="onDelete(${r.serial})">Delete</button>
+        `:''}
+      </td>`;
+    tb.appendChild(tr);
+  });
+  document.getElementById('status').textContent = `${rows.length} voter(s)`;
+}
+
+/* ====== Modal ====== */
+function openModal(edit=false, serial=null){
+  document.getElementById('m_status').textContent='';
+  document.getElementById('m_title').textContent = edit?'Edit Voter':'Add Voter';
+  document.getElementById('modal').style.display='flex';
+  if(edit){
+    const r=all.find(x=>x.serial==serial);
+    document.getElementById('m_serial').value=r.serial;
+    document.getElementById('m_tower').value=r.tower||'';
+    document.getElementById('m_flat').value=r.flat||'';
+    document.getElementById('m_first').value=r.firstOwner||'';
+    document.getElementById('m_second').value=r.secondOwner||'';
+    document.getElementById('m_cardshare').value=r.cardShare||'';
+    document.getElementById('m_eligible').value=r.eligible||'Yes';
+    document.getElementById('m_discrepancy').value=r.discrepancy||'';
+    document.getElementById('m_voted').value=r.votedEarlier||'No';
+  }else{
+    document.getElementById('m_serial').value='';
+    ['m_tower','m_flat','m_first','m_second','m_cardshare','m_discrepancy'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('m_eligible').value='Yes';
+    document.getElementById('m_voted').value='No';
+  }
+}
+function closeModal(){ document.getElementById('modal').style.display='none'; }
+
+async function onSave(){
+  const s=document.getElementById('m_status');
+  const payload={
+    serial: document.getElementById('m_serial').value || undefined,
+    tower: (document.getElementById('m_tower').value||'').trim(),
+    flat: (document.getElementById('m_flat').value||'').trim(),
+    firstOwner: (document.getElementById('m_first').value||'').trim(),
+    secondOwner: (document.getElementById('m_second').value||'').trim(),
+    cardShare: Number(document.getElementById('m_cardshare').value||0),
+    eligible: document.getElementById('m_eligible').value,
+    discrepancy: (document.getElementById('m_discrepancy').value||'').trim(),
+    votedEarlier: document.getElementById('m_voted').value
+  };
+  if(!payload.tower || !payload.flat || !payload.firstOwner){
+    s.textContent='Tower, Flat and First Owner are required.'; return;
+  }
+  s.textContent='Saving…';
+  try{
+    if(payload.serial){ await updateVoter(payload); }
+    else { await addVoter(payload); }
+    s.textContent='Saved'; closeModal(); await reload();
+  }catch(e){ s.textContent='Save failed: '+e.message; }
+}
+async function onDelete(serial){
+  if(!confirm('Delete voter #'+serial+'?')) return;
+  try{ await deleteVoter(serial); await reload(); }
+  catch(e){ alert('Delete failed: '+e.message); }
+}
+
+/* ====== Events / Init ====== */
+function attachSort(){
+  document.querySelectorAll('thead th.sort').forEach(th=>{
+    th.addEventListener('click',()=>{
+      const k=th.dataset.k;
+      if(sortKey===k) sortDir = (sortDir==='asc'?'desc':'asc');
+      else { sortKey=k; sortDir='asc'; }
+      document.querySelectorAll('thead th.sort').forEach(x=>x.classList.remove('asc','desc'));
+      th.classList.add(sortDir);
+      apply();
+    });
+  });
+}
+async function reload(){
+  all = await fetchVoters();
+  apply();
+}
+
+document.getElementById('q').addEventListener('input', apply);
+document.getElementById('addBtn').onclick=()=>openModal(false);
+document.getElementById('m_save').onclick=onSave;
+document.getElementById('modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('modal')) closeModal();
+});
+attachSort();
+
+(async function init(){
+  try{
+    const me=await whoami();
+    isAdmin = (me.role==='admin');
+    document.getElementById('userBadge').textContent = me.username ? `@${me.username}` : '';
+    if(isAdmin){
+      document.getElementById('addBtn').classList.remove('hidden');
+      document.getElementById('grid').classList.remove('no-actions');
+    }else{
+      document.getElementById('grid').classList.add('no-actions');
+    }
+  }catch{ return logout(); }
+
+  await reload();
+})();
+</script>
+</body>
+</html>
