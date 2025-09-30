@@ -5,13 +5,6 @@
   <title>Notice Board</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* Scrollable notice body */
-.scroll-body {
-  max-height: 120px;       /* adjust how much you want to show */
-  overflow-y: auto;        /* vertical scroll */
-  white-space: normal;     /* allow wrapping */
-  text-overflow: clip;     /* no ugly cutoff */
-}
     :root{
       --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb; --hover:#f1f5f9;
       --blue:#0d6efd; --danger:#ef4444;
@@ -74,32 +67,29 @@
     .linkbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
     .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;align-items:center;justify-content:center}
-    .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(820px,94vw)}
-    .box h3{margin:6px 0 12px}
+    .modal .box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:16px;width:min(900px,94vw)}
 
     /* Hide Actions column (header + cells + col) when table has .no-actions */
     table.no-actions col.c-actions{display:none}
     table.no-actions th.th-actions{display:none}
     table.no-actions td.td-actions{display:none}
-    <style>
-  /* Modal layout: cap height and allow the content to scroll inside */
-  #viewModal .box{
-    max-height:90vh;
-    display:flex;
-    flex-direction:column;
-  }
-  #v_body{
-    flex:1;                 /* take remaining height */
-    overflow:auto;          /* scroll here */
-    white-space:pre-wrap;   /* keep formatting */
-    border:1px solid var(--border);
-    border-radius:8px;
-    padding:12px;
-    background:#fff;
-  }
-  #v_links{ margin-top:12px; }
-</style>
 
+    /* View modal: cap height and scroll inside body */
+    #viewModal .box{
+      max-height:90vh;
+      display:flex;
+      flex-direction:column;
+    }
+    #v_body{
+      flex:1;
+      overflow:auto;          /* scroll here */
+      white-space:pre-wrap;
+      border:1px solid var(--border);
+      border-radius:8px;
+      padding:12px;
+      background:#fff;
+    }
+    #v_links{ margin-top:12px; }
   </style>
 </head>
 <body>
@@ -112,7 +102,6 @@
     <span id="userBadge" class="muted"></span>
     <button class="btn" onclick="location.href='/'">Back to Dashboard</button>
     <button class="btn danger" onclick="logout()">Logout</button>
-    
   </div>
 </header>
 
@@ -205,14 +194,14 @@
 
 <!-- View Modal (read-only for everyone) -->
 <div id="viewModal" class="modal">
-  <div class="box" style="max-width:900px">
+  <div class="box">
     <div class="row" style="justify-content:space-between;align-items:flex-start">
       <h3 id="v_subject" style="margin:0">Subject</h3>
       <button class="btn" onclick="closeView()">Close</button>
     </div>
     <div class="muted" id="v_meta" style="margin:6px 0 12px"></div>
-    <div id="v_body" style="white-space:pre-wrap"></div>
-    <div id="v_links" class="linkbar" style="margin-top:12px"></div>
+    <div id="v_body"></div>
+    <div id="v_links" class="linkbar"></div>
   </div>
 </div>
 
@@ -313,7 +302,7 @@ function render(){
       <td>${esc(r.serial)}</td>
       <td>${fmtDateIST(r.date)}</td>
       <td title="${esc(r.subject)}">${esc(r.subject)}</td>
-      <td><div class="scroll-body" title="${esc(bodyClean)}">${esc(bodyClean)}</div></td>
+      <td title="${esc(bodyClean)}">${esc(bodyClean)}</td>
       <td><div class="linkbar">${urls.map(u=>mediaIconOrThumb(u)).join('')}</div></td>
       <td><button class="btn" onclick="viewNotice(${r.serial})">View</button></td>
       <td class="td-actions">
@@ -506,8 +495,7 @@ function attachInputs(){
       document.getElementById('adminBar').classList.remove('hidden');
       document.getElementById('grid').classList.remove('no-actions');
     }else{
-      // hide Actions column completely
-      document.getElementById('grid').classList.add('no-actions');
+      document.getElementById('grid').classList.add('no-actions'); // hide Actions for non-admin
     }
   }catch{ return logout(); }
 
