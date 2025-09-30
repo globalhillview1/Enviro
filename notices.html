@@ -81,6 +81,25 @@
     table.no-actions col.c-actions{display:none}
     table.no-actions th.th-actions{display:none}
     table.no-actions td.td-actions{display:none}
+    <style>
+  /* Modal layout: cap height and allow the content to scroll inside */
+  #viewModal .box{
+    max-height:90vh;
+    display:flex;
+    flex-direction:column;
+  }
+  #v_body{
+    flex:1;                 /* take remaining height */
+    overflow:auto;          /* scroll here */
+    white-space:pre-wrap;   /* keep formatting */
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px;
+    background:#fff;
+  }
+  #v_links{ margin-top:12px; }
+</style>
+
   </style>
 </head>
 <body>
