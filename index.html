@@ -107,7 +107,6 @@
       <button class="btn" id="noticesBtn">Notices</button>
       <button class="btn" id="docsBtn">Documents</button>
       <button class="btn" id="financeBtn">Finance</button>
-      <button class="btn" id="voterseBtn">Voters</button>
 
       <button class="btn" id="exportCsv">Export CSV</button>
 
@@ -481,7 +480,6 @@
       document.getElementById("noticesBtn").addEventListener("click", function(){ location.href='/notices.html'; });
       document.getElementById("docsBtn").addEventListener("click", function(){ location.href='/documents.html'; });
       document.getElementById("financeBtn").addEventListener("click", function(){ location.href='/finance.html'; });
-      document.getElementById("VotersBtn").addEventListener("click", function(){ location.href='/Voters.html'; });
 
       await fetchData();
       state.timer = setInterval(async function(){
