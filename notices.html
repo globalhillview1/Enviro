@@ -5,6 +5,13 @@
   <title>Notice Board</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    /* Scrollable notice body */
+.scroll-body {
+  max-height: 120px;       /* adjust how much you want to show */
+  overflow-y: auto;        /* vertical scroll */
+  white-space: normal;     /* allow wrapping */
+  text-overflow: clip;     /* no ugly cutoff */
+}
     :root{
       --bg:#f7f9fc; --card:#fff; --text:#0f172a; --muted:#6b7280; --border:#e5e7eb; --hover:#f1f5f9;
       --blue:#0d6efd; --danger:#ef4444;
@@ -86,6 +93,7 @@
     <span id="userBadge" class="muted"></span>
     <button class="btn" onclick="location.href='/'">Back to Dashboard</button>
     <button class="btn danger" onclick="logout()">Logout</button>
+    
   </div>
 </header>
 
@@ -286,7 +294,7 @@ function render(){
       <td>${esc(r.serial)}</td>
       <td>${fmtDateIST(r.date)}</td>
       <td title="${esc(r.subject)}">${esc(r.subject)}</td>
-      <td title="${esc(bodyClean)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(bodyClean)}</td>
+      <td><div class="scroll-body" title="${esc(bodyClean)}">${esc(bodyClean)}</div></td>
       <td><div class="linkbar">${urls.map(u=>mediaIconOrThumb(u)).join('')}</div></td>
       <td><button class="btn" onclick="viewNotice(${r.serial})">View</button></td>
       <td class="td-actions">
