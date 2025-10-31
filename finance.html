@@ -607,13 +607,14 @@ async function saveModal(){
 
   try {
 // MATCH GAS: use ?op=addTransaction and put token in the JSON body
-const r = await fetch(`${API}?op=addTransaction`, {
+const r = await fetch(`${API}?action=addtx`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    token: token() || "",     // <— token in BODY
-    tx: payloadTx
-  })
+// send token both places so either proxy or GAS can read it
+    token: token() || "",
+     tx: payloadTx
+   })
 });
 
     const j = await r.json();
