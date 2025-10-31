@@ -1,84 +1,60 @@
-// _worker.js
+// worker.js (Pages Function)
+// Cloudflare Pages Worker — API proxy with clean headers + CORS + health checks
 const GAS_API = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
 
-const HOP_BY_HOP = new Set([
-  'host','content-length','connection','keep-alive','proxy-authenticate',
-  'proxy-authorization','te','trailer','transfer-encoding','upgrade',
-  'cf-connecting-ip','cf-ipcountry','cf-ray','cf-visitor','cf-ew-via','cdn-loop',
-  'x-forwarded-proto','x-forwarded-host','x-real-ip'
-]);
-
-function cors(origin) {
-  const o = origin || '*';
-  return {
-    'access-control-allow-origin': o,
-    'access-control-allow-credentials': 'true',
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-allow-headers': 'content-type, authorization'
-  };
+function corsify(resp) {
+  const h = new Headers(resp.headers);
+  h.set('Access-Control-Allow-Origin', '*');
+  h.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const origin = request.headers.get('origin');
 
-    // health check
+    // CORS preflight
+    if (request.method === 'OPTIONS') {
+      return corsify(new Response(null, { status: 204 }));
+    }
+
+    // quick worker health
     if (url.pathname === '/__ping') {
-      return new Response('worker-ok', { status: 200, headers: { 'content-type': 'text/plain' } });
+      return new Response('worker-ok\n', { headers: { 'content-type': 'text/plain' } });
     }
 
-    // preflight
-    if (url.pathname === '/api' && request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: cors(origin) });
-    }
-
-    // tiny self ping
-    if (url.pathname === '/api' && url.searchParams.get('op') === 'ping') {
-      return new Response(JSON.stringify({ ok: true, pong: true }), {
-        status: 200, headers: { 'content-type': 'application/json', ...cors(origin) }
-      });
-    }
-
-    // proxy to GAS
+    // proxy only /api
     if (url.pathname === '/api') {
+      // build upstream URL with same query
       const upstream = new URL(GAS_API);
-      for (const [k, v] of url.searchParams) upstream.searchParams.set(k, v);
+      url.searchParams.forEach((v, k) => upstream.searchParams.set(k, v));
 
-      const headers = new Headers();
-      for (const [k, v] of request.headers) {
-        if (!HOP_BY_HOP.has(k.toLowerCase())) headers.set(k, v);
-      }
-      headers.set('accept', 'application/json');
+      // build clean headers
+      const inH = request.headers;
+      const outH = new Headers();
+      // prefer explicit content-type if present
+      if (inH.has('content-type')) outH.set('content-type', inH.get('content-type'));
+      outH.set('accept', 'application/json');
 
-      let body;
-      if (!['GET','HEAD','OPTIONS'].includes(request.method)) {
-        body = await request.clone().arrayBuffer();
-      }
-
-      const res = await fetch(upstream.toString(), {
+      const init = {
         method: request.method,
-        headers,
+        headers: outH,
         redirect: 'follow',
-        body
-      });
+        body: (request.method === 'GET' || request.method === 'HEAD') ? undefined : request.body
+      };
 
-      const out = new Response(res.body, {
-        status: res.status,
-        statusText: res.statusText,
-        headers: res.headers
-      });
+      const upstreamRes = await fetch(upstream.toString(), init);
 
-      // add CORS to the response
-      const ch = cors(origin);
-      for (const k in ch) out.headers.set(k, ch[k]);
-      if (!out.headers.has('content-type')) {
-        out.headers.set('content-type', 'application/json; charset=utf-8');
-      }
-      return out;
+      // return upstream body + CORS headers
+      return corsify(new Response(upstreamRes.body, {
+        status: upstreamRes.status,
+        statusText: upstreamRes.statusText,
+        headers: upstreamRes.headers
+      }));
     }
 
-    // static assets
+    // everything else = static asset
     return env.ASSETS.fetch(request);
   }
-};
+}
