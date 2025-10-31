@@ -1,29 +1,65 @@
-// Cloudflare Pages Worker — API proxy only (no path rewrites that can loop)
+// _worker.js (Cloudflare Pages / Workers)
+// Forward /api → GAS, handling GET/POST/OPTIONS, buffering body, adding CORS.
+
 const GAS_API = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+function withCORS(resp) {
+  const r = new Response(resp.body, resp);
+  for (const [k, v] of Object.entries(CORS)) r.headers.set(k, v);
+  return r;
+}
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Proxy /api to GAS, preserving method, query, and body
-    if (url.pathname === '/api') {
-      const upstream = new URL(GAS_API);
-      for (const [k, v] of url.searchParams.entries()) upstream.searchParams.set(k, v);
-
-      const init = {
-        method: request.method,
-        headers: new Headers(request.headers),
-        redirect: 'manual',
-        body: (request.method === 'GET' || request.method === 'HEAD') ? undefined : request.body
-      };
-      init.headers.set('accept', 'application/json');
-
-      const res = await fetch(upstream.toString(), init);
-      return new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers });
+    // CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS });
     }
 
-    // Everything else (/, /login, /login/, /login.html, CSS/JS/etc.)
-    // is served by the static asset pipeline (Clean URLs enabled)
-    return env.ASSETS.fetch(request);
-  }
+    if (url.pathname === '/api') {
+      // Build upstream GAS URL with query params intact
+      const upstream = new URL(GAS_API);
+      for (const [k, v] of url.searchParams.entries()) {
+        upstream.searchParams.set(k, v);
+      }
+
+      // Buffer body so Apps Script always sees e.postData
+      let body;
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        body = await request.arrayBuffer();
+      }
+
+      // Rebuild headers: keep content-type and accept, drop hop-by-hop
+      const h = new Headers();
+      const ct = request.headers.get('content-type');
+      if (ct) h.set('content-type', ct);
+      h.set('accept', 'application/json');
+
+      const res = await fetch(upstream.toString(), {
+        method: request.method,
+        headers: h,
+        body,
+        redirect: 'follow',
+      });
+
+      // Pass through GAS response with CORS
+      const out = new Response(await res.text(), {
+        status: res.status,
+        headers: { 'content-type': res.headers.get('content-type') || 'application/json' },
+      });
+      return withCORS(out);
+    }
+
+    // Everything else → static assets
+    const asset = await env.ASSETS.fetch(request);
+    return withCORS(asset);
+  },
 };
