@@ -56,61 +56,6 @@ body.no-admin th.actions, body.no-admin td.actions { display:none; }
 </style>
 </head>
 <body>
-  <!-- BREADCRUMB: paste this on every page (once) -->
-<script>
-(function () {
-  // --- inject minimal styles once ---
-  if (!document.getElementById('breadcrumb-css')) {
-    const s = document.createElement('style');
-    s.id = 'breadcrumb-css';
-    s.textContent = `
-      .breadcrumb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
-        padding:8px 20px 0 20px;color:#6b7280;font:12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial}
-      .breadcrumb a{color:inherit;text-decoration:none}
-      .breadcrumb a:hover{text-decoration:underline}
-      .breadcrumb .sep{opacity:.6}
-    `;
-    document.head.appendChild(s);
-  }
-
-  // --- helpers ---
-  const titleCase = s => s
-      ? s.replace(/[-_]/g,' ').replace(/\b\w/g,m=>m.toUpperCase())
-      : s;
-
-  const nameMap = {
-    'index':'Dashboard',
-    'dashboard':'Dashboard',
-    'notices':'Notices',
-    'documents':'Documents',
-    'directory':'Directory',
-    'finance':'Finance',
-    'voters':'Voters',
-    'issues':'Issues'
-  };
-
-  // --- build crumbs from path ---
-  const parts = location.pathname.replace(/\/+$/,'').split('/').filter(Boolean);
-  const crumbs = [{ name:'Home', href:'/' }];
-
-  // if you use single-file pages at root (e.g. /voters.html)
-  if (parts.length) {
-    const last = parts[parts.length - 1].replace(/\.html?$/,'');
-    crumbs.push({ name: nameMap[last] || titleCase(last) });
-  }
-
-  // render bar after header
-  const nav = document.createElement('nav');
-  nav.className = 'breadcrumb';
-  nav.setAttribute('aria-label', 'Breadcrumb');
-  nav.innerHTML = crumbs.map((c,i) =>
-    c.href ? `<a href="${c.href}">${c.name}</a>` : `<span>${c.name}</span>`
-  ).join(' <span class="sep">/</span> ');
-  const hdr = document.querySelector('header');
-  (hdr ? hdr.after(nav) : document.body.prepend(nav));
-})();
-</script>
-
 <header>
   <h1>Finance</h1>
   <div class="row">
@@ -385,21 +330,6 @@ function attBadge(val){
   return `<a class="badge" href="${esc(url)}" target="_blank" rel="noopener">open</a>`;
 }
 
-// pick the first usable URL from the "(none), a,b;c  ..." string
-function firstUrl(raw){
-  const placeholders = new Set(['(none)','-','none','na','n/a']);
-  const s = String(raw||'').trim();
-  const cand = s.split(/[,;\s]+/)
-    .map(x => x.trim().replace(/^["'()]+|["'()]+$/g,''))
-    .find(x => x && !placeholders.has(x.toLowerCase()));
-  if(!cand) return '';
-  if(/^https?:\/\//i.test(cand)) return cand;
-  if(/^\/\//.test(cand)) return 'https:' + cand;
-  if(/^www\./i.test(cand)) return 'https://' + cand;
-  if(/^\//.test(cand)) return cand;
-  return '';
-}
-
 
 /* ---------- UI fill ---------- */
 function fillPL(data){
@@ -572,16 +502,10 @@ document.getElementById('m_browse').onclick=()=>document.getElementById('m_file'
 document.getElementById('m_file').addEventListener('change',ev=>uploadFile(ev.target.files[0]));
 document.getElementById('m_save').onclick=saveModal;
 async function saveModal(){
-  const s = document.getElementById('m_status');
-
-  // IMPORTANT: keep YYYY-MM-DD exactly as the <input type="date"> provides it
-  const isoDate = document.getElementById('m_date').value;   // yyyy-mm-dd
-
-  const payloadTx = {
-    // serial is only for edits; add flow ignores it (GAS writer appends)
-    serial: document.getElementById('m_serial').value || undefined,
-
-    date: isoDate,                                           // <-- ISO!
+  const s=document.getElementById('m_status');
+  const payload = {
+    serial: document.getElementById('m_serial').value||undefined,
+    date: dd(document.getElementById('m_date').value),
     type: document.getElementById('m_type').value,
     category: document.getElementById('m_category').value.trim(),
     subCategory: document.getElementById('m_sub').value.trim(),
@@ -593,41 +517,22 @@ async function saveModal(){
     costCenter: document.getElementById('m_cc').value.trim(),
     mode: document.getElementById('m_mode').value.trim(),
     ref: document.getElementById('m_ref').value.trim(),
-    cleared: (document.getElementById('m_cleared').value === 'true') ? 'Yes' : 'No',  // <-- text
-    attachmentUrl: firstUrl(document.getElementById('m_att').textContent)             // <-- single URL key
+    cleared: document.getElementById('m_cleared').value==='true',
+    attachments: (document.getElementById('m_att').textContent||'').trim()
   };
-
-  // basic checks (Dr/Cr optional if you use Category/Subcategory split, keep if you require)
-  if(!payloadTx.type || !payloadTx.category || !payloadTx.amount){
-    s.textContent = 'Type, Category and Amount are required';
-    return;
+  if(!payload.type || !payload.category || !payload.amount || !payload.accountDr || !payload.accountCr){
+    s.textContent='Type, Category, Amount, Dr and Cr are required'; return;
   }
-
-  s.textContent = 'Saving…';
-
-  try {
-// MATCH GAS: use ?op=addTransaction and put token in the JSON body
-const r = await fetch(`${API}?action=addtx`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-op: 'addTransaction',   // <— add this (or action:'addtx')
-    token: token() || "",
-     tx: payloadTx
-   })
-});
-
-    const j = await r.json();
-    if(!j.ok) throw new Error(j.error || 'Failed');
-
-    s.textContent = 'Saved';
-    closeTx();
-    await run();  // refresh PL/BS/Tx list
-  } catch(e) {
-    s.textContent = 'Save failed: ' + e.message;
-  }
+  s.textContent='Saving…';
+  try{
+    const action = payload.serial? 'updatetx':'addtx';
+    const r=await fetch(`${API}?action=${action}&token=${encodeURIComponent(token()||'')}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+    });
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||'Failed');
+    s.textContent='Saved'; closeTx(); await run();
+  }catch(e){ s.textContent='Save failed: '+e.message; }
 }
-
 async function delTx(serial){
   if(!confirm('Delete transaction #'+serial+'?')) return;
   const r=await fetch(`${API}?action=deltx&token=${encodeURIComponent(token()||'')}`,{
