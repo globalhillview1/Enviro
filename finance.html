@@ -606,12 +606,16 @@ async function saveModal(){
   s.textContent = 'Saving…';
 
   try {
-    // MATCH GAS: action = addTransaction, body = { tx: {...} }
-    const r = await fetch(`${API}?action=addTransaction&token=${encodeURIComponent(token()||'')}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tx: payloadTx })
-    });
+// MATCH GAS: use ?op=addTransaction and put token in the JSON body
+const r = await fetch(`${API}?op=addTransaction`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    token: token() || "",     // <— token in BODY
+    tx: payloadTx
+  })
+});
+
     const j = await r.json();
     if(!j.ok) throw new Error(j.error || 'Failed');
 
