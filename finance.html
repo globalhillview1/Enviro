@@ -611,7 +611,7 @@ const r = await fetch(`${API}?action=addtx`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-// send token both places so either proxy or GAS can read it
+op: 'addTransaction',   // <— add this (or action:'addtx')
     token: token() || "",
      tx: payloadTx
    })
