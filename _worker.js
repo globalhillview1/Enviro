@@ -1,82 +1,105 @@
-// functions/_worker.js  (Cloudflare Pages Functions)
-const GAS_API = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
+// Cloudflare Pages single-file worker that proxies to your existing
+// Google Apps Script Web App without changing your GAS code.
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-};
+const TARGET = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
 
-function withCORS(resp) {
-  const h = new Headers(resp.headers); for (const [k,v] of Object.entries(CORS)) h.set(k,v);
-  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: h });
+// Utility: clone headers except a few hop-by-hop ones
+function cloneHeaders(src) {
+  const h = new Headers();
+  for (const [k, v] of src.entries()) {
+    if (/^host$|^cf-|^x-forwarded-|^content-length$/i.test(k)) continue;
+    h.set(k, v);
+  }
+  return h;
 }
-function json(status, obj) {
-  return withCORS(new Response(JSON.stringify(obj), { status, headers: { 'content-type':'application/json' } }));
+
+// Rewrite Set-Cookie domain/path to this origin (so auth/session sticks)
+function rewriteSetCookie(headers, thisHost) {
+  const out = new Headers(headers);
+  const cookies = headers.getAll ? headers.getAll('set-cookie') : (headers.get('set-cookie') ? [headers.get('set-cookie')] : []);
+  if (cookies.length) {
+    out.delete('set-cookie');
+    for (let c of cookies) {
+      // Drop explicit Domain so it defaults to current host
+      c = c.replace(/;\s*Domain=[^;]+/i, '');
+      // Ensure Path is root
+      if (!/;\s*Path=/i.test(c)) c += '; Path=/';
+      out.append('set-cookie', c);
+    }
+  }
+  return out;
+}
+
+// Rewrite Location headers that point to script.google.com back to our domain
+function rewriteLocation(headers, reqUrl) {
+  const out = new Headers(headers);
+  const loc = headers.get('location');
+  if (loc) {
+    try {
+      const u = new URL(loc, TARGET);
+      const targetHost = new URL(TARGET).host;
+      if (u.host === targetHost) {
+        // Keep path/query of the redirect but on our host
+        const newLoc = new URL(reqUrl);
+        newLoc.pathname = u.pathname.replace(/.*\/exec/, '') || '/';
+        newLoc.search = u.search;
+        out.set('location', newLoc.toString());
+      }
+    } catch (_) {}
+  }
+  return out;
 }
 
 export default {
-  async fetch(request, env) {
-    try {
-      const url = new URL(request.url);
+  async fetch(request, env, ctx) {
+    const reqUrl = new URL(request.url);
+    const baseTarget = new URL(TARGET);
 
-      // CORS preflight
-      if (request.method === 'OPTIONS') return withCORS(new Response(null, { status: 204 }));
+    // GAS webapps usually ignore extra path, but we forward it just in case.
+    const upstream = new URL(TARGET);
+    upstream.search = reqUrl.search; // preserve ?query
+    // Append any extra path after the worker's root
+    const extraPath = reqUrl.pathname === '/' ? '' : reqUrl.pathname;
+    upstream.pathname = baseTarget.pathname + extraPath;
 
-      // health
-      if (url.pathname === '/__ping') return new Response('worker-ok\n', { headers: { 'content-type':'text/plain' } });
+    // Build upstream request
+    const headers = cloneHeaders(request.headers);
+    headers.set('origin', upstream.origin);
+    headers.set('referer', upstream.origin + '/');
 
-      // only /api is proxied
-      if (url.pathname !== '/api') return env.ASSETS.fetch(request);
+    const init = {
+      method: request.method,
+      headers,
+      redirect: 'manual'
+    };
 
-      // clone body once (streams are single-use)
-      let bodyBuf = undefined;
-      if (!['GET','HEAD'].includes(request.method)) {
-        bodyBuf = await request.arrayBuffer();
-      }
-
-      // build upstream URL with same query
-      const upstream = new URL(GAS_API);
-      url.searchParams.forEach((v,k) => upstream.searchParams.set(k,v));
-
-      // clean headers for upstream
-      const outH = new Headers();
-      const inH = request.headers;
-      if (inH.has('content-type')) outH.set('content-type', inH.get('content-type'));
-      outH.set('accept', 'application/json');
-
-      const baseInit = {
-        method: request.method,
-        headers: outH,
-        redirect: 'manual',
-        body: bodyBuf
-      };
-
-      // 1) first hop (scripts.google.com) — expect 302/303 to googleusercontent
-      let res = await fetch(upstream.toString(), baseInit);
-
-      // 2) follow Location ourselves, preserving method/body
-      if ([301,302,303,307,308].includes(res.status)) {
-        const loc = res.headers.get('Location');
-        if (!loc) return json(502, { ok:false, error:'redirect-without-location' });
-
-        // Absolute or relative
-        const nextURL = new URL(loc, GAS_API).toString();
-        res = await fetch(nextURL, baseInit); // still manual; usually 200 now
-      }
-
-      // If GAS gave HTML, surface it as JSON error so you can see it
-      const ct = res.headers.get('content-type') || '';
-      if (!ct.includes('application/json')) {
-        const text = await res.text();
-        return json(res.status, { ok:false, upstream:res.status, hint:'non-json-from-gas', body:text.slice(0,5000) });
-      }
-
-      // Success passthrough
-      return withCORS(new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers }));
-
-    } catch (err) {
-      return json(502, { ok:false, error:String(err) });
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      init.body = request.body;
     }
+
+    // Proxy
+    const res = await fetch(upstream.toString(), init);
+
+    // Clone body & headers to modify
+    const body = res.body;
+    let headersOut = new Headers(res.headers);
+
+    // Normalize security headers that can break proxied apps
+    headersOut.delete('content-encoding'); // let CF handle
+    // Keep CSP/XFO as-is; Apps Script sets them appropriately.
+
+    // Fix cookies & redirects for our domain
+    headersOut = rewriteSetCookie(headersOut, reqUrl.host);
+    headersOut = rewriteLocation(headersOut, reqUrl.toString());
+
+    // Optional: CORS open (usually not needed since same-origin through proxy)
+    headersOut.set('access-control-allow-origin', reqUrl.origin);
+    headersOut.set('access-control-allow-credentials', 'true');
+
+    return new Response(body, {
+      status: res.status,
+      statusText: res.statusText,
+      headers: headersOut
+    });
   }
 };
