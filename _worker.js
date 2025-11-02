@@ -1,67 +1,73 @@
-// _worker.js — Cloudflare Pages Functions proxy for Apps Script
+// _worker.js — Cloudflare Pages Functions proxy for Google Apps Script (GAS)
 
-// OPTION A: hardcode your GAS web app "exec" URL here
+// Hardcode your GAS exec URL or use an env var named GAS_EXEC_URL
 const GAS_API = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
-
-// OPTION B (later): use an env var named GAS_EXEC_URL and fall back to GAS_API
-function getGasExecUrl(env) {
-  return (env && env.GAS_EXEC_URL) ? env.GAS_EXEC_URL : GAS_API;
-}
+const getGasUrl = env => (env && env.GAS_EXEC_URL) ? env.GAS_EXEC_URL : GAS_API;
 
 export default {
-  async fetch(req, env, ctx) {
+  async fetch(req, env) {
     const url = new URL(req.url);
 
-    // Only proxy /api — everything else is your static site
-    if (url.pathname === '/api') {
-      // Build upstream URL
-      const gas = new URL(getGasExecUrl(env));
+    // Only proxy /api – everything else goes to static assets
+    if (url.pathname !== '/api') {
+      return env.ASSETS.fetch(req);
+    }
 
-      // forward ALL query params (so ?mode=data works without op)
-      url.searchParams.forEach((v, k) => gas.searchParams.set(k, v));
+    // Build upstream URL and forward ALL query params (so ?mode=data works)
+    const gas = new URL(getGasUrl(env));
+    url.searchParams.forEach((v, k) => gas.searchParams.set(k, v));
 
-      // Prepare init (clone method & headers)
-      const init = {
-        method: req.method,
-        headers: new Headers(req.headers)
-      };
+    // Build a CLEAN init (do not forward browser/cf headers)
+    const init = { method: req.method, headers: new Headers() };
 
-      // If sending a body, forward it as text and ensure JSON content-type when appropriate
-      if (!['GET', 'HEAD'].includes(req.method)) {
-        // Keep the original content-type if the client set one, otherwise default to JSON
-        const ct = req.headers.get('content-type');
-        if (!ct) init.headers.set('content-type', 'application/json');
-        init.body = await req.text();
-      }
+    // Accept JSON back from GAS
+    init.headers.set('accept', 'application/json');
 
-      let upstream;
+    if (!['GET', 'HEAD'].includes(req.method)) {
+      // Ensure JSON body for Apps Script doPost
+      const ct = (req.headers.get('content-type') || '').toLowerCase();
+      const raw = await req.text();
+
+      // If caller didn’t set JSON, we still send JSON
+      init.headers.set('content-type', 'application/json');
+
+      // If caller already sent JSON text, pass it; else wrap raw as text body
       try {
-        upstream = await fetch(gas.toString(), init);
-      } catch (err) {
-        return new Response(JSON.stringify({ ok:false, error:'fetch_failed', detail:String(err) }), {
-          headers: { 'content-type': 'application/json' }, status: 502
-        });
-      }
-
-      const text = await upstream.text();
-
-      // Try to return JSON, otherwise wrap non-JSON for easier debugging
-      try {
-        const json = JSON.parse(text);
-        return new Response(JSON.stringify(json), {
-          headers: { 'content-type': 'application/json' }, status: upstream.status
-        });
+        // If it's valid JSON keep it as-is
+        JSON.parse(raw);
+        init.body = raw;
       } catch {
-        return new Response(JSON.stringify({
-          ok: false,
-          upstreamStatus: upstream.status,
-          hint: 'GAS returned non-JSON',
-          bodyPreview: text.slice(0, 2000)
-        }), { headers: { 'content-type': 'application/json' }, status: 502 });
+        // Wrap plain text as {"raw":"..."} to never send empty bodies
+        init.body = JSON.stringify({ raw });
       }
     }
 
-    // Not /api → serve static assets
-    return env.ASSETS.fetch(req);
+    // Call GAS
+    let upstream, text;
+    try {
+      upstream = await fetch(gas.toString(), init);
+      text = await upstream.text();
+    } catch (err) {
+      return new Response(JSON.stringify({ ok: false, error: 'fetch_failed', detail: String(err) }), {
+        status: 502,
+        headers: { 'content-type': 'application/json' }
+      });
+    }
+
+    // Try to return JSON; otherwise surface the upstream HTML for debugging
+    try {
+      const json = JSON.parse(text);
+      return new Response(JSON.stringify(json), {
+        status: upstream.status,
+        headers: { 'content-type': 'application/json' }
+      });
+    } catch {
+      return new Response(JSON.stringify({
+        ok: false,
+        upstreamStatus: upstream.status,
+        hint: 'GAS returned non-JSON',
+        bodyPreview: text.slice(0, 2000)
+      }), { status: 502, headers: { 'content-type': 'application/json' } });
+    }
   }
-}
+};
