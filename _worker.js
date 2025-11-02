@@ -1,62 +1,43 @@
-// Cloudflare Pages Worker — API proxy only (no path rewrites that can loop)
-const GAS_API = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
-
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
 
-    // Only handle /api here
+    // --- API proxy to GAS ---
     if (url.pathname === "/api") {
-      // Accept both op and action (tolerant)
-      const op = url.searchParams.get("op") || url.searchParams.get("action");
-      if (!op) {
-        return new Response(JSON.stringify({ ok:false, error:"missing op|action" }), {
-          headers: { "content-type": "application/json" }
-        });
-      }
+      // 1) Your GAS Web App "exec" URL (Deployment > Web app)
+      //    Example: https://script.google.com/macros/s/AKfycb.../exec
+      const GAS = new URL(env.GAS_URL);
 
-      // Build upstream GAS URL (your Web App "exec" URL)
-      const gas = new URL(env.GAS_EXEC_URL);  // e.g. https://script.google.com/macros/s/AKfycb.../exec
-      // Forward common query params
-      gas.searchParams.set("op", op);
-      for (const k of ["mode","session"]) {
-        const v = url.searchParams.get(k);
-        if (v) gas.searchParams.set(k, v);
-      }
+      // 2) Forward the full query string (?op=diag, ?mode=data, etc.)
+      GAS.search = url.search;
 
-      // Prepare init mirroring the client request
+      // 3) Forward method, headers, and body
       const init = {
         method: req.method,
-        headers: new Headers(req.headers)
+        headers: new Headers(req.headers),
+        body: (req.method === "GET" || req.method === "HEAD") ? undefined : req.body,
+        redirect: "follow"
       };
 
-      // If POST/PUT/PATCH, forward the raw body (important!)
-      if (!["GET","HEAD"].includes(req.method)) {
-        // Force JSON if frontend sent JSON; Apps Script relies on this to parse postData
-        init.headers.set("content-type", "application/json");
-        init.body = await req.text();  // pass-through body
+      // (optional) ensure Accept JSON; do NOT force Content-Type if browser already set it
+      if (!init.headers.has("Accept")) init.headers.set("Accept", "application/json");
+
+      const upstream = await fetch(GAS.toString(), init);
+
+      // Normalize non-JSON responses from GAS during debugging
+      const ct = upstream.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) {
+        const text = await upstream.text();
+        return new Response(
+          JSON.stringify({ ok: false, upstream: upstream.status, hint: "non-json-from-gas", body: text }),
+          { headers: { "content-type": "application/json" }, status: 200 }
+        );
       }
 
-      const upstream = await fetch(gas.toString(), init);
-      const text = await upstream.text();
-
-      // Try to return JSON; if GAS sends HTML, wrap it to help debugging
-      try {
-        const json = JSON.parse(text);
-        return new Response(JSON.stringify(json), {
-          headers: { "content-type": "application/json" }
-        });
-      } catch {
-        return new Response(JSON.stringify({
-          ok: false,
-          upstream: upstream.status,
-          hint: "non-json-from-gas",
-          body: text.slice(0, 2000)
-        }), { headers: { "content-type": "application/json" } });
-      }
+      return upstream;
     }
 
-    // Fall through to your static site (Pages)
+    // --- Static assets / other routes (Pages default) ---
     return env.ASSETS.fetch(req);
   }
 }
