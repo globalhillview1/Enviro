@@ -1,43 +1,67 @@
+// _worker.js — Cloudflare Pages Functions proxy for Apps Script
+
+// OPTION A: hardcode your GAS web app "exec" URL here
+const GAS_API = 'https://script.google.com/macros/s/AKfycbw8ta_GdLedTCp1L-I6QKVcJzbJTgy6-3GfBtHMhrCS0ESlXRi5jHVs0v_AFeM6ZICN/exec';
+
+// OPTION B (later): use an env var named GAS_EXEC_URL and fall back to GAS_API
+function getGasExecUrl(env) {
+  return (env && env.GAS_EXEC_URL) ? env.GAS_EXEC_URL : GAS_API;
+}
+
 export default {
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
 
-    // --- API proxy to GAS ---
-    if (url.pathname === "/api") {
-      // 1) Your GAS Web App "exec" URL (Deployment > Web app)
-      //    Example: https://script.google.com/macros/s/AKfycb.../exec
-      const GAS = new URL(env.GAS_URL);
+    // Only proxy /api — everything else is your static site
+    if (url.pathname === '/api') {
+      // Build upstream URL
+      const gas = new URL(getGasExecUrl(env));
 
-      // 2) Forward the full query string (?op=diag, ?mode=data, etc.)
-      GAS.search = url.search;
+      // forward ALL query params (so ?mode=data works without op)
+      url.searchParams.forEach((v, k) => gas.searchParams.set(k, v));
 
-      // 3) Forward method, headers, and body
+      // Prepare init (clone method & headers)
       const init = {
         method: req.method,
-        headers: new Headers(req.headers),
-        body: (req.method === "GET" || req.method === "HEAD") ? undefined : req.body,
-        redirect: "follow"
+        headers: new Headers(req.headers)
       };
 
-      // (optional) ensure Accept JSON; do NOT force Content-Type if browser already set it
-      if (!init.headers.has("Accept")) init.headers.set("Accept", "application/json");
-
-      const upstream = await fetch(GAS.toString(), init);
-
-      // Normalize non-JSON responses from GAS during debugging
-      const ct = upstream.headers.get("content-type") || "";
-      if (!ct.includes("application/json")) {
-        const text = await upstream.text();
-        return new Response(
-          JSON.stringify({ ok: false, upstream: upstream.status, hint: "non-json-from-gas", body: text }),
-          { headers: { "content-type": "application/json" }, status: 200 }
-        );
+      // If sending a body, forward it as text and ensure JSON content-type when appropriate
+      if (!['GET', 'HEAD'].includes(req.method)) {
+        // Keep the original content-type if the client set one, otherwise default to JSON
+        const ct = req.headers.get('content-type');
+        if (!ct) init.headers.set('content-type', 'application/json');
+        init.body = await req.text();
       }
 
-      return upstream;
+      let upstream;
+      try {
+        upstream = await fetch(gas.toString(), init);
+      } catch (err) {
+        return new Response(JSON.stringify({ ok:false, error:'fetch_failed', detail:String(err) }), {
+          headers: { 'content-type': 'application/json' }, status: 502
+        });
+      }
+
+      const text = await upstream.text();
+
+      // Try to return JSON, otherwise wrap non-JSON for easier debugging
+      try {
+        const json = JSON.parse(text);
+        return new Response(JSON.stringify(json), {
+          headers: { 'content-type': 'application/json' }, status: upstream.status
+        });
+      } catch {
+        return new Response(JSON.stringify({
+          ok: false,
+          upstreamStatus: upstream.status,
+          hint: 'GAS returned non-JSON',
+          bodyPreview: text.slice(0, 2000)
+        }), { headers: { 'content-type': 'application/json' }, status: 502 });
+      }
     }
 
-    // --- Static assets / other routes (Pages default) ---
+    // Not /api → serve static assets
     return env.ASSETS.fetch(req);
   }
 }
