@@ -1,62 +1,46 @@
-// _worker.js
-const GAS_EXEC = 'https://script.google.com/macros/s/AKfycbxTEr3z6_xe5lD17C4WkiUiim9IVu5cl6q_b7jwpoFprFZJwANctfXecuqfAEoCDoSp/exec';
+// _worker.js (minimal proxy for /api → GAS)
+const GAS = 'https://script.google.com/macros/s/AKfycbxTEr3z6_xe5lD17C4WkiUiim9IVu5cl6q_b7jwpoFprFZJwANctfXecuqfAEoCDoSp/exec';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization'
-};
+export default {
+  async fetch(req) {
+    const url = new URL(req.url);
 
-addEventListener('fetch', (event) => {
-  event.respondWith(handle(event.request));
-});
-
-async function handle(req) {
-  const url = new URL(req.url);
-
-  // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS });
-  }
-
-  // Only proxy /api to GAS ,
-  if (url.pathname === '/api') {
-    // Build upstream URL (keep query string: ?action=login|whoami|issues|updateissue...)
-    const upstreamUrl = GAS_EXEC + url.search;
-
-    // Read body for non-GET so we can re-send it if we need to follow the 302
-    const needsBody = !(req.method === 'GET' || req.method === 'HEAD');
-    const rawBody = needsBody ? await req.text() : undefined;
-
-    // First hop to /exec, but DO NOT auto-follow redirects
-    let res = await fetch(upstreamUrl, {
-      method: req.method,
-      headers: {'Content-Type': 'application/json'}, // keep simple JSON posts
-      body: needsBody ? rawBody : undefined,
-      redirect: 'manual'
-    });
-
-    // Apps Script returns 302 -> follow to the /macros/echo URL
-    if (res.status === 301 || res.status === 302) {
-      const loc = res.headers.get('location');
-      if (loc) {
-        res = await fetch(loc, {
-          method: req.method,
-          headers: {'Content-Type': 'application/json'},
-          body: needsBody ? rawBody : undefined
-        });
-      }
+    // CORS preflight
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+          'Access-Control-Allow-Headers': 'content-type,authorization',
+        }
+      });
     }
 
-    // Stream response with CORS + content-type
-    const ct = res.headers.get('content-type') || 'application/json';
-    const buf = await res.arrayBuffer();
-    return new Response(buf, {
-      status: res.status,
-      headers: { ...CORS, 'content-type': ct }
-    });
-  }
+    if (url.pathname.startsWith('/api')) {
+      // Build target URL
+      const target = new URL(GAS);
+      url.searchParams.forEach((v, k) => target.searchParams.set(k, v));
+      // Map action -> op for the GAS backend that expects op=...
+      if (target.searchParams.has('action') && !target.searchParams.has('op')) {
+        target.searchParams.set('op', target.searchParams.get('action'));
+        target.searchParams.delete('action');
+      }
 
-  // Any other path -> serve the static page normally
-  return fetch(req);
-}
+      const init = {
+        method: req.method,
+        redirect: 'follow',
+        headers: { 'content-type': req.headers.get('content-type') || 'application/json' },
+        body: (req.method === 'GET' || req.method === 'HEAD') ? undefined : await req.text(),
+      };
+
+      const upstream = await fetch(target, init);
+      const hdrs = new Headers(upstream.headers);
+      hdrs.set('Access-Control-Allow-Origin', '*');
+      return new Response(upstream.body, { status: upstream.status, headers: hdrs });
+    }
+
+    // static assets
+    return fetch(req);
+  }
+};
