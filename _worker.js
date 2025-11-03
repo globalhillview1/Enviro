@@ -19,7 +19,7 @@ async function handle(req) {
     return new Response(null, { status: 204, headers: CORS });
   }
 
-  // Only proxy /api to GAS
+  // Only proxy /api to GAS ,
   if (url.pathname === '/api') {
     // Build upstream URL (keep query string: ?action=login|whoami|issues|updateissue...)
     const upstreamUrl = GAS_EXEC + url.search;
