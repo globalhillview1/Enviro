@@ -1,106 +1,102 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <!-- Favicons -->
-  <link rel="icon" href="/logo.svg" type="image/svg+xml">
-  <link rel="alternate icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="manifest" href="/site.webmanifest">
-
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Login | Helpdesk</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sign in | Global Hillview Helpdesk</title>
+  <link rel="icon" href="/favicon.ico" />
   <style>
-    :root{ --card:#ffffff; --bg:#f7f9fc; --border:#e5e7eb; --muted:#6b7280; --text:#0f172a; --blue:#0d6efd; --danger:#ef4444; }
-    *{box-sizing:border-box}
-    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; background:var(--bg); color:var(--text);}
-    .wrap{min-height:100vh; display:grid; place-items:center; padding:24px;}
-    .card{width:100%; max-width:420px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,.06)}
-    .logo{display:block; margin:4px auto 12px; width:72px; height:72px; border-radius:12px}
-    h1{font-size:22px; margin:0 0 8px}
-    p{color:var(--muted); margin:0 0 18px}
-    label{display:block; font-size:13px; color:var(--muted); margin:10px 0 6px}
-    input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;}
-    button{width:100%; margin-top:16px; padding:10px 12px; border-radius:10px; border:0; background:var(--blue); color:#fff; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px}
-    button:disabled{opacity:.85; cursor:default}
-    .err{margin-top:10px; color:#fff; background:var(--danger); border-radius:10px; padding:8px 12px; display:none; white-space:pre-line}
-    .muted{color:var(--muted); font-size:12px; margin-top:12px; text-align:center}
-    /* tiny spinner */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner{ width:16px; height:16px; border-radius:50%;
-      border:2px solid currentColor; border-right-color:transparent;
-      display:inline-block; animation:spin .7s linear infinite }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f5f7fb; margin:0; }
+    .wrap { max-width: 420px; margin: 48px auto; background:#fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.07); padding: 28px; }
+    .logo { text-align:center; margin-bottom: 18px; }
+    .title { font-size: 22px; font-weight: 700; text-align:center; margin: 6px 0 18px; }
+    label { display:block; font-size: 13px; color:#333; margin: 10px 0 6px; }
+    input { width:100%; padding: 10px 12px; border:1px solid #d6dae3; border-radius:8px; font-size:14px; }
+    button { width:100%; margin-top:16px; padding: 12px; border:0; border-radius:8px; background:#1b74e4; color:#fff; font-weight:700; font-size:15px; cursor:pointer; }
+    button[disabled] { opacity:.6; cursor:not-allowed; }
+    .err { display:none; margin-top:12px; padding:10px; border-radius:8px; background:#ffe5e5; color:#8a1f1f; font-size:13px; }
+    .hint { margin-top:10px; color:#666; font-size:12px; text-align:center; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <img class="logo" src="/android-chrome-512x512.png" alt="Global Hillview logo" width="72" height="72">
-      <h1>Sign in</h1>
-      <p>Enter your credentials to access the Global Hillview Helpdesk Dashboard.</p>
-
-      <label>Username</label>
-      <input id="u" type="text" autocomplete="username" autofocus>
-
-      <label>Password</label>
-      <input id="p" type="password" autocomplete="current-password">
-
-      <button id="btn"><span class="lbl">Sign in</span></button>
-
-      <div id="err" class="err"></div>
-      <div class="muted">Tip: ask an admin to create or reset your account.</div>
+    <div class="logo">
+      <img src="/id.png" alt="Global Hillview" height="56">
     </div>
+    <div class="title">Sign in</div>
+
+    <!-- The form IDs below are the ones the script expects -->
+    <form id="loginForm" novalidate>
+      <label for="u">Username</label>
+      <input id="u" name="username" autocomplete="username" required />
+
+      <label for="p">Password</label>
+      <input id="p" name="password" type="password" autocomplete="current-password" required />
+
+      <button id="btn" type="submit">Sign in</button>
+      <div id="err" class="err"></div>
+    </form>
+
+    <div class="hint">Tip: ask an admin to create or reset your account.</div>
   </div>
 
-<script>
-(function () {
-  const form = document.getElementById('loginForm');      // make sure your form has id="loginForm"
-  const btn  = document.getElementById('btn');            // submit button id="btn"
-  const err  = document.getElementById('err');            // error box id="err"
+  <script>
+  // Run after DOM is ready to avoid "null addEventListener"
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('loginForm');
+    const btn  = document.getElementById('btn');
+    const err  = document.getElementById('err');
+    const uEl  = document.getElementById('u');
+    const pEl  = document.getElementById('p');
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    err.style.display = 'none';
-    btn.disabled = true;
-
-    const payload = {
-      username: (form.username || document.getElementById('u')).value.trim(),
-      password: (form.password || document.getElementById('p')).value
-    };
-
-    let res;
-    try {
-      const r = await fetch('/api?action=login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'accept': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      res = await r.json();
-    } catch (e) {
-      res = { ok:false, error:'Network error' };
+    if (!form || !btn || !err || !uEl || !pEl) {
+      console.error('Login page: required elements not found.');
+      return;
     }
 
-    // Normalize shapes: {ok,true, token,...} or {ok,true, data:{token,user}}
-    const ok    = !!(res && (res.ok || res.success));
-    const token = res?.data?.token ?? res?.token ?? res?.session;
-    const user  = res?.data?.user  ?? res?.user  ?? null;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.style.display = 'none';
+      err.textContent = '';
+      btn.disabled = true;
 
-    if (ok && token) {
+      const username = uEl.value.trim();
+      const password = pEl.value;
+
       try {
-        localStorage.setItem('token', token);
-        if (user) localStorage.setItem('enviro_user', JSON.stringify(user));
-      } catch (_) {}
-      location.replace('/'); // go to dashboard
-    } else {
-      err.textContent = (res && (res.error || res.message)) || 'Login failed';
-      err.style.display = 'block';
-      btn.disabled = false;
-    }
-  });
-})();
-</script>
+        const resp = await fetch('/api?action=login', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'accept': 'application/json'
+          },
+          body: JSON.stringify({ username, password })
+        });
 
+        // If Cloudflare worker ever proxies a non-JSON error HTML,
+        // this will throw and end up in the catch block.
+        const res = await resp.json();
+
+        // Backend shape: { ok:true, data:{ token, user:{...} } }
+        if (res && res.ok && res.data && res.data.token) {
+          localStorage.setItem('token', res.data.token);
+          if (res.data.user) localStorage.setItem('enviro_user', JSON.stringify(res.data.user));
+          // Use replace() so the login page isn't in history
+          location.replace('/');
+          return;
+        }
+
+        throw new Error((res && (res.error || res.message)) || 'Login failed');
+
+      } catch (e) {
+        console.error('Login error', e);
+        err.textContent = e && e.message ? e.message : 'Network error. Please try again.';
+        err.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+  </script>
 </body>
 </html>
