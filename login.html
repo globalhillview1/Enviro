@@ -54,75 +54,43 @@
     </div>
   </div>
 
-  <script>
-    // Already signed in? go home
-    try { if (localStorage.getItem('token')) location.replace('/'); } catch(e){}
+ <script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn');
+  const err = document.getElementById('err');
+  err.style.display = 'none';
+  btn.disabled = true;
 
-    const showErr = (msg) => {
-      const el = document.getElementById('err');
-      el.textContent = msg;
-      el.style.display = 'block';
-    };
-    const hideErr = () => {
-      const el = document.getElementById('err');
-      el.textContent = '';
-      el.style.display = 'none';
-    };
+  const username = document.getElementById('u').value.trim();
+  const password = document.getElementById('p').value;
 
-    const saveSession = (token, user) => {
-      try {
-        localStorage.setItem('token', token);
-        localStorage.setItem('role', user?.role || 'user');
-        localStorage.setItem('username', user?.username || '');
-      } catch {}
-    };
-
-    function setSigning(on){
-      const btn = document.getElementById('btn');
-      if (on){
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner" aria-hidden="true"></span><span class="lbl">Signing in…</span>';
-      } else {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="lbl">Sign in</span>';
-      }
-    }
-
-    async function doLogin() {
-      const u = document.getElementById('u').value.trim();
-      const p = document.getElementById('p').value;
-      if (!u || !p) { showErr('Missing username or password.'); return; }
-
-      setSigning(true);
-      hideErr();
-      try {
-        const res = await fetch('/api?action=login', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json', 'accept': 'application/json' },
-          body: JSON.stringify({ username: u, password: p }),
-          cache: 'no-store'
-        });
-        const json = await res.json();
-        if (!json.ok) { showErr(json.error || 'Invalid credentials'); setSigning(false); return; }
-        saveSession(json.data.token, json.data.user);
-        setTimeout(()=>location.replace('/'), 250);
-      } catch {
-        showErr('Network error. Please try again.');
-        setSigning(false);
-      }
-    }
-
-    // Wire up events
-    document.getElementById('btn').addEventListener('click', doLogin);
-    document.addEventListener('keydown', (e)=>{
-      const btn = document.getElementById('btn');
-      if (e.key === 'Enter') {
-        if (btn.disabled) return; // prevent double submit
-        doLogin();
-      }
+  try {
+    const r = await fetch('/api?action=login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'accept': 'application/json' },
+      body: JSON.stringify({ username, password })
     });
-    document.getElementById('u').addEventListener('input', hideErr);
-    document.getElementById('p').addEventListener('input', hideErr);
-  </script>
+    const res = await r.json();
+
+    if (res.ok && res.data && res.data.token) {
+      // ✅ Save token + user before redirecting
+      localStorage.setItem('token', res.data.token);
+      if (res.data.user) {
+        localStorage.setItem('enviro_user', JSON.stringify(res.data.user));
+      }
+      // redirect to dashboard
+      location.replace('/');
+    } else {
+      throw new Error(res.error || res.message || 'Login failed');
+    }
+  } catch (errMsg) {
+    err.textContent = errMsg.message || 'Network error. Please try again.';
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
 </body>
 </html>
