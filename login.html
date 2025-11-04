@@ -54,43 +54,53 @@
     </div>
   </div>
 
- <script>
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('btn');
-  const err = document.getElementById('err');
-  err.style.display = 'none';
-  btn.disabled = true;
+<script>
+(function () {
+  const form = document.getElementById('loginForm');      // make sure your form has id="loginForm"
+  const btn  = document.getElementById('btn');            // submit button id="btn"
+  const err  = document.getElementById('err');            // error box id="err"
 
-  const username = document.getElementById('u').value.trim();
-  const password = document.getElementById('p').value;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.style.display = 'none';
+    btn.disabled = true;
 
-  try {
-    const r = await fetch('/api?action=login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'accept': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    const res = await r.json();
+    const payload = {
+      username: (form.username || document.getElementById('u')).value.trim(),
+      password: (form.password || document.getElementById('p')).value
+    };
 
-    if (res.ok && res.data && res.data.token) {
-      // ✅ Save token + user before redirecting
-      localStorage.setItem('token', res.data.token);
-      if (res.data.user) {
-        localStorage.setItem('enviro_user', JSON.stringify(res.data.user));
-      }
-      // redirect to dashboard
-      location.replace('/');
-    } else {
-      throw new Error(res.error || res.message || 'Login failed');
+    let res;
+    try {
+      const r = await fetch('/api?action=login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      res = await r.json();
+    } catch (e) {
+      res = { ok:false, error:'Network error' };
     }
-  } catch (errMsg) {
-    err.textContent = errMsg.message || 'Network error. Please try again.';
-    err.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-  }
-});
+
+    // Normalize shapes: {ok,true, token,...} or {ok,true, data:{token,user}}
+    const ok    = !!(res && (res.ok || res.success));
+    const token = res?.data?.token ?? res?.token ?? res?.session;
+    const user  = res?.data?.user  ?? res?.user  ?? null;
+
+    if (ok && token) {
+      try {
+        localStorage.setItem('token', token);
+        if (user) localStorage.setItem('enviro_user', JSON.stringify(user));
+      } catch (_) {}
+      location.replace('/'); // go to dashboard
+    } else {
+      err.textContent = (res && (res.error || res.message)) || 'Login failed';
+      err.style.display = 'block';
+      btn.disabled = false;
+    }
+  });
+})();
 </script>
+
 </body>
 </html>
